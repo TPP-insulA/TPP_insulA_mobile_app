@@ -1,7 +1,9 @@
 import { GlucoseProfile } from '../../types';
 
 // Replace 'your-ip' with your computer's local IP address (e.g., '192.168.1.100')
-const API_URL = 'http://192.168.1.13:3000/api';  // You need to change 'your-ip' to your computer's IP address
+// const API_URL = 'http://192.168.1.13:3000/api';  // You need to change 'your-ip' to your computer's IP address
+// const API_URL = 'https://tpp-insula-backend.onrender.com/api'; // For production use
+const API_URL = 'https://tppinsulabackend-production.up.railway.app/api';
 
 // Types
 export interface RegisterUserInput {

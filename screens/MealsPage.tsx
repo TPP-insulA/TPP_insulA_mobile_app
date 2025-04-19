@@ -1,9 +1,10 @@
+// screens/meals-page.js
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Modal } from 'react-native';
 import { PlusCircle, Utensils } from 'lucide-react-native';
 import { FoodEntry } from '../components/food-entry';
 import { FoodEntryForm } from '../components/food-entry-form';
-import { Footer } from "../components/footer";
+import { Footer } from '../components/footer';
 import { BackButton } from '../components/back-button';
 import { useNavigation } from '@react-navigation/native';
 
@@ -14,7 +15,7 @@ interface FoodItem {
   fat: number;
   calories: number;
   timestamp: string;
-  photo?: string; // URI de la imagen
+  photo?: string;
 }
 
 const mockMeals: FoodItem[] = [
@@ -24,7 +25,7 @@ const mockMeals: FoodItem[] = [
     protein: 15,
     fat: 12,
     calories: 350,
-    timestamp: '08:30'
+    timestamp: '08:30',
   },
   {
     name: 'Almuerzo',
@@ -32,8 +33,8 @@ const mockMeals: FoodItem[] = [
     protein: 30,
     fat: 15,
     calories: 500,
-    timestamp: '13:00'
-  }
+    timestamp: '13:00',
+  },
 ];
 
 export default function MealsPage() {
@@ -51,7 +52,7 @@ export default function MealsPage() {
       <ScrollView style={styles.scrollView}>
         <View style={styles.header}>
           <View style={styles.titleContainer}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.backButton}
               onPress={() => navigation.goBack()}
             >
