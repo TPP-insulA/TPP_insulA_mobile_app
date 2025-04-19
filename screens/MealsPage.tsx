@@ -1,50 +1,84 @@
 // screens/meals-page.js
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Modal } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Modal, ActivityIndicator } from 'react-native';
 import { PlusCircle, Utensils } from 'lucide-react-native';
 import { FoodEntry } from '../components/food-entry';
 import { FoodEntryForm } from '../components/food-entry-form';
 import { Footer } from '../components/footer';
 import { BackButton } from '../components/back-button';
 import { useNavigation } from '@react-navigation/native';
-
-interface FoodItem {
-  name: string;
-  carbs: number;
-  protein: number;
-  fat: number;
-  calories: number;
-  timestamp: string;
-  photo?: string;
-}
-
-const mockMeals: FoodItem[] = [
-  {
-    name: 'Desayuno',
-    carbs: 45,
-    protein: 15,
-    fat: 12,
-    calories: 350,
-    timestamp: '08:30',
-  },
-  {
-    name: 'Almuerzo',
-    carbs: 60,
-    protein: 30,
-    fat: 15,
-    calories: 500,
-    timestamp: '13:00',
-  },
-];
+import { useAuth } from '../hooks/use-auth';
+import { getMeals, createMeal, deleteMeal, Meal, CreateMealInput } from '../lib/api/meals';
+import { useToast } from '../hooks/use-toast';
 
 export default function MealsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [meals, setMeals] = useState<FoodItem[]>(mockMeals);
+  const [meals, setMeals] = useState<Meal[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const navigation = useNavigation();
+  const { token } = useAuth();
+  const { toast } = useToast();
 
-  const handleAddMeal = (entry: FoodItem) => {
-    setMeals([entry, ...meals]);
-    setIsFormOpen(false);
+  const fetchMeals = useCallback(async () => {
+    if (!token) return;
+    try {
+      const fetchedMeals = await getMeals(token);
+      setMeals(fetchedMeals);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'No se pudieron cargar las comidas',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [token, toast]);
+
+  useEffect(() => {
+    fetchMeals();
+  }, [fetchMeals]);
+
+  const handleAddMeal = async (entry: CreateMealInput) => {
+    if (!token) return;
+    try {
+      // Ensure timestamp is present
+      const mealData = {
+        ...entry,
+        timestamp: entry.timestamp || new Date().toISOString(),
+      };
+      const newMeal = await createMeal(mealData, token);
+      setMeals([newMeal, ...meals]);
+      setIsFormOpen(false);
+      toast({
+        title: 'Éxito',
+        description: 'Comida agregada correctamente',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'No se pudo agregar la comida',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!token) return;
+    try {
+      await deleteMeal(id, token);
+      setMeals(meals.filter(meal => meal.id !== id));
+      toast({
+        title: 'Éxito',
+        description: 'Comida eliminada correctamente',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'No se pudo eliminar la comida',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -67,23 +101,29 @@ export default function MealsPage() {
         </View>
 
         <View style={styles.content}>
-          {meals.map((meal, index) => (
-            <FoodEntry
-              key={index}
-              entry={meal}
-              handleDelete={() => {
-                setMeals(meals.filter((_, i) => i !== index));
-              }}
-            />
-          ))}
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#22c55e" />
+            </View>
+          ) : (
+            <>
+              {meals.map((meal) => (
+                <FoodEntry
+                  key={meal.id}
+                  entry={meal}
+                  handleDelete={() => handleDelete(meal.id)}
+                />
+              ))}
 
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => setIsFormOpen(true)}
-          >
-            <PlusCircle size={24} color="#22c55e" />
-            <Text style={styles.addButtonText}>Agregar Comida</Text>
-          </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.addButton}
+                onPress={() => setIsFormOpen(true)}
+              >
+                <PlusCircle size={24} color="#22c55e" />
+                <Text style={styles.addButtonText}>Agregar Comida</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </ScrollView>
 
@@ -182,5 +222,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 32,
   },
 });

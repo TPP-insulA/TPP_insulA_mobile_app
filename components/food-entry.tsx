@@ -1,48 +1,115 @@
-import { View, Text, Image } from "react-native";
-import tw from '../styles/theme';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Trash2 } from 'lucide-react-native';
+import { Meal } from '../lib/api/meals';
 
 interface FoodEntryProps {
-  entry: {
-    name: string;
-    carbs: number;
-    protein: number;
-    fat: number;
-    calories: number;
-    timestamp: string;
-    photo?: string;
-  }
+  entry: Meal;
   handleDelete: () => void;
 }
 
 export function FoodEntry({ entry, handleDelete }: FoodEntryProps) {
+  const formattedDate = new Date(entry.timestamp).toLocaleString('es-AR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  });
+
   return (
-    <View style={tw`bg-white rounded-lg shadow-sm p-4 mb-4`}>
-      <View style={tw`flex-row gap-4`}>
-        {entry.photo && (
-          <Image 
-            source={{ uri: entry.photo }} 
-            style={tw`w-20 h-20 rounded-lg`}
-          />
-        )}
-        <View style={tw`flex-1 justify-between`}>
-          <View style={tw`flex-row justify-between items-start`}>
-            <View>
-              <Text style={tw`font-semibold text-text-primary text-base`}>{entry.name}</Text>
-              <Text style={tw`text-sm text-text-secondary`}>{entry.timestamp}</Text>
-            </View>
-            <View style={tw`items-end`}>
-              <Text style={tw`text-sm`}>
-                <Text style={tw`font-medium`}>{entry.calories}</Text>
-                <Text> kcal</Text>
-              </Text>
-              <Text style={tw`text-xs text-text-secondary`}>
-                C: {entry.carbs}g | P: {entry.protein}g | G: {entry.fat}g
-              </Text>
-            </View>
-          </View>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.title}>{entry.name}</Text>
+          <Text style={styles.date}>{formattedDate}</Text>
+        </View>
+        <TouchableOpacity onPress={handleDelete} style={styles.deleteButton}>
+          <Trash2 size={20} color="#ef4444" />
+        </TouchableOpacity>
+      </View>
+
+      {entry.description && (
+        <Text style={styles.description}>{entry.description}</Text>
+      )}
+
+      <View style={styles.macros}>
+        <View style={styles.macroItem}>
+          <Text style={styles.macroValue}>{entry.calories}</Text>
+          <Text style={styles.macroLabel}>Cal</Text>
+        </View>
+        <View style={styles.macroItem}>
+          <Text style={styles.macroValue}>{entry.carbs}g</Text>
+          <Text style={styles.macroLabel}>Carbs</Text>
+        </View>
+        <View style={styles.macroItem}>
+          <Text style={styles.macroValue}>{entry.protein}g</Text>
+          <Text style={styles.macroLabel}>Prot</Text>
+        </View>
+        <View style={styles.macroItem}>
+          <Text style={styles.macroValue}>{entry.fat}g</Text>
+          <Text style={styles.macroLabel}>Grasas</Text>
         </View>
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  date: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  deleteButton: {
+    padding: 4,
+  },
+  description: {
+    fontSize: 14,
+    color: '#4b5563',
+    marginBottom: 12,
+  },
+  macros: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+    padding: 12,
+  },
+  macroItem: {
+    alignItems: 'center',
+  },
+  macroValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 2,
+  },
+  macroLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+});
 
