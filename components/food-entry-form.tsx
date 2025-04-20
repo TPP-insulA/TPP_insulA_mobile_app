@@ -41,14 +41,15 @@ const ControlledInput = ({
   placeholder = "", 
   keyboardType = "default",
   multiline = false,
-  required = true
-}: ControlledInputProps) => (
+  required = true,
+  formRules
+}: ControlledInputProps & { formRules?: any }) => (
   <View style={tw`mb-4`}>
     <Text style={tw`text-sm font-medium mb-2 text-text-primary`}>{label}</Text>
     <Form.Controller
       control={control}
       name={name}
-      rules={{ required: required ? "Este campo es requerido" : false }}
+      rules={formRules ? formRules[name] : { required: required ? "Este campo es requerido" : false }}
       render={({ field: { onChange, onBlur, value } }) => (
         <TextInput
           style={tw`border border-gray-300 rounded-lg p-2.5 text-base`}
@@ -67,6 +68,7 @@ const ControlledInput = ({
 
 export function FoodEntryForm({ onSubmit, onCancel }: FoodEntryFormProps) {
   const [photo, setPhoto] = useState<string>();
+  const [photoBase64, setPhotoBase64] = useState<string>();
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
   const { control, handleSubmit, formState: { errors }, watch, setValue, reset } = Form.useForm<FormData>({
@@ -79,7 +81,16 @@ export function FoodEntryForm({ onSubmit, onCancel }: FoodEntryFormProps) {
       calories: "",
       quantity: "",
     },
+    mode: "onSubmit",
   });
+
+  const formRules = {
+    name: { required: "El nombre es requerido" },
+    carbs: { required: "Los carbohidratos son requeridos" },
+    protein: { required: "Las proteínas son requeridas" },
+    fat: { required: "Las grasas son requeridas" },
+    calories: { required: "Las calorías son requeridas" },
+  };
 
   const description = watch('description');
 
@@ -88,26 +99,60 @@ export function FoodEntryForm({ onSubmit, onCancel }: FoodEntryFormProps) {
     
     console.log('Starting handleProcessFood...');
     console.log('Description to process:', description);
+
+    // Parse quantity from description, now including 'gr' unit
+    const quantityMatch = description.match(/^([\d.]+)\s*(lb|lbs|oz|g|gr|kg)\s+/i);
+    let extractedQuantity = 0;
+    let processDescription = description;
+    
+    if (quantityMatch) {
+      const [_, amount, unit] = quantityMatch;
+      // Convert to grams
+      switch (unit.toLowerCase()) {
+        case 'lb':
+        case 'lbs':
+          extractedQuantity = parseFloat(amount) * 453.592;
+          break;
+        case 'oz':
+          extractedQuantity = parseFloat(amount) * 28.3495;
+          break;
+        case 'kg':
+          extractedQuantity = parseFloat(amount) * 1000;
+          break;
+        case 'g':
+        case 'gr':
+          extractedQuantity = parseFloat(amount);
+          break;
+      }
+      // Remove quantity from description for processing
+      processDescription = description.substring(quantityMatch[0].length);
+    }
     
     setIsProcessing(true);
     try {
-      console.log('Calling processFoodName...');
-      const result = await processFoodName(description);
+      console.log('Calling processFoodName with:', processDescription);
+      const result = await processFoodName(processDescription);
       console.log('Process result:', result);
 
       if (result.success && result.items.length > 0) {
         const foodItem = result.items[0];
         console.log('Setting form values with:', foodItem);
         
-        setValue('name', foodItem.name);
-        setValue('carbs', foodItem.carbs_g.toString());
-        setValue('protein', foodItem.protein_g.toString());
-        setValue('fat', foodItem.fat_g.toString());
-        setValue('calories', foodItem.calories.toString());
+        // Calculate nutrition values based on the extracted quantity
+        const ratio = extractedQuantity > 0 ? extractedQuantity / 100 : 1; // API returns per 100g
         
-        if (foodItem.serving_size_g > 0) {
-          setValue('quantity', foodItem.serving_size_g.toString());
-        }
+        setValue('name', foodItem.name);
+        // Format numbers to handle zero values correctly
+        const formatNumber = (num: number) => {
+          const value = (num * ratio);
+          return value === 0 ? "0" : value.toFixed(1);
+        };
+        
+        setValue('carbs', formatNumber(foodItem.carbs_g));
+        setValue('protein', formatNumber(foodItem.protein_g));
+        setValue('fat', formatNumber(foodItem.fat_g));
+        setValue('calories', Math.round(foodItem.calories * ratio).toString());
+        setValue('quantity', extractedQuantity > 0 ? extractedQuantity.toString() : '100');
 
         toast({
           title: 'Éxito',
@@ -150,11 +195,15 @@ export function FoodEntryForm({ onSubmit, onCancel }: FoodEntryFormProps) {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [4, 3],
-      quality: 1,
+      quality: 0.5,
+      base64: true,
     });
 
     if (!result.canceled) {
       setPhoto(result.assets[0].uri);
+      if (result.assets[0].base64) {
+        setPhotoBase64(`data:image/jpeg;base64,${result.assets[0].base64}`);
+      }
     }
   };
 
@@ -169,35 +218,51 @@ export function FoodEntryForm({ onSubmit, onCancel }: FoodEntryFormProps) {
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
       aspect: [4, 3],
-      quality: 1,
+      quality: 0.5,
+      base64: true,
     });
 
     if (!result.canceled) {
       setPhoto(result.assets[0].uri);
+      if (result.assets[0].base64) {
+        setPhotoBase64(`data:image/jpeg;base64,${result.assets[0].base64}`);
+      }
     }
   };
 
-  const onFormSubmit = (data: FormData) => {
+  const onFormSubmit = async (data: FormData) => {
     console.log('Form submitted with data:', data);
+    
     try {
       const now = new Date();
-      onSubmit({
-        name: data.name,
-        description: data.description,
+      
+      const submitData = {
+        name: data.name.trim(),
+        description: data.description?.trim(),
         carbs: Number(data.carbs),
         protein: Number(data.protein),
         fat: Number(data.fat),
         calories: Number(data.calories),
-        quantity: data.quantity ? Number(data.quantity) : undefined,
+        quantity: Number(data.quantity || '1'),
         timestamp: now.toISOString(),
-        photo: photo,
-      });
+        photo: photoBase64, // Use stored base64 directly
+      };
+
+      // Log with truncated photo
+      const logSubmitData = { ...submitData };
+      if (logSubmitData.photo) {
+        logSubmitData.photo = `${logSubmitData.photo.substring(0, 10)}...`;
+      }
+      console.log('Submitting data:', JSON.stringify(logSubmitData, null, 2));
+
+      await onSubmit(submitData);
       console.log('onSubmit called successfully');
+      onCancel();
     } catch (error) {
       console.error('Error in onFormSubmit:', error);
       toast({
         title: 'Error',
-        description: 'Failed to submit form',
+        description: 'No se pudo guardar la comida',
         variant: 'destructive',
       });
     }
@@ -259,6 +324,7 @@ export function FoodEntryForm({ onSubmit, onCancel }: FoodEntryFormProps) {
         label="Nombre del Alimento"
         error={errors.name}
         placeholder="Ingrese el nombre"
+        formRules={formRules}
       />
 
       <View style={tw`flex-row flex-wrap justify-between`}>
@@ -270,6 +336,7 @@ export function FoodEntryForm({ onSubmit, onCancel }: FoodEntryFormProps) {
             error={errors.carbs}
             placeholder="0"
             keyboardType="numeric"
+            formRules={formRules}
           />
         </View>
 
@@ -281,6 +348,7 @@ export function FoodEntryForm({ onSubmit, onCancel }: FoodEntryFormProps) {
             error={errors.protein}
             placeholder="0"
             keyboardType="numeric"
+            formRules={formRules}
           />
         </View>
 
@@ -292,6 +360,7 @@ export function FoodEntryForm({ onSubmit, onCancel }: FoodEntryFormProps) {
             error={errors.fat}
             placeholder="0"
             keyboardType="numeric"
+            formRules={formRules}
           />
         </View>
 
@@ -303,6 +372,7 @@ export function FoodEntryForm({ onSubmit, onCancel }: FoodEntryFormProps) {
             error={errors.calories}
             placeholder="0"
             keyboardType="numeric"
+            formRules={formRules}
           />
         </View>
 

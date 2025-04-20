@@ -37,6 +37,17 @@ interface ProcessFoodResponse {
   }>;
 }
 
+interface MealResponse {
+  data: Meal;
+  success: boolean;
+}
+
+interface ApiResponse<T> {
+  data: T;
+  success: boolean;
+  message?: string;
+}
+
 export const getMeals = async (token: string, params?: {
   startDate?: string;
   endDate?: string;
@@ -57,7 +68,21 @@ export const getMeals = async (token: string, params?: {
   });
 
   const responseData = await response.json();
-  console.log('Meals API response:', responseData);
+  
+  // Truncate photo URLs in logs
+  const logData = { ...responseData };
+  if (logData.data && Array.isArray(logData.data)) {
+    logData.data = logData.data.map((meal: Meal) => {
+      if (meal.photo) {
+        return {
+          ...meal,
+          photo: `${meal.photo.substring(0, 50)}...`
+        };
+      }
+      return meal;
+    });
+  }
+  console.log('Meals API response:', logData);
 
   if (!response.ok) {
     throw new Error(responseData.message || 'Failed to fetch meals');
@@ -73,22 +98,85 @@ export const getMeals = async (token: string, params?: {
 };
 
 export const createMeal = async (mealData: CreateMealInput, token: string): Promise<Meal> => {
+  // Validate required fields
+  const requiredFields = ['name'];  // Only name is truly required
+  const missingFields = requiredFields.filter(field => {
+    const value = mealData[field as keyof CreateMealInput];
+    return value === undefined || value === null || value === '';
+  });
+
+  if (missingFields.length > 0) {
+    console.error('Missing required fields:', missingFields);
+    throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+  }
+
+  // Ensure all numeric fields are handled properly
+  const processedMealData: CreateMealInput = {
+    ...mealData,
+    timestamp: mealData.timestamp || new Date().toISOString(),
+    carbs: mealData.carbs ?? 0,
+    protein: mealData.protein ?? 0,
+    fat: mealData.fat ?? 0,
+    calories: mealData.calories ?? 0,
+    quantity: mealData.quantity ?? 100
+  };
+
+  // Ensure all numeric values are actual numbers
+  ['carbs', 'protein', 'fat', 'calories', 'quantity'].forEach(field => {
+    const key = field as keyof Pick<CreateMealInput, 'carbs' | 'protein' | 'fat' | 'calories' | 'quantity'>;
+    const value = processedMealData[key];
+    if (typeof value === 'string') {
+      const parsed = parseFloat(value);
+      processedMealData[key] = isNaN(parsed) ? 0 : parsed;
+    }
+  });
+
+  // Ensure photo is in the correct format
+  if (mealData.photo) {
+    // If the photo doesn't start with data:image, add the prefix
+    if (!mealData.photo.startsWith('data:image')) {
+      processedMealData.photo = `data:image/jpeg;base64,${mealData.photo}`;
+    } else {
+      processedMealData.photo = mealData.photo;
+    }
+  }
+
+  // Log with truncated photo URL
+  const logData = { ...processedMealData };
+  if (logData.photo) {
+    logData.photo = `${logData.photo.substring(0, 50)}...`;
+  }
+  console.log('Creating meal with validated data:', JSON.stringify(logData, null, 2));
+  console.log('API URL:', `${API_URL}/meals`);
+  
   const response = await fetch(`${API_URL}/meals`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
     },
-    body: JSON.stringify(mealData),
+    body: JSON.stringify(processedMealData),
   });
 
-  const data = await response.json();
+  const responseData = await response.json() as ApiResponse<Meal>;
+  
+  // Log response with truncated photo URL
+  const logResponse = { ...responseData };
+  if (logResponse.data?.photo) {
+    logResponse.data.photo = `${logResponse.data.photo.substring(0, 50)}...`;
+  }
+  console.log('Create meal response:', response.status, logResponse);
 
   if (!response.ok) {
-    throw new Error(data.message || 'Failed to create meal');
+    console.error('Failed to create meal:', responseData);
+    throw new Error(responseData.message || 'Failed to create meal');
   }
 
-  return data;
+  if (!responseData.success || !responseData.data) {
+    throw new Error('Invalid response format from server');
+  }
+
+  return responseData.data;
 };
 
 export const updateMeal = async (id: string, mealData: Partial<CreateMealInput>, token: string): Promise<Meal> => {

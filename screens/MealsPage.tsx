@@ -42,22 +42,39 @@ export default function MealsPage() {
   const handleAddMeal = async (entry: CreateMealInput) => {
     if (!token) return;
     try {
-      // Ensure timestamp is present
       const mealData = {
         ...entry,
         timestamp: entry.timestamp || new Date().toISOString(),
+        quantity: entry.quantity || 1  // Ensure quantity is always present
       };
+
+      // Log with truncated photo URL
+      const logData = { ...mealData };
+      if (logData.photo) {
+        logData.photo = `${logData.photo.substring(0, 50)}...`;
+      }
+      console.log('Adding meal with data:', JSON.stringify(logData, null, 2));
+
       const newMeal = await createMeal(mealData, token);
-      setMeals([newMeal, ...meals]);
+      
+      // Log response with truncated photo URL
+      const logResponse = { ...newMeal };
+      if (logResponse.photo) {
+        logResponse.photo = `${logResponse.photo.substring(0, 50)}...`;
+      }
+      console.log('New meal created:', JSON.stringify(logResponse, null, 2));
+
+      setMeals(prevMeals => [newMeal, ...prevMeals]);
       setIsFormOpen(false);
       toast({
         title: 'Éxito',
         description: 'Comida agregada correctamente',
       });
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Error adding meal:', error);
       toast({
         title: 'Error',
-        description: 'No se pudo agregar la comida',
+        description: error.message || 'No se pudo agregar la comida',
         variant: 'destructive',
       });
     }
@@ -100,6 +117,14 @@ export default function MealsPage() {
           </Text>
         </View>
 
+        <TouchableOpacity
+          style={[styles.addButtonTop, { alignSelf: 'center', width: 'auto', marginHorizontal: 16 }]}
+          onPress={() => setIsFormOpen(true)}
+        >
+          <PlusCircle size={24} color="#22c55e" />
+          <Text style={styles.addButtonText}>Agregar Comida</Text>
+        </TouchableOpacity>
+
         <View style={styles.content}>
           {isLoading ? (
             <View style={styles.loadingContainer}>
@@ -109,7 +134,6 @@ export default function MealsPage() {
             <>
               {meals && meals.length > 0 ? (
                 meals.map((meal) => {
-                  // Ensure we have a valid unique key even if id is undefined
                   const key = meal.id || meal.timestamp || Math.random().toString();
                   return (
                     <FoodEntry
@@ -124,14 +148,6 @@ export default function MealsPage() {
                   <Text style={styles.emptyStateText}>No hay comidas registradas</Text>
                 </View>
               )}
-
-              <TouchableOpacity
-                style={styles.addButton}
-                onPress={() => setIsFormOpen(true)}
-              >
-                <PlusCircle size={24} color="#22c55e" />
-                <Text style={styles.addButtonText}>Agregar Comida</Text>
-              </TouchableOpacity>
             </>
           )}
         </View>
@@ -174,6 +190,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingBottom: 16,
+    gap: 12,
   },
   titleContainer: {
     flexDirection: 'row',
@@ -205,17 +222,19 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 80,
   },
-  addButton: {
+  addButtonTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
+    padding: 12,
     backgroundColor: 'white',
     borderRadius: 12,
     gap: 8,
     borderWidth: 2,
     borderStyle: 'dashed',
     borderColor: '#22c55e',
+    marginTop: 8,
+    width: '100%',
   },
   addButtonText: {
     fontSize: 16,

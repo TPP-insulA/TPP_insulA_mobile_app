@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image as RNImage } from 'react-native';
 import { Trash2 } from 'lucide-react-native';
 import { Meal } from '../lib/api/meals';
 import { format } from 'date-fns';
@@ -39,9 +39,13 @@ export function FoodEntry({ entry, handleDelete }: FoodEntryProps) {
       </View>
 
       <View style={styles.contentRow}>
-        {entry.photo && (
-          <Image source={{ uri: entry.photo }} style={styles.thumbnail} />
-        )}
+        {entry.photo ? (
+          <RNImage 
+            source={{ uri: entry.photo }} 
+            style={styles.thumbnail} 
+            resizeMode="cover"
+          />
+        ) : null}
         
         <View style={styles.contentMain}>
           {entry.description && (
