@@ -107,13 +107,23 @@ export default function MealsPage() {
             </View>
           ) : (
             <>
-              {meals.map((meal) => (
-                <FoodEntry
-                  key={meal.id}
-                  entry={meal}
-                  handleDelete={() => handleDelete(meal.id)}
-                />
-              ))}
+              {meals && meals.length > 0 ? (
+                meals.map((meal) => {
+                  // Ensure we have a valid unique key even if id is undefined
+                  const key = meal.id || meal.timestamp || Math.random().toString();
+                  return (
+                    <FoodEntry
+                      key={key}
+                      entry={meal}
+                      handleDelete={() => handleDelete(meal.id)}
+                    />
+                  );
+                })
+              ) : (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyStateText}>No hay comidas registradas</Text>
+                </View>
+              )}
 
               <TouchableOpacity
                 style={styles.addButton}
@@ -133,14 +143,14 @@ export default function MealsPage() {
         transparent={true}
         onRequestClose={() => setIsFormOpen(false)}
       >
-        <View style={styles.modalOverlay}>
+        <SafeAreaView style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <FoodEntryForm
               onSubmit={handleAddMeal}
               onCancel={() => setIsFormOpen(false)}
             />
           </View>
-        </View>
+        </SafeAreaView>
       </Modal>
 
       <Footer />
@@ -215,18 +225,31 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
   },
   modalContent: {
-    width: '100%',
+    flex: 1,
     backgroundColor: 'white',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+    marginTop: 'auto',
+    height: '90%',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 32,
+  },
+  emptyState: {
+    padding: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'white',
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: '#6b7280',
   },
 });

@@ -1,285 +1,346 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
-import { useForm, Controller } from 'react-hook-form';
-import { X } from 'lucide-react-native';
-import { CreateMealInput } from '../lib/api/meals';
+import React, { useState } from "react";
+import { View, Text, TextInput, TouchableOpacity, Image as RNImage } from "react-native";
+import * as Form from "react-hook-form";
+import * as ImagePicker from 'expo-image-picker';
+import { Camera, Image as GalleryIcon } from 'lucide-react-native';
+import tw from '../styles/theme';
+import { CreateMealInput, processFoodName } from '../lib/api/meals';
+import { useToast } from '../hooks/use-toast';
 
 interface FoodEntryFormProps {
   onSubmit: (data: CreateMealInput) => void;
   onCancel: () => void;
 }
 
+type FormData = {
+  name: string;
+  description?: string;
+  carbs: string;
+  protein: string;
+  fat: string;
+  calories: string;
+  quantity?: string;
+};
+
+type ControlledInputProps = {
+  control: any;
+  name: keyof FormData;
+  label: string;
+  error?: any;
+  placeholder?: string;
+  keyboardType?: "default" | "numeric";
+  multiline?: boolean;
+  required?: boolean;
+}
+
+const ControlledInput = ({ 
+  control, 
+  name, 
+  label, 
+  error, 
+  placeholder = "", 
+  keyboardType = "default",
+  multiline = false,
+  required = true
+}: ControlledInputProps) => (
+  <View style={tw`mb-4`}>
+    <Text style={tw`text-sm font-medium mb-2 text-text-primary`}>{label}</Text>
+    <Form.Controller
+      control={control}
+      name={name}
+      rules={{ required: required ? "Este campo es requerido" : false }}
+      render={({ field: { onChange, onBlur, value } }) => (
+        <TextInput
+          style={tw`border border-gray-300 rounded-lg p-2.5 text-base`}
+          onChangeText={onChange}
+          onBlur={onBlur}
+          value={value}
+          keyboardType={keyboardType}
+          placeholder={placeholder}
+          multiline={multiline}
+        />
+      )}
+    />
+    {error && <Text style={tw`text-red-500 text-xs mt-1`}>{error.message}</Text>}
+  </View>
+);
+
 export function FoodEntryForm({ onSubmit, onCancel }: FoodEntryFormProps) {
-  const { control, handleSubmit, setValue } = useForm<CreateMealInput>({
+  const [photo, setPhoto] = useState<string>();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const { toast } = useToast();
+  const { control, handleSubmit, formState: { errors }, watch, setValue, reset } = Form.useForm<FormData>({
     defaultValues: {
-      timestamp: new Date().toISOString(),
+      name: "",
+      description: "",
+      carbs: "",
+      protein: "",
+      fat: "",
+      calories: "",
+      quantity: "",
     },
   });
 
+  const description = watch('description');
+
+  const handleProcessFood = async () => {
+    if (!description) return;
+    
+    console.log('Starting handleProcessFood...');
+    console.log('Description to process:', description);
+    
+    setIsProcessing(true);
+    try {
+      console.log('Calling processFoodName...');
+      const result = await processFoodName(description);
+      console.log('Process result:', result);
+
+      if (result.success && result.items.length > 0) {
+        const foodItem = result.items[0];
+        console.log('Setting form values with:', foodItem);
+        
+        setValue('name', foodItem.name);
+        setValue('carbs', foodItem.carbs_g.toString());
+        setValue('protein', foodItem.protein_g.toString());
+        setValue('fat', foodItem.fat_g.toString());
+        setValue('calories', foodItem.calories.toString());
+        
+        if (foodItem.serving_size_g > 0) {
+          setValue('quantity', foodItem.serving_size_g.toString());
+        }
+
+        toast({
+          title: 'Éxito',
+          description: 'Información nutricional completada',
+        });
+      } else {
+        console.log('No items returned from processing');
+        toast({
+          title: 'Error',
+          description: 'No se encontró información nutricional',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Error in handleProcessFood:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo procesar la descripción',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleClearForm = () => {
+    reset();
+    setPhoto(undefined);
+  };
+
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (status !== 'granted') {
+      alert('Se necesitan permisos para acceder a la galería');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setPhoto(result.assets[0].uri);
+    }
+  };
+
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    
+    if (status !== 'granted') {
+      alert('Se necesitan permisos para usar la cámara');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setPhoto(result.assets[0].uri);
+    }
+  };
+
+  const onFormSubmit = (data: FormData) => {
+    console.log('Form submitted with data:', data);
+    try {
+      const now = new Date();
+      onSubmit({
+        name: data.name,
+        description: data.description,
+        carbs: Number(data.carbs),
+        protein: Number(data.protein),
+        fat: Number(data.fat),
+        calories: Number(data.calories),
+        quantity: data.quantity ? Number(data.quantity) : undefined,
+        timestamp: now.toISOString(),
+        photo: photo,
+      });
+      console.log('onSubmit called successfully');
+    } catch (error) {
+      console.error('Error in onFormSubmit:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to submit form',
+        variant: 'destructive',
+      });
+    }
+  };
+
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Agregar Comida</Text>
-          <TouchableOpacity onPress={onCancel} style={styles.closeButton}>
-            <X size={24} color="#6b7280" />
+    <View style={tw`bg-white rounded-t-3xl p-6`}>
+      <Text style={tw`text-xl font-bold mb-6 text-center text-text-primary`}>Agregar Comida</Text>
+      
+      <View style={tw`mb-6`}>
+        {photo ? (
+          <TouchableOpacity onPress={pickImage} style={tw`items-center`}>
+            <RNImage source={{ uri: photo }} style={tw`w-32 h-32 rounded-lg mb-2`} />
+            <Text style={tw`text-sm text-text-secondary`}>Toca para cambiar</Text>
           </TouchableOpacity>
-        </View>
+        ) : (
+          <View style={tw`flex-row justify-center gap-4`}>
+            <TouchableOpacity 
+              onPress={takePhoto}
+              style={tw`items-center bg-gray-100 p-4 rounded-lg flex-1`}
+            >
+              <Camera size={24} color="#22c55e" />
+              <Text style={tw`text-sm mt-2 text-text-secondary`}>Tomar Foto</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={pickImage}
+              style={tw`items-center bg-gray-100 p-4 rounded-lg flex-1`}
+            >
+              <GalleryIcon size={24} color="#22c55e" />
+              <Text style={tw`text-sm mt-2 text-text-secondary`}>Galería</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
 
-        <View style={styles.form}>
-          <Controller
-            control={control}
-            name="name"
-            rules={{ required: true }}
-            render={({ field: { onChange, value }, fieldState: { error } }) => (
-              <View style={styles.field}>
-                <Text style={styles.label}>Nombre *</Text>
-                <TextInput
-                  style={[styles.input, error && styles.inputError]}
-                  onChangeText={onChange}
-                  value={value}
-                  placeholder="Ej: Milanesa con ensalada"
-                />
-                {error && (
-                  <Text style={styles.errorText}>Este campo es requerido</Text>
-                )}
-              </View>
-            )}
-          />
+      <ControlledInput
+        control={control}
+        name="description"
+        label="Descripción"
+        error={errors.description}
+        placeholder="Describa el alimento"
+        multiline={true}
+        required={false}
+      />
 
-          <Controller
-            control={control}
-            name="description"
-            render={({ field: { onChange, value } }) => (
-              <View style={styles.field}>
-                <Text style={styles.label}>Descripción</Text>
-                <TextInput
-                  style={styles.input}
-                  onChangeText={onChange}
-                  value={value}
-                  placeholder="Ej: Milanesa de pollo con ensalada de lechuga y tomate"
-                  multiline
-                />
-              </View>
-            )}
-          />
+      <TouchableOpacity 
+        style={tw`${description ? 'bg-apple-green' : 'bg-gray-300'} py-2.5 px-5 rounded-lg items-center mb-4`}
+        onPress={handleProcessFood}
+        disabled={!description || isProcessing}
+      >
+        <Text style={tw`text-base font-medium text-white`}>
+          {isProcessing ? 'Procesando...' : 'Completar nutrición'}
+        </Text>
+      </TouchableOpacity>
 
-          <Controller
+      <ControlledInput
+        control={control}
+        name="name"
+        label="Nombre del Alimento"
+        error={errors.name}
+        placeholder="Ingrese el nombre"
+      />
+
+      <View style={tw`flex-row flex-wrap justify-between`}>
+        <View style={tw`w-[48%]`}>
+          <ControlledInput
             control={control}
             name="carbs"
-            rules={{ required: true, min: 0 }}
-            render={({ field: { onChange, value }, fieldState: { error } }) => (
-              <View style={styles.field}>
-                <Text style={styles.label}>Carbohidratos (g) *</Text>
-                <TextInput
-                  style={[styles.input, error && styles.inputError]}
-                  onChangeText={(text) => onChange(Number(text))}
-                  value={value?.toString()}
-                  keyboardType="numeric"
-                  placeholder="0"
-                />
-                {error && (
-                  <Text style={styles.errorText}>
-                    Ingrese un valor válido mayor o igual a 0
-                  </Text>
-                )}
-              </View>
-            )}
-          />
-
-          <Controller
-            control={control}
-            name="protein"
-            rules={{ required: true, min: 0 }}
-            render={({ field: { onChange, value }, fieldState: { error } }) => (
-              <View style={styles.field}>
-                <Text style={styles.label}>Proteínas (g) *</Text>
-                <TextInput
-                  style={[styles.input, error && styles.inputError]}
-                  onChangeText={(text) => onChange(Number(text))}
-                  value={value?.toString()}
-                  keyboardType="numeric"
-                  placeholder="0"
-                />
-                {error && (
-                  <Text style={styles.errorText}>
-                    Ingrese un valor válido mayor o igual a 0
-                  </Text>
-                )}
-              </View>
-            )}
-          />
-
-          <Controller
-            control={control}
-            name="fat"
-            rules={{ required: true, min: 0 }}
-            render={({ field: { onChange, value }, fieldState: { error } }) => (
-              <View style={styles.field}>
-                <Text style={styles.label}>Grasas (g) *</Text>
-                <TextInput
-                  style={[styles.input, error && styles.inputError]}
-                  onChangeText={(text) => onChange(Number(text))}
-                  value={value?.toString()}
-                  keyboardType="numeric"
-                  placeholder="0"
-                />
-                {error && (
-                  <Text style={styles.errorText}>
-                    Ingrese un valor válido mayor o igual a 0
-                  </Text>
-                )}
-              </View>
-            )}
-          />
-
-          <Controller
-            control={control}
-            name="calories"
-            rules={{ required: true, min: 0 }}
-            render={({ field: { onChange, value }, fieldState: { error } }) => (
-              <View style={styles.field}>
-                <Text style={styles.label}>Calorías *</Text>
-                <TextInput
-                  style={[styles.input, error && styles.inputError]}
-                  onChangeText={(text) => onChange(Number(text))}
-                  value={value?.toString()}
-                  keyboardType="numeric"
-                  placeholder="0"
-                />
-                {error && (
-                  <Text style={styles.errorText}>
-                    Ingrese un valor válido mayor o igual a 0
-                  </Text>
-                )}
-              </View>
-            )}
-          />
-
-          <Controller
-            control={control}
-            name="quantity"
-            render={({ field: { onChange, value } }) => (
-              <View style={styles.field}>
-                <Text style={styles.label}>Cantidad (g)</Text>
-                <TextInput
-                  style={styles.input}
-                  onChangeText={(text) => onChange(Number(text))}
-                  value={value?.toString()}
-                  keyboardType="numeric"
-                  placeholder="0"
-                />
-              </View>
-            )}
+            label="Carbohidratos (g)"
+            error={errors.carbs}
+            placeholder="0"
+            keyboardType="numeric"
           />
         </View>
-      </ScrollView>
 
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={styles.cancelButton}
+        <View style={tw`w-[48%]`}>
+          <ControlledInput
+            control={control}
+            name="protein"
+            label="Proteínas (g)"
+            error={errors.protein}
+            placeholder="0"
+            keyboardType="numeric"
+          />
+        </View>
+
+        <View style={tw`w-[48%]`}>
+          <ControlledInput
+            control={control}
+            name="fat"
+            label="Grasas (g)"
+            error={errors.fat}
+            placeholder="0"
+            keyboardType="numeric"
+          />
+        </View>
+
+        <View style={tw`w-[48%]`}>
+          <ControlledInput
+            control={control}
+            name="calories"
+            label="Calorías"
+            error={errors.calories}
+            placeholder="0"
+            keyboardType="numeric"
+          />
+        </View>
+
+        <View style={tw`w-[48%]`}>
+          <ControlledInput
+            control={control}
+            name="quantity"
+            label="Cantidad (g)"
+            error={errors.quantity}
+            placeholder="0"
+            keyboardType="numeric"
+            required={false}
+          />
+        </View>
+      </View>
+
+      <View style={tw`flex-row justify-between mt-6`}>
+        <TouchableOpacity 
+          style={tw`bg-red-100 py-2.5 px-5 rounded-lg flex-1 items-center mr-2`} 
           onPress={onCancel}
         >
-          <Text style={styles.cancelButtonText}>Cancelar</Text>
+          <Text style={tw`text-base font-medium text-red-600`}>Cancelar</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.submitButton}
-          onPress={handleSubmit(onSubmit)}
+
+        <TouchableOpacity 
+          style={tw`bg-gray-200 py-2.5 px-5 rounded-lg flex-1 items-center mx-2`}
+          onPress={handleClearForm}
         >
-          <Text style={styles.submitButtonText}>Guardar</Text>
+          <Text style={tw`text-base font-medium text-gray-600`}>Limpiar</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={tw`bg-apple-green py-2.5 px-5 rounded-lg flex-1 items-center ml-2`}
+          onPress={handleSubmit(onFormSubmit)}
+        >
+          <Text style={tw`text-base font-medium text-white`}>Guardar</Text>
         </TouchableOpacity>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: 'white',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  closeButton: {
-    padding: 4,
-  },
-  form: {
-    padding: 16,
-  },
-  field: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
-    marginBottom: 4,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: '#111827',
-    backgroundColor: 'white',
-  },
-  inputError: {
-    borderColor: '#ef4444',
-  },
-  errorText: {
-    color: '#ef4444',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  footer: {
-    flexDirection: 'row',
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
-    backgroundColor: 'white',
-  },
-  cancelButton: {
-    flex: 1,
-    backgroundColor: '#f3f4f6',
-    padding: 12,
-    borderRadius: 8,
-    marginRight: 8,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    color: '#4b5563',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  submitButton: {
-    flex: 1,
-    backgroundColor: '#22c55e',
-    padding: 12,
-    borderRadius: 8,
-    marginLeft: 8,
-    alignItems: 'center',
-  },
-  submitButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-});

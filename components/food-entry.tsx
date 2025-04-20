@@ -1,7 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Trash2 } from 'lucide-react-native';
 import { Meal } from '../lib/api/meals';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 interface FoodEntryProps {
   entry: Meal;
@@ -9,15 +11,25 @@ interface FoodEntryProps {
 }
 
 export function FoodEntry({ entry, handleDelete }: FoodEntryProps) {
-  const formattedDate = new Date(entry.timestamp).toLocaleString('es-AR', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  });
+  // Safely format the date, with a fallback if the timestamp is invalid
+  const formattedDate = React.useMemo(() => {
+    try {
+      const date = new Date(entry.timestamp);
+      // Check if the date is valid
+      if (isNaN(date.getTime())) {
+        throw new Error('Invalid date');
+      }
+      return format(date, 'PPp', { locale: es });
+    } catch (error) {
+      console.warn('Invalid timestamp:', entry.timestamp);
+      return 'Fecha no disponible';
+    }
+  }, [entry.timestamp]);
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <View>
+        <View style={styles.headerContent}>
           <Text style={styles.title}>{entry.name}</Text>
           <Text style={styles.date}>{formattedDate}</Text>
         </View>
@@ -26,26 +38,34 @@ export function FoodEntry({ entry, handleDelete }: FoodEntryProps) {
         </TouchableOpacity>
       </View>
 
-      {entry.description && (
-        <Text style={styles.description}>{entry.description}</Text>
-      )}
+      <View style={styles.contentRow}>
+        {entry.photo && (
+          <Image source={{ uri: entry.photo }} style={styles.thumbnail} />
+        )}
+        
+        <View style={styles.contentMain}>
+          {entry.description && (
+            <Text style={styles.description}>{entry.description}</Text>
+          )}
 
-      <View style={styles.macros}>
-        <View style={styles.macroItem}>
-          <Text style={styles.macroValue}>{entry.calories}</Text>
-          <Text style={styles.macroLabel}>Cal</Text>
-        </View>
-        <View style={styles.macroItem}>
-          <Text style={styles.macroValue}>{entry.carbs}g</Text>
-          <Text style={styles.macroLabel}>Carbs</Text>
-        </View>
-        <View style={styles.macroItem}>
-          <Text style={styles.macroValue}>{entry.protein}g</Text>
-          <Text style={styles.macroLabel}>Prot</Text>
-        </View>
-        <View style={styles.macroItem}>
-          <Text style={styles.macroValue}>{entry.fat}g</Text>
-          <Text style={styles.macroLabel}>Grasas</Text>
+          <View style={styles.macros}>
+            <View style={styles.macroItem}>
+              <Text style={styles.macroValue}>{entry.calories}</Text>
+              <Text style={styles.macroLabel}>Cal</Text>
+            </View>
+            <View style={styles.macroItem}>
+              <Text style={styles.macroValue}>{entry.carbs}g</Text>
+              <Text style={styles.macroLabel}>Carbs</Text>
+            </View>
+            <View style={styles.macroItem}>
+              <Text style={styles.macroValue}>{entry.protein}g</Text>
+              <Text style={styles.macroLabel}>Prot</Text>
+            </View>
+            <View style={styles.macroItem}>
+              <Text style={styles.macroValue}>{entry.fat}g</Text>
+              <Text style={styles.macroLabel}>Grasas</Text>
+            </View>
+          </View>
         </View>
       </View>
     </View>
@@ -73,6 +93,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 12,
   },
+  headerContent: {
+    flex: 1,
+    marginRight: 8,
+  },
   title: {
     fontSize: 18,
     fontWeight: '600',
@@ -85,6 +109,19 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     padding: 4,
+  },
+  contentRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  thumbnail: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  contentMain: {
+    flex: 1,
   },
   description: {
     fontSize: 14,
