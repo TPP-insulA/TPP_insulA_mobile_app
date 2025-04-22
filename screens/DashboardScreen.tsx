@@ -12,7 +12,7 @@ import { LoadingSpinner } from "../components/loading-spinner";
 
 // Define the navigation route types
 type RootStackParamList = {
-  SettingsPage: undefined;
+  Settings: undefined;
   HistoryPage: undefined;
   ProfilePage: undefined;
   MealsPage: undefined;
@@ -130,7 +130,7 @@ export default function DashboardScreen() {
       case 'Alto':
         return { backgroundColor: '#ffedd5', color: '#c2410c' };
       default:
-        return { backgroundColor: 'rgba(34, 197, 94, 0.1)', color: '#22c55e' };
+        return { backgroundColor: 'rgba(34, 197, 94, 0.1)', color: '#4CAF50' };
     }
   };
 
@@ -149,16 +149,16 @@ export default function DashboardScreen() {
       ) : (
         <ScrollView style={styles.container}>
           <View style={styles.header}>
-            <View style={styles.titleContainer}>
-              <Activity width={32} height={32} color="#22c55e" />
-              <Text style={styles.title}>Indicadores</Text>
-            </View>
             <TouchableOpacity 
               style={styles.settingsButton}
-              onPress={() => navigation.navigate('SettingsPage')}
+              onPress={() => navigation.navigate('Settings')}
             >
               <Settings width={20} height={20} color="#4b5563" />
             </TouchableOpacity>
+            <View style={styles.titleContainer}>
+              <Activity width={32} height={32} color="#4CAF50" />
+              <Text style={styles.title}>Indicadores</Text>
+            </View>
           </View>
 
           <View style={styles.statusContainer}>
@@ -196,7 +196,7 @@ export default function DashboardScreen() {
                 <View style={styles.glucoseDiff}>
                   {glucoseDiff < 0 ? (
                     <View style={styles.diffContainer}>
-                      <ArrowDown width={16} height={16} color="#22c55e" />
+                      <ArrowDown width={16} height={16} color="#4CAF50" />
                       <Text style={styles.diffTextGreen}>{Math.abs(glucoseDiff)} mg/dL</Text>
                     </View>
                   ) : glucoseDiff > 0 ? (
@@ -206,14 +206,14 @@ export default function DashboardScreen() {
                     </View>
                   ) : (
                     <View style={styles.diffContainer}>
-                      <Check width={16} height={16} color="#22c55e" />
+                      <Check width={16} height={16} color="#4CAF50" />
                       <Text style={styles.diffTextGreen}>Estable</Text>
                     </View>
                   )}
                 </View>
               </View>
               <View style={styles.iconContainer}>
-                <Droplet width={24} height={24} color="#22c55e" />
+                <Droplet width={24} height={24} color="#4CAF50" />
               </View>
             </View>
 
@@ -255,7 +255,7 @@ export default function DashboardScreen() {
                 <Text style={styles.statsUnit}>mg/dL</Text>
               </View>
               <View style={styles.statsIndicator}>
-                <Check width={12} height={12} color="#22c55e" />
+                <Check width={12} height={12} color="#4CAF50" />
                 <Text style={styles.statsStatus}>
                   {averageGlucose >= 80 && averageGlucose <= 140 
                     ? 'En rango objetivo' 
@@ -287,7 +287,7 @@ export default function DashboardScreen() {
                           : '#dbeafe'
                       }
                     ]}>
-                      {activity.type === 'glucose' && <Droplet width={16} height={16} color="#22c55e" />}
+                      {activity.type === 'glucose' && <Droplet width={16} height={16} color="#4CAF50" />}
                       {activity.type === 'meal' && <Utensils width={16} height={16} color="#f97316" />}
                       {activity.type === 'insulin' && <Syringe width={16} height={16} color="#3b82f6" />}
                     </View>
@@ -397,15 +397,17 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 24,
+    position: 'relative',
+    paddingTop: 30,
   },
   titleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 30,
+    flex: 1,
+    justifyContent: 'center',
   },
   title: {
     fontSize: 24,
@@ -415,7 +417,11 @@ const styles = StyleSheet.create({
   settingsButton: {
     padding: 8,
     borderRadius: 20,
-    marginTop: 30,
+    position: 'absolute',
+    right: 0,
+    zIndex: 1,
+    alignSelf: 'center',
+    marginTop: 8,  // Add margin to lower the button
   },
   statusContainer: {
     flexDirection: 'row',
@@ -443,7 +449,7 @@ const styles = StyleSheet.create({
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#22c55e',
+    backgroundColor: '#4CAF50',
     padding: 8,
     borderRadius: 8,
     gap: 8,
@@ -492,7 +498,7 @@ const styles = StyleSheet.create({
   glucoseNumber: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#22c55e',
+    color: '#4CAF50',
   },
   glucoseUnit: {
     fontSize: 14,
@@ -509,7 +515,7 @@ const styles = StyleSheet.create({
   },
   diffTextGreen: {
     fontSize: 14,
-    color: '#22c55e',
+    color: '#4CAF50',
   },
   diffTextOrange: {
     fontSize: 14,
@@ -579,7 +585,7 @@ const styles = StyleSheet.create({
   statsNumber: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#22c55e',
+    color: '#4CAF50',
   },
   statsUnit: {
     fontSize: 14,
@@ -593,7 +599,7 @@ const styles = StyleSheet.create({
   },
   statsStatus: {
     fontSize: 12,
-    color: '#22c55e',
+    color: '#4CAF50',
   },
   activityCard: {
     backgroundColor: 'white',
@@ -619,7 +625,7 @@ const styles = StyleSheet.create({
   },
   viewAllLink: {
     fontSize: 14,
-    color: '#22c55e',
+    color: '#4CAF50',
   },
   activityList: {
     gap: 16,
@@ -714,7 +720,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   submitButton: {
-    backgroundColor: '#22c55e',
+    backgroundColor: '#4CAF50',
     padding: 8,
     borderRadius: 6,
   },
@@ -727,7 +733,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 100,
     right: 16,
-    backgroundColor: '#22c55e',
+    backgroundColor: '#4CAF50',
     width: 56,
     height: 56,
     borderRadius: 28,

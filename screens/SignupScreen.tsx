@@ -492,7 +492,7 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#22c55e',
+    color: '#4CAF50',
   },
   card: {
     backgroundColor: 'white',
@@ -535,11 +535,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#e5e7eb',
   },
   stepDotActive: {
-    backgroundColor: '#22c55e',
+    backgroundColor: '#4CAF50',
     width: 24,
   },
   stepDotCompleted: {
-    backgroundColor: '#22c55e',
+    backgroundColor: '#4CAF50',
   },
   cardContent: {
     marginBottom: 24,
@@ -591,7 +591,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   button: {
-    backgroundColor: '#22c55e',
+    backgroundColor: '#4CAF50',
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
@@ -602,10 +602,10 @@ const styles = StyleSheet.create({
   buttonSecondary: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#22c55e',
+    borderColor: '#4CAF50',
   },
   buttonTextSecondary: {
-    color: '#22c55e',
+    color: '#4CAF50',
   },
   buttonText: {
     color: 'white',
@@ -620,7 +620,7 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
   footerLink: {
-    color: '#22c55e',
+    color: '#4CAF50',
     fontWeight: '500',
   },
   profileContainer: {
@@ -634,7 +634,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
   },
   profileButtonSelected: {
-    borderColor: '#22c55e',
+    borderColor: '#4CAF50',
     backgroundColor: '#f0fdf4',
   },
   profileButtonText: {
@@ -643,7 +643,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   profileButtonTextSelected: {
-    color: '#22c55e',
+    color: '#4CAF50',
     fontWeight: '500',
   },
   buttonContainerCenter: {

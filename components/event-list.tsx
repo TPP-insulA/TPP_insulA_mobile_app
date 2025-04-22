@@ -17,7 +17,7 @@ export function EventList({ events }: EventListProps) {
   const getEventIcon = (type: string) => {
     switch (type) {
       case "exercise":
-        return <Ionicons name="fitness-outline" size={20} color="#22C55E" />
+        return <Ionicons name="fitness-outline" size={20} color="#4CAF50" />
       case "medication":
         return <Ionicons name="water-outline" size={20} color="#3B82F6" />
       case "glucose":

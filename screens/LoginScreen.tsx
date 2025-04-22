@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#22c55e',
+    color: '#4CAF50',
   },
   card: {
     backgroundColor: 'white',
@@ -246,11 +246,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   forgotPasswordText: {
-    color: '#22c55e',
+    color: '#4CAF50',
     fontSize: 14,
   },
   button: {
-    backgroundColor: '#22c55e',
+    backgroundColor: '#4CAF50',
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
@@ -270,10 +270,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
     borderWidth: 1,
-    borderColor: '#22c55e',
+    borderColor: '#4CAF50',
   },
   demoButtonText: {
-    color: '#22c55e',
+    color: '#4CAF50',
     fontSize: 16,
     fontWeight: '500',
   },
@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
   footerLink: {
-    color: '#22c55e',
+    color: '#4CAF50',
     fontWeight: '500',
   },
 });

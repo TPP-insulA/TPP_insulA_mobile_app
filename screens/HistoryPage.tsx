@@ -137,14 +137,14 @@ export default function HistoryPage() {
             onPress={() => setModalVisible(true)}
           >
             <Plus size={20} color="#ffffff" />
-            <Text style={styles.addButtonText}>Agregar Plot</Text>
+            <Text style={styles.addButtonText}>Agregar Gráfico</Text>
           </TouchableOpacity>
 
           {plots.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyStateText}>
-                No plots added yet. Tap "Add Plot" to start.
-              </Text>
+                <Text style={styles.emptyStateText}>
+                No hay gráficos agregados aún. Toca "Agregar Gráfico" para comenzar.
+                </Text>
             </View>
           ) : (
             plots.map((plot) => (

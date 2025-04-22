@@ -113,10 +113,10 @@ export default function InsulinPage() {
               >
                 <BackButton />
               </TouchableOpacity>
-              <Calculator width={32} height={32} color="#22c55e" />
+              <Calculator width={32} height={32} color="#4CAF50" />
               <Text style={styles.title}>Insulina</Text>
             </View>
-            <Text style={styles.description}>Calcula y registra tus dosis de insulina diarias</Text>
+            <Text style={styles.description}>Calculá y registrá tus dosis de insulina diarias</Text>
           </View>
 
           {/* Calculator Card */}
@@ -202,7 +202,7 @@ export default function InsulinPage() {
               <View style={styles.cardContent}>
                 <View style={styles.recommendationHeader}>
                   <View style={styles.iconContainer}>
-                    <Icon name="droplet" size={24} color="#22c55e" />
+                    <Icon name="droplet" size={24} color="#4CAF50" />
                   </View>
                   <View style={styles.recommendationContent}>
                     <Text style={styles.recommendationTitle}>Dosis de Insulina Recomendada</Text>
@@ -247,7 +247,7 @@ export default function InsulinPage() {
                   onPress={handleLogDose}
                   disabled={isLoading}
                 >
-                  <Icon name="check" size={20} color="#22c55e" />
+                  <Icon name="check" size={20} color="#4CAF50" />
                   <Text style={styles.outlineButtonText}>Registrar Esta Dosis</Text>
                 </TouchableOpacity>
               </View>
@@ -266,7 +266,7 @@ export default function InsulinPage() {
                   <View style={styles.performanceValue}>
                     <Text style={styles.performanceNumber}>92%</Text>
                     <View style={styles.performanceBadge}>
-                      <Icon name="trending-up" size={12} color="#22c55e" />
+                      <Icon name="trending-up" size={12} color="#4CAF50" />
                       <Text style={styles.performanceBadgeText}>3% este mes</Text>
                     </View>
                   </View>
@@ -450,7 +450,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   primaryButton: {
-    backgroundColor: '#22c55e',
+    backgroundColor: '#4CAF50',
   },
   buttonText: {
     color: 'white',
@@ -483,7 +483,7 @@ const styles = StyleSheet.create({
   recommendationNumber: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#22c55e',
+    color: '#4CAF50',
   },
   recommendationUnit: {
     fontSize: 16,
@@ -529,11 +529,11 @@ const styles = StyleSheet.create({
   },
   outlineButton: {
     borderWidth: 1,
-    borderColor: '#22c55e',
+    borderColor: '#4CAF50',
     backgroundColor: 'white',
   },
   outlineButtonText: {
-    color: '#22c55e',
+    color: '#4CAF50',
   },
   performanceHeader: {
     flexDirection: 'row',
@@ -553,7 +553,7 @@ const styles = StyleSheet.create({
   performanceNumber: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#22c55e',
+    color: '#4CAF50',
   },
   performanceBadge: {
     flexDirection: 'row',
@@ -612,7 +612,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   accuracyGood: {
-    color: '#22c55e',
+    color: '#4CAF50',
   },
   accuracyWarning: {
     color: '#f59e0b',
@@ -624,7 +624,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   linkButtonText: {
-    color: '#22c55e',
+    color: '#4CAF50',
     fontSize: 16,
     fontWeight: '500',
   },

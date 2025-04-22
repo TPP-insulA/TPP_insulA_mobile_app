@@ -13,7 +13,7 @@ import { Bell } from 'lucide-react-native';
 import { BackButton } from '../components/back-button';
 
 // Placeholder notification data
-const MOCK_NOTIFICATIONS = [
+const MOCK_NOTIFICATIONS: Notification[] = [
     {
         id: '1',
         title: 'Recordatorio de medición',

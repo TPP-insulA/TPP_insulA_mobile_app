@@ -4,6 +4,8 @@ import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../hooks/use-auth';
 import { updateUserProfile, UpdateProfileInput } from '../lib/api/auth';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { BackButton } from '../components/back-button';
+import { User } from 'lucide-react-native';
 
 export default function EditProfileScreen() {
     const navigation = useNavigation();
@@ -56,6 +58,18 @@ export default function EditProfileScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
+            <View style={styles.header}>
+                <View style={styles.titleContainer}>
+                    <TouchableOpacity
+                        style={styles.backButton}
+                        onPress={() => navigation.goBack()}
+                    >
+                        <BackButton />
+                    </TouchableOpacity>
+                    <User width={32} height={32} color="#4CAF50" />
+                    <Text style={styles.title}>Editar Perfil</Text>
+                </View>
+            </View>
             <ScrollView style={styles.content}>
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Información Personal</Text>
@@ -166,6 +180,37 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#f4f4f5',
+    },
+    header: {
+        width: '100%',
+        backgroundColor: 'white',
+        borderBottomWidth: 1,
+        borderBottomColor: '#e5e7eb',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingBottom: 16,
+    },
+    titleContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        marginBottom: 8,
+        position: 'relative',
+        width: '100%',
+        justifyContent: 'center',
+        paddingVertical: 8,
+        marginTop: 30,
+    },
+    backButton: {
+        position: 'absolute',
+        left: 0,
+        zIndex: 1,
+        alignSelf: 'center',
+    },
+    title: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: '#111827',
     },
     content: {
         padding: 16,

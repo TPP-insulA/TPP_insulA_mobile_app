@@ -103,12 +103,12 @@ export function ChatInterface({ isOpen, onClose }: { isOpen: boolean; onClose: (
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <View style={styles.iconContainer}>
-                <Feather name="cpu" size={20} color="#22c55e" />
+                <Feather name="cpu" size={20} color="#4CAF50" />
               </View>
               <Text style={styles.headerTitle}>Asistente de Salud</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Feather name="x" size={20} color="#22c55e" />
+              <Feather name="x" size={20} color="#4CAF50" />
             </TouchableOpacity>
           </View>
 
@@ -204,14 +204,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   iconContainer: {
-    backgroundColor: 'rgba(34, 197, 94, 0.1)', // #22c55e with 0.1 opacity
+    backgroundColor: 'rgba(34, 197, 94, 0.1)', // #4CAF50 with 0.1 opacity
     padding: 8,
     borderRadius: 20,
   },
   headerTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#22c55e',
+    color: '#4CAF50',
   },
   closeButton: {
     padding: 8,
@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
   },
   userMessage: {
     alignSelf: 'flex-end',
-    backgroundColor: '#22c55e',
+    backgroundColor: '#4CAF50',
   },
   aiMessage: {
     alignSelf: 'flex-start',
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 40,
     borderWidth: 1,
-    borderColor: '#22c55e',
+    borderColor: '#4CAF50',
     borderRadius: 20,
     paddingHorizontal: 16,
   },
@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#22c55e',
+    backgroundColor: '#4CAF50',
   },
 })
 

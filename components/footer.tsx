@@ -25,35 +25,35 @@ export function Footer() {
     <View style={styles.container}>
       <TouchableOpacity style={styles.tab} onPress={() => navigation.navigate('Dashboard')}>
         <View style={styles.tabContent}>
-          <Icon name="home" size={20} color={isActive('Dashboard') ? '#22c55e' : '#666'} />
+          <Icon name="home" size={20} color={isActive('Dashboard') ? '#4CAF50' : '#666'} />
           <Text style={[styles.label, isActive('Dashboard') && styles.activeLabel]}>Inicio</Text>
         </View>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.tab} onPress={() => navigation.navigate('Meals')}>
         <View style={styles.tabContent}>
-          <Icon name="coffee" size={20} color={isActive('Meals') ? '#22c55e' : '#666'} />
+          <Icon name="coffee" size={20} color={isActive('Meals') ? '#4CAF50' : '#666'} />
           <Text style={[styles.label, isActive('Meals') && styles.activeLabel]}>Comidas</Text>
         </View>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.tab} onPress={() => navigation.navigate('History')}>
         <View style={styles.tabContent}>
-          <Icon name="calendar" size={20} color={isActive('History') ? '#22c55e' : '#666'} />
+          <Icon name="calendar" size={20} color={isActive('History') ? '#4CAF50' : '#666'} />
           <Text style={[styles.label, isActive('History') && styles.activeLabel]}>Historial</Text>
         </View>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.tab} onPress={() => navigation.navigate('Insulin')}>
         <View style={styles.tabContent}>
-          <Calculator size={20} color={isActive('Insulin') ? '#22c55e' : '#666'} />
+          <Calculator size={20} color={isActive('Insulin') ? '#4CAF50' : '#666'} />
           <Text style={[styles.label, isActive('Insulin') && styles.activeLabel]}>Insulina</Text>
         </View>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.tab} onPress={() => navigation.navigate('Profile')}>
         <View style={styles.tabContent}>
-          <Icon name="user" size={20} color={isActive('Profile') ? '#22c55e' : '#666'} />
+          <Icon name="user" size={20} color={isActive('Profile') ? '#4CAF50' : '#666'} />
           <Text style={[styles.label, isActive('Profile') && styles.activeLabel]}>Perfil</Text>
         </View>
       </TouchableOpacity>
@@ -86,6 +86,6 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   activeLabel: {
-    color: '#22c55e',
+    color: '#4CAF50',
   },
 });

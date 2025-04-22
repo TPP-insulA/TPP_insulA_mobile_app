@@ -17,6 +17,7 @@ import ProfilePage from './screens/ProfilePage';
 import ForgotPasswordPage from './screens/ForgotPasswordPage';
 import EditProfileScreen from './screens/EditProfileScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
+import SettingsPage from './screens/SettingsPage';
 import { BackButton } from './components/back-button';
 
 const Stack = createNativeStackNavigator();
@@ -86,6 +87,13 @@ function AppStack() {
         }}
       />
       <Stack.Screen
+        name="Settings"
+        component={SettingsPage}
+        options={{
+          headerShown: false
+        }}
+      />
+      <Stack.Screen
         name="Notifications"
         component={NotificationsScreen}
         options={{
@@ -99,7 +107,7 @@ function AppStack() {
 function LoadingScreen() {
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <ActivityIndicator size="large" color="#22c55e" />
+      <ActivityIndicator size="large" color="#4CAF50" />
     </View>
   );
 }

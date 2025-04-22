@@ -7,6 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NavigationProp } from '@react-navigation/native';
 import { useAuth } from '../hooks/use-auth';
 import { getUserProfile, updateProfileImage, ProfileResponse } from '../lib/api/auth';
+import { LoadingSpinner } from '../components/loading-spinner';
 
 type RootStackParamList = {
   Login: undefined;
@@ -69,9 +70,7 @@ export default function ProfilePage() {
     if (isLoading) {
         return (
             <SafeAreaView style={styles.container}>
-                <View style={styles.loadingContainer}>
-                    <Text>Cargando...</Text>
-                </View>
+                <LoadingSpinner color="#4CAF50" text="Cargando perfil..." />
             </SafeAreaView>
         );
     }

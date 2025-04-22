@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Switch } from 'react-native';
-import { ChevronRight, Bell, Shield, Smartphone, HelpCircle } from 'lucide-react-native';
+import { ChevronRight, Bell, Shield, Smartphone, HelpCircle, Settings } from 'lucide-react-native';
+import { BackButton } from '../components/back-button';
+import { useNavigation } from '@react-navigation/native';
 
 export default function SettingsPage() {
+  const navigation = useNavigation();
   const [notifications, setNotifications] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const [bloodSugarUnit, setBloodSugarUnit] = useState('mg/dL');
@@ -11,7 +14,16 @@ export default function SettingsPage() {
     <SafeAreaView style={styles.container}>
       <ScrollView>
         <View style={styles.header}>
-          <Text style={styles.title}>Configuración</Text>
+          <View style={styles.titleContainer}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+            >
+              <BackButton />
+            </TouchableOpacity>
+            <Settings width={32} height={32} color="#4CAF50" />
+            <Text style={styles.title}>Configuración</Text>
+          </View>
         </View>
 
         <View style={styles.content}>
@@ -26,7 +38,7 @@ export default function SettingsPage() {
                 <Switch
                   value={notifications}
                   onValueChange={setNotifications}
-                  trackColor={{ false: '#d1d5db', true: '#22c55e' }}
+                  trackColor={{ false: '#d1d5db', true: '#4CAF50' }}
                 />
               </View>
 
@@ -41,17 +53,7 @@ export default function SettingsPage() {
                 </View>
               </TouchableOpacity>
 
-              <View style={styles.settingItem}>
-                <View style={styles.settingLeft}>
-                  <Shield size={20} color="#6b7280" />
-                  <Text style={styles.settingText}>Modo Oscuro</Text>
-                </View>
-                <Switch
-                  value={darkMode}
-                  onValueChange={setDarkMode}
-                  trackColor={{ false: '#d1d5db', true: '#22c55e' }}
-                />
-              </View>
+
             </View>
           </View>
 
@@ -120,13 +122,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#f4f4f5',
   },
   header: {
-    padding: 16,
+    width: '100%',
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 8,
+    position: 'relative',
+    width: '100%',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    marginTop: 30,
   },
   title: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#111827',
   },
@@ -188,5 +204,11 @@ const styles = StyleSheet.create({
   versionText: {
     fontSize: 14,
     color: '#6b7280',
+  },
+  backButton: {
+    position: 'absolute',
+    left: 0,
+    zIndex: 1,
+    alignSelf: 'center',
   },
 });

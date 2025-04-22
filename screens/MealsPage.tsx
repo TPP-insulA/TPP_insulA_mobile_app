@@ -173,7 +173,7 @@ export default function MealsPage() {
             >
               <BackButton />
             </TouchableOpacity>
-            <Utensils width={32} height={32} color="#22c55e" />
+            <Utensils width={32} height={32} color="#4CAF50" />
             <Text style={styles.title}>Comidas</Text>
           </View>
           <Text style={styles.description}>
@@ -185,14 +185,17 @@ export default function MealsPage() {
           style={[styles.addButtonTop, { alignSelf: 'center', width: 'auto', marginHorizontal: 16 }]}
           onPress={() => setIsFormOpen(true)}
         >
-          <PlusCircle size={24} color="#22c55e" />
+          <PlusCircle size={24} color="white" />
           <Text style={styles.addButtonText}>Agregar Comida</Text>
         </TouchableOpacity>
 
         <View style={styles.content}>
           {isLoading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#22c55e" />
+              <>
+                <ActivityIndicator size="large" color="#4CAF50" />
+                <Text style={{ color: '#000000' }}>Cargando comidas...</Text>
+              </>
             </View>
           ) : (
             <>
@@ -365,19 +368,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 12,
-    backgroundColor: 'white',
+    backgroundColor: '#4CAF50',
     borderRadius: 12,
     gap: 8,
-    borderWidth: 2,
-    borderStyle: 'solid',
-    borderColor: '#22c55e',
     marginTop: 8,
     width: '100%',
   },
   addButtonText: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#22c55e',
+    color: 'white',
   },
   modalOverlay: {
     flex: 1,
