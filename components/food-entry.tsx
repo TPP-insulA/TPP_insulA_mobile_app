@@ -7,7 +7,6 @@ interface FoodEntryProps {
 }
 
 export function FoodEntry({ entry }: FoodEntryProps) {
-  // Values from API are already for the full amount, no need to scale
   const quantity = Number(entry.quantity) || 1;
   const servingSize = Number(entry.servingSize) || 200;
   const carbs = Number(entry.carbs) || 0;
@@ -17,35 +16,34 @@ export function FoodEntry({ entry }: FoodEntryProps) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <Text style={styles.title}>{entry.name || "Sin nombre"}</Text>
+      <View style={styles.mainContent}>
+        <View style={styles.titleSection}>
+          <Text style={styles.title} numberOfLines={1}>{entry.name || "Sin nombre"}</Text>
           {entry.description && (
-            <Text style={styles.description}>{entry.description}</Text>
+            <Text style={styles.description} numberOfLines={1}>{entry.description}</Text>
           )}
         </View>
-      </View>
 
-      <View style={styles.macros}>
-        <View style={styles.macroItem}>
-          <Text style={styles.macroValue}>{calories}</Text>
-          <Text style={styles.macroLabel}>Cal</Text>
-        </View>
-        <View style={styles.macroItem}>
-          <Text style={styles.macroValue}>{carbs}g</Text>
-          <Text style={styles.macroLabel}>Carbs</Text>
-        </View>
-        <View style={styles.macroItem}>
-          <Text style={styles.macroValue}>{protein}g</Text>
-          <Text style={styles.macroLabel}>Prot</Text>
-        </View>
-        <View style={styles.macroItem}>
-          <Text style={styles.macroValue}>{fat}g</Text>
-          <Text style={styles.macroLabel}>Grasas</Text>
-        </View>
-        <View style={styles.macroItem}>
-          <Text style={styles.macroValue}>{servingSize}g</Text>
-          <Text style={styles.macroLabel}>Porción</Text>
+        <View style={styles.macros}>
+          <View style={styles.macroGroup}>
+            <Text style={styles.macroValue}>{calories}</Text>
+            <Text style={styles.macroLabel}>Cal</Text>
+          </View>
+          <Text style={styles.separator}>·</Text>
+          <View style={styles.macroGroup}>
+            <Text style={styles.macroValue}>{carbs}g</Text>
+            <Text style={styles.macroLabel}>Carbs</Text>
+          </View>
+          <Text style={styles.separator}>·</Text>
+          <View style={styles.macroGroup}>
+            <Text style={styles.macroValue}>{protein}g</Text>
+            <Text style={styles.macroLabel}>Prot</Text>
+          </View>
+          <Text style={styles.separator}>·</Text>
+          <View style={styles.macroGroup}>
+            <Text style={styles.macroValue}>{fat}g</Text>
+            <Text style={styles.macroLabel}>Gras</Text>
+          </View>
         </View>
       </View>
     </View>
@@ -56,50 +54,47 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: 'white',
     borderRadius: 8,
-    padding: 12,
+    padding: 8,
     borderWidth: 1,
     borderColor: '#e5e7eb',
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  headerContent: {
+  mainContent: {
     flex: 1,
-    marginRight: 8,
   },
-  title: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
+  titleSection: {
     marginBottom: 4,
   },
+  title: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#111827',
+  },
   description: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#6b7280',
-    marginBottom: 8,
   },
   macros: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: '#f9fafb',
-    borderRadius: 8,
-    padding: 8,
-  },
-  macroItem: {
     alignItems: 'center',
+    gap: 4,
+  },
+  macroGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
   },
   macroValue: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#111827',
-    marginBottom: 2,
   },
   macroLabel: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#6b7280',
+  },
+  separator: {
+    fontSize: 13,
+    color: '#9ca3af',
   },
 });
 

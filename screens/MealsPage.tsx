@@ -222,6 +222,7 @@ export default function MealsPage() {
                               </View>
                             </View>
                             <Text style={styles.mealDate}>{formattedDate}</Text>
+                            <Text style={styles.calories}>{Math.round(meal.totalCalories)} calorías</Text>
                           </View>
                         </View>
                         {isExpanded ? (
@@ -236,7 +237,7 @@ export default function MealsPage() {
                           <Text style={styles.macroText}>
                             <Text style={styles.macroValue}>{Math.round(meal.totalCarbs * 10) / 10}g</Text> carbs ·{' '}
                             <Text style={styles.macroValue}>{Math.round(meal.totalProtein * 10) / 10}g</Text> prot ·{' '}
-                            <Text style={styles.macroValue}>{Math.round(meal.totalCalories)}</Text> cal
+                            <Text style={styles.macroValue}>{Math.round(meal.totalFat * 10) / 10}g</Text> gras
                           </Text>
                         </View>
                         <View style={styles.mealActions}>
@@ -473,6 +474,12 @@ const styles = StyleSheet.create({
   mealDate: {
     fontSize: 14,
     color: '#6b7280',
+    marginBottom: 2,
+  },
+  calories: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
     marginBottom: 4,
   },
   macroSummary: {
@@ -484,7 +491,7 @@ const styles = StyleSheet.create({
   },
   macroValue: {
     fontWeight: '600',
-    color: '#4b5563',
+    color: '#111827',
   },
   mealActions: {
     flexDirection: 'row',
@@ -511,11 +518,11 @@ const styles = StyleSheet.create({
   foodList: {
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb',
-    paddingTop: 8,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingTop: 4,
+    paddingHorizontal: 12,
+    paddingBottom: 12,
   },
   foodItem: {
-    marginTop: 8,
+    marginTop: 4,
   },
 });
