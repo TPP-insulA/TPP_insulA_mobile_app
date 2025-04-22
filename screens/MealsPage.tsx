@@ -1,6 +1,6 @@
 // screens/meals-page.js
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Modal, ActivityIndicator, Image } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Modal, ActivityIndicator, Image, Alert } from 'react-native';
 import { PlusCircle, Utensils, ChevronDown, ChevronUp, Trash2, Edit2 } from 'lucide-react-native';
 import { FoodEntry } from '../components/food-entry';
 import { FoodEntryForm } from '../components/food-entry-form';
@@ -125,20 +125,37 @@ export default function MealsPage() {
 
   const handleDelete = async (id: string) => {
     if (!token) return;
-    try {
-      await deleteMeal(id, token);
-      setMeals(meals.filter(meal => meal.id !== id));
-      toast({
-        title: 'Éxito',
-        description: 'Comida eliminada correctamente',
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'No se pudo eliminar la comida',
-        variant: 'destructive',
-      });
-    }
+
+    Alert.alert(
+      "Eliminar Comida",
+      "¿Estás seguro que querés eliminar esta comida?",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel"
+        },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteMeal(id, token);
+              setMeals(meals.filter(meal => meal.id !== id));
+              toast({
+                title: 'Éxito',
+                description: 'Comida eliminada correctamente',
+              });
+            } catch (error) {
+              toast({
+                title: 'Error',
+                description: 'No se pudo eliminar la comida',
+                variant: 'destructive',
+              });
+            }
+          }
+        }
+      ]
+    );
   };
 
   const toggleMealExpansion = (id: string) => {
