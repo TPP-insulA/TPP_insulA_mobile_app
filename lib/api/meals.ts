@@ -1,28 +1,41 @@
 import { API_URL } from './auth';
 
-export interface Meal {
-  id: string;
+export interface FoodItem {
+  id?: string;
   name: string;
   description?: string;
   carbs: number;
   protein: number;
   fat: number;
   calories: number;
-  quantity?: number;
-  timestamp: string;
+  servingSize: number;  // Added as required field
+  quantity: number;     // Changed from optional to required
   photo?: string;
+}
+
+export interface Meal {
+  id: string;
+  name: string;
+  description?: string;  // Added optional field
+  type: 'breakfast' | 'lunch' | 'snack' | 'dinner';
+  timestamp: string;
+  foods: FoodItem[];
+  photo?: string;       // Added optional field
+  totalCarbs: number;
+  totalProtein: number;
+  totalFat: number;
+  totalCalories: number;
+  createdAt?: string;   // Added optional field from backend
+  updatedAt?: string;   // Added optional field from backend
 }
 
 export interface CreateMealInput {
   name: string;
-  description?: string;
-  carbs: number;
-  protein: number;
-  fat: number;
-  calories: number;
-  quantity?: number;
+  description?: string;  // Added optional field
+  type: 'breakfast' | 'lunch' | 'snack' | 'dinner';
   timestamp?: string;
-  photo?: string;
+  foods: Omit<FoodItem, 'id'>[];
+  photo?: string;       // Added optional field
 }
 
 interface ProcessFoodResponse {
@@ -67,22 +80,7 @@ export const getMeals = async (token: string, params?: {
     },
   });
 
-  const responseData = await response.json();
-  
-  // Truncate photo URLs in logs
-  const logData = { ...responseData };
-  if (logData.data && Array.isArray(logData.data)) {
-    logData.data = logData.data.map((meal: Meal) => {
-      if (meal.photo) {
-        return {
-          ...meal,
-          photo: `${meal.photo.substring(0, 50)}...`
-        };
-      }
-      return meal;
-    });
-  }
-  console.log('Meals API response:', logData);
+  const responseData = await response.json() as ApiResponse<any>;
 
   if (!response.ok) {
     throw new Error(responseData.message || 'Failed to fetch meals');
@@ -90,7 +88,35 @@ export const getMeals = async (token: string, params?: {
 
   // Check if response has data property and it's an array
   if (responseData.data && Array.isArray(responseData.data)) {
-    return responseData.data;
+    // Transform each meal to match our Meal interface
+    const transformedMeals: Meal[] = responseData.data.map(meal => ({
+      id: meal.id,
+      name: meal.name,
+      type: meal.type,
+      description: meal.description,
+      timestamp: meal.timestamp,
+      photo: meal.photo,
+      foods: meal.mealFoods?.map((mealFood: any) => ({
+        id: mealFood.id,
+        name: mealFood.food.name,
+        description: mealFood.food.description,
+        carbs: mealFood.food.carbs,
+        protein: mealFood.food.protein,
+        fat: mealFood.food.fat,
+        calories: mealFood.food.calories,
+        servingSize: mealFood.food.servingSize || 100,
+        quantity: mealFood.quantity || 1,
+        photo: mealFood.food.photo
+      })) || [],
+      totalCarbs: meal.carbs,
+      totalProtein: meal.protein,
+      totalFat: meal.fat,
+      totalCalories: meal.calories,
+      createdAt: meal.createdAt,
+      updatedAt: meal.updatedAt,
+    }));
+
+    return transformedMeals;
   }
 
   console.warn('Meals API did not return an array in data property, defaulting to empty array');
@@ -99,7 +125,7 @@ export const getMeals = async (token: string, params?: {
 
 export const createMeal = async (mealData: CreateMealInput, token: string): Promise<Meal> => {
   // Validate required fields
-  const requiredFields = ['name'];  // Only name is truly required
+  const requiredFields = ['name', 'type', 'foods'];
   const missingFields = requiredFields.filter(field => {
     const value = mealData[field as keyof CreateMealInput];
     return value === undefined || value === null || value === '';
@@ -110,44 +136,36 @@ export const createMeal = async (mealData: CreateMealInput, token: string): Prom
     throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
   }
 
-  // Ensure all numeric fields are handled properly
+  // Process foods with correct scaling based on quantity vs serving size
   const processedMealData: CreateMealInput = {
     ...mealData,
     timestamp: mealData.timestamp || new Date().toISOString(),
-    carbs: mealData.carbs ?? 0,
-    protein: mealData.protein ?? 0,
-    fat: mealData.fat ?? 0,
-    calories: mealData.calories ?? 0,
-    quantity: mealData.quantity ?? 100
+    foods: mealData.foods.map(food => {
+      // Original values from API are per full serving, just send them as is
+      return {
+        ...food,
+        carbs: Number(food.carbs),
+        protein: Number(food.protein),
+        fat: Number(food.fat),
+        calories: Number(food.calories),
+        servingSize: Number(food.servingSize),
+        quantity: Number(food.quantity)
+      };
+    })
   };
 
-  // Ensure all numeric values are actual numbers
-  ['carbs', 'protein', 'fat', 'calories', 'quantity'].forEach(field => {
-    const key = field as keyof Pick<CreateMealInput, 'carbs' | 'protein' | 'fat' | 'calories' | 'quantity'>;
-    const value = processedMealData[key];
-    if (typeof value === 'string') {
-      const parsed = parseFloat(value);
-      processedMealData[key] = isNaN(parsed) ? 0 : parsed;
-    }
-  });
-
-  // Ensure photo is in the correct format
-  if (mealData.photo) {
-    // If the photo doesn't start with data:image, add the prefix
-    if (!mealData.photo.startsWith('data:image')) {
-      processedMealData.photo = `data:image/jpeg;base64,${mealData.photo}`;
-    } else {
-      processedMealData.photo = mealData.photo;
-    }
-  }
-
-  // Log with truncated photo URL
+  // Log with truncated photo URLs
   const logData = { ...processedMealData };
-  if (logData.photo) {
-    logData.photo = `${logData.photo.substring(0, 50)}...`;
-  }
+  logData.foods = logData.foods.map(food => {
+    if (food.photo) {
+      return {
+        ...food,
+        photo: `${food.photo.substring(0, 50)}...`
+      };
+    }
+    return food;
+  });
   console.log('Creating meal with validated data:', JSON.stringify(logData, null, 2));
-  console.log('API URL:', `${API_URL}/meals`);
   
   const response = await fetch(`${API_URL}/meals`, {
     method: 'POST',
@@ -158,17 +176,10 @@ export const createMeal = async (mealData: CreateMealInput, token: string): Prom
     body: JSON.stringify(processedMealData),
   });
 
-  const responseData = await response.json() as ApiResponse<Meal>;
-  
-  // Log response with truncated photo URL
-  const logResponse = { ...responseData };
-  if (logResponse.data?.photo) {
-    logResponse.data.photo = `${logResponse.data.photo.substring(0, 50)}...`;
-  }
-  console.log('Create meal response:', response.status, logResponse);
+  const responseData = await response.json() as ApiResponse<any>;
+  console.log('Create meal response:', response.status, responseData);
 
   if (!response.ok) {
-    console.error('Failed to create meal:', responseData);
     throw new Error(responseData.message || 'Failed to create meal');
   }
 
@@ -176,26 +187,82 @@ export const createMeal = async (mealData: CreateMealInput, token: string): Prom
     throw new Error('Invalid response format from server');
   }
 
-  return responseData.data;
+  // Transform the response to match our Meal interface with proper unit conversion
+  const transformedMeal: Meal = {
+    id: responseData.data.id,
+    name: responseData.data.name,
+    type: responseData.data.type,
+    description: responseData.data.description,
+    timestamp: responseData.data.timestamp,
+    photo: responseData.data.photo,
+    foods: responseData.data.mealFoods?.map((mealFood: any) => ({
+      id: mealFood.id,
+      name: mealFood.food.name,
+      description: mealFood.food.description,
+      carbs: mealFood.food.carbs,
+      protein: mealFood.food.protein,
+      fat: mealFood.food.fat,
+      calories: mealFood.food.calories,
+      servingSize: mealFood.food.servingSize || 200, // Use actual serving size from food
+      quantity: mealFood.quantity || 1,
+      photo: mealFood.food.photo,
+    })) || [],
+    totalCarbs: responseData.data.carbs,
+    totalProtein: responseData.data.protein,
+    totalFat: responseData.data.fat,
+    totalCalories: responseData.data.calories,
+    createdAt: responseData.data.createdAt,
+    updatedAt: responseData.data.updatedAt,
+  };
+
+  return transformedMeal;
 };
 
 export const updateMeal = async (id: string, mealData: Partial<CreateMealInput>, token: string): Promise<Meal> => {
   const response = await fetch(`${API_URL}/meals/${id}`, {
-    method: 'PUT',
+    method: "PUT",
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
     },
     body: JSON.stringify(mealData),
   });
 
-  const data = await response.json();
+  const responseData = await response.json() as ApiResponse<any>;
 
   if (!response.ok) {
-    throw new Error(data.message || 'Failed to update meal');
+    throw new Error(responseData.message || "Failed to update meal");
   }
 
-  return data;
+  // Transform the response to match our Meal interface
+  const transformedMeal: Meal = {
+    id: responseData.data.id,
+    name: responseData.data.name,
+    type: responseData.data.type,
+    description: responseData.data.description,
+    timestamp: responseData.data.timestamp,
+    photo: responseData.data.photo,
+    foods: responseData.data.mealFoods?.map((mealFood: any) => ({
+      id: mealFood.id,
+      name: mealFood.food.name,
+      description: mealFood.food.description,
+      carbs: mealFood.food.carbs,
+      protein: mealFood.food.protein,
+      fat: mealFood.food.fat,
+      calories: mealFood.food.calories,
+      servingSize: mealFood.food.servingSize || 200, // Use actual serving size from food
+      quantity: mealFood.quantity || 1,
+      photo: mealFood.food.photo,
+    })) || [],
+    totalCarbs: responseData.data.carbs,
+    totalProtein: responseData.data.protein,
+    totalFat: responseData.data.fat,
+    totalCalories: responseData.data.calories,
+    createdAt: responseData.data.createdAt,
+    updatedAt: responseData.data.updatedAt,
+  };
+
+  return transformedMeal;
 };
 
 export const deleteMeal = async (id: string, token: string): Promise<void> => {
