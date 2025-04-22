@@ -16,6 +16,7 @@ import InsulinPage from './screens/InsulinPage';
 import ProfilePage from './screens/ProfilePage';
 import ForgotPasswordPage from './screens/ForgotPasswordPage';
 import EditProfileScreen from './screens/EditProfileScreen';
+import NotificationsScreen from './screens/NotificationsScreen';
 import { BackButton } from './components/back-button';
 
 const Stack = createNativeStackNavigator();
@@ -80,6 +81,13 @@ function AppStack() {
       <Stack.Screen
         name="EditProfile"
         component={EditProfileScreen}
+        options={{
+          headerShown: false
+        }}
+      />
+      <Stack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
         options={{
           headerShown: false
         }}
