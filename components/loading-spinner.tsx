@@ -9,13 +9,13 @@ type LoadingSpinnerProps = {
 
 export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ 
   size = 'large', 
-  color = '#0066cc', 
+  color = '#4CAF50', 
   text = 'Loading...'
 }) => {
   return (
     <View style={styles.container}>
       <ActivityIndicator size={size} color={color} />
-      {text && <Text style={styles.text}>{text}</Text>}
+      {text && <Text style={[styles.text, { color: '#4b5563' }]}>{text}</Text>}
     </View>
   );
 };
@@ -30,7 +30,6 @@ const styles = StyleSheet.create({
   text: {
     marginTop: 10,
     fontSize: 16,
-    color: '#333',
     textAlign: 'center',
   },
 });
