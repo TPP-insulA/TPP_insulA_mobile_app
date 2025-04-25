@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
-import { Card } from "@/components/ui/card";
 
 interface GlucoseTrendsChartProps {
   data: Array<{ time: string; glucose: number }>;
@@ -9,25 +8,39 @@ interface GlucoseTrendsChartProps {
 }
 
 export function GlucoseTrendsChart({ data, timeRange }: GlucoseTrendsChartProps) {
-  // Format x-axis labels based on the time range
-  const formatXAxis = (tickItem: string) => {
-    const date = new Date(`2023-01-01 ${tickItem}`);
-    switch (timeRange) {
-      case "day":
-        return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      case "week":
-        return ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"][date.getDay()];
-      case "month":
-        return date.getDate().toString();
-      default:
-        return tickItem;
+  const screenWidth = Dimensions.get("window").width - 40;
+
+  const chartConfig = {
+    backgroundColor: "#ffffff",
+    backgroundGradientFrom: "#ffffff",
+    backgroundGradientTo: "#ffffff",
+    decimalPlaces: 0,
+    color: (opacity = 1) => `rgba(76, 175, 80, ${opacity})`,
+    labelColor: (opacity = 1) => `rgba(107, 114, 128, ${opacity})`,
+    style: {
+      borderRadius: 12,
+    },
+    propsForDots: {
+      r: "4",
+      strokeWidth: "2",
+      stroke: "#4CAF50",
+      strokeOpacity: 0.9
+    },
+    propsForVerticalLabels: {
+      fontSize: 10,
+      rotation: 0,
+      fontWeight: '500'
+    },
+    propsForHorizontalLabels: {
+      fontSize: 10,
+      fontWeight: '500'
     }
   };
 
-  // Prepare data for Chart Kit
+  // Format x-axis labels based on the time range
   const labels = data.map(item => {
     const timeParts = item.time.split(':');
-    return timeParts[0]; // Just show the hour for simplicity
+    return timeParts[0] + ':' + timeParts[1]; // Show HH:mm
   });
 
   const chartData = {
@@ -35,48 +48,43 @@ export function GlucoseTrendsChart({ data, timeRange }: GlucoseTrendsChartProps)
     datasets: [
       {
         data: data.map(item => item.glucose),
-        color: (opacity = 1) => `rgba(136, 132, 216, ${opacity})`, // purple color from original chart
+        color: (opacity = 1) => `rgba(76, 175, 80, ${opacity})`,
         strokeWidth: 2
+      },
+      // Add target range guidelines
+      {
+        data: Array(data.length).fill(140), // Upper target line
+        color: (opacity = 1) => `rgba(249, 115, 22, ${opacity * 0.5})`,
+        strokeWidth: 1,
+        withDots: false
+      },
+      {
+        data: Array(data.length).fill(70), // Lower target line
+        color: (opacity = 1) => `rgba(249, 115, 22, ${opacity * 0.5})`,
+        strokeWidth: 1,
+        withDots: false
       }
     ],
-    legend: ["Glucosa mg/dL"]
+    legend: ["Glucosa", "Límite alto", "Límite bajo"]
   };
-
-  const chartConfig = {
-    backgroundColor: "#ffffff",
-    backgroundGradientFrom: "#ffffff",
-    backgroundGradientTo: "#ffffff",
-    decimalPlaces: 0,
-    color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-    labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-    style: {
-      borderRadius: 16
-    },
-    propsForDots: {
-      r: "5",
-      strokeWidth: "2",
-      stroke: "#8884d8"
-    }
-  };
-
-  const screenWidth = Dimensions.get("window").width - 40;
 
   return (
     <View style={styles.container}>
+      <Text style={styles.targetRangeText}>Rango objetivo: 70-140 mg/dL</Text>
       <LineChart
         data={chartData}
         width={screenWidth}
-        height={300}
+        height={220}
         chartConfig={chartConfig}
         bezier
-        style={{
-          marginVertical: 8,
-          borderRadius: 8
-        }}
+        style={styles.chart}
+        withVerticalLines={false}
+        withHorizontalLines={true}
+        withVerticalLabels={true}
+        withHorizontalLabels={true}
+        withInnerLines={true}
+        yAxisInterval={50}
         yAxisSuffix=" mg/dL"
-        yAxisInterval={1}
-        fromZero={false}
-        verticalLabelRotation={30}
         segments={5}
       />
     </View>
@@ -86,15 +94,24 @@ export function GlucoseTrendsChart({ data, timeRange }: GlucoseTrendsChartProps)
 const styles = StyleSheet.create({
   container: {
     backgroundColor: 'white',
-    borderRadius: 8,
-    padding: 10,
+    borderRadius: 12,
+    padding: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
+  chart: {
+    marginVertical: 8,
+    borderRadius: 12,
+  },
+  targetRangeText: {
+    fontSize: 12,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginBottom: 8,
+    fontWeight: '500',
+  }
 });
 

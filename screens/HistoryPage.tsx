@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,9 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
+  RefreshControl,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GlucoseTrendsChart } from '../components/glucose-trends-chart';
 import DailyPatternChart from '../components/daily-pattern-chart';
 import { EventList } from '../components/event-list';
@@ -17,6 +19,9 @@ import { Activity, Plus, ListChecks } from 'lucide-react-native';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '../components/ui/accordion-native';
 import PlotSelectorModal from '../components/plot-selector-modal';
 import GlucoseWithMealsChart from '../components/glucose-with-meals-chart';
+import { LoadingSpinner } from '../components/loading-spinner';
+import { API_URL } from '../lib/api/auth';
+import { useAuth } from '../hooks/use-auth';
 
 interface Event {
   id: number;
@@ -34,6 +39,16 @@ interface Plot {
   type: string;
   timeRange: string;
   label: string;
+}
+
+interface GlucoseData {
+  time: string;
+  glucose: number;
+}
+
+interface ApiError {
+  plotId?: number;
+  message: string;
 }
 
 const mockEvents: Event[] = [
@@ -79,8 +94,211 @@ const mockDailyPatternData = [
 
 export default function HistoryPage() {
   const navigation = useNavigation();
+  const { token, isAuthenticated } = useAuth();
   const [plots, setPlots] = useState<Plot[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState<{ [key: number]: boolean }>({});
+  const [errors, setErrors] = useState<ApiError[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [plotData, setPlotData] = useState<{
+    [key: number]: {
+      glucose?: GlucoseData[];
+      meals?: any[];
+      stats?: any;
+    };
+  }>({});
+
+  const fetchData = async (plot: Plot) => {
+    if (!token || !isAuthenticated) return;
+    
+    setIsLoading(prev => ({ ...prev, [plot.id]: true }));
+    setErrors(prev => prev.filter(e => e.plotId !== plot.id));
+    
+    try {
+      const headers = { 'Authorization': `Bearer ${token}` };
+      const timeRange = plot.timeRange;
+
+      switch (plot.type) {
+        case 'glucose': {
+          const response = await fetch(`${API_URL}/glucose?range=${timeRange}`, { headers });
+          if (!response.ok) throw new Error('Failed to fetch glucose data');
+          const data = await response.json();
+          // Transform to required format
+          const transformedData = data.map((reading: any) => ({
+            time: new Date(reading.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            glucose: reading.value
+          }));
+          setPlotData(prev => ({
+            ...prev,
+            [plot.id]: { ...prev[plot.id], glucose: transformedData }
+          }));
+          break;
+        }
+        case 'glucose_meals': {
+          const [glucoseRes, mealsRes] = await Promise.all([
+            fetch(`${API_URL}/glucose?range=${timeRange}`, { headers }),
+            fetch(`${API_URL}/meals?range=${timeRange}`, { headers })
+          ]);
+          if (!glucoseRes.ok || !mealsRes.ok) throw new Error('Failed to fetch glucose or meals data');
+          const [glucoseData, mealsData] = await Promise.all([
+            glucoseRes.json(),
+            mealsRes.json()
+          ]);
+          const transformedGlucose = glucoseData.map((reading: any) => ({
+            time: new Date(reading.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            glucose: reading.value
+          }));
+          setPlotData(prev => ({
+            ...prev,
+            [plot.id]: { 
+              glucose: transformedGlucose,
+              meals: mealsData
+            }
+          }));
+          break;
+        }
+        case 'daily_pattern': {
+          const response = await fetch(`${API_URL}/glucose/stats?range=${timeRange}`, { headers });
+          if (!response.ok) throw new Error('Failed to fetch glucose stats');
+          const data = await response.json();
+          setPlotData(prev => ({
+            ...prev,
+            [plot.id]: { stats: data }
+          }));
+          break;
+        }
+      }
+    } catch (error) {
+      setErrors(prev => [...prev, { 
+        plotId: plot.id, 
+        message: error instanceof Error ? error.message : 'Error al cargar datos' 
+      }]);
+    } finally {
+      setIsLoading(prev => ({ ...prev, [plot.id]: false }));
+    }
+  };
+
+  const fetchEvents = async () => {
+    if (!token || !isAuthenticated) return;
+
+    try {
+      const headers = { 'Authorization': `Bearer ${token}` };
+      
+      // Make API calls and handle each response individually
+      let allEvents = [];
+      
+      try {
+        const glucoseRes = await fetch(`${API_URL}/glucose?range=24h&limit=10`, { headers });
+        if (glucoseRes.ok) {
+          const glucose = await glucoseRes.json();
+          if (Array.isArray(glucose)) {
+            allEvents.push(...glucose.map((g: any) => ({
+              id: g.id,
+              timestamp: new Date(g.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              description: 'Lectura de glucosa',
+              type: 'glucose',
+              value: g.value
+            })));
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching glucose events:', error);
+      }
+
+      try {
+        const mealsRes = await fetch(`${API_URL}/meals?range=24h&limit=10`, { headers });
+        if (mealsRes.ok) {
+          const meals = await mealsRes.json();
+          if (Array.isArray(meals)) {
+            allEvents.push(...meals.map((m: any) => ({
+              id: m.id,
+              timestamp: new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              description: m.description || 'Comida',
+              type: 'meal',
+              carbs: m.carbs,
+              items: m.items || []
+            })));
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching meal events:', error);
+      }
+
+      try {
+        const insulinRes = await fetch(`${API_URL}/insulin?range=24h&limit=10`, { headers });
+        if (insulinRes.ok) {
+          const insulin = await insulinRes.json();
+          if (Array.isArray(insulin)) {
+            allEvents.push(...insulin.map((i: any) => ({
+              id: i.id,
+              timestamp: new Date(i.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              description: 'Dosis de insulina',
+              type: 'insulin',
+              units: i.units
+            })));
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching insulin events:', error);
+      }
+
+      try {
+        const activitiesRes = await fetch(`${API_URL}/activities?range=24h&limit=10`, { headers });
+        if (activitiesRes.ok) {
+          const activities = await activitiesRes.json();
+          if (Array.isArray(activities)) {
+            allEvents.push(...activities.map((a: any) => ({
+              id: a.id,
+              timestamp: new Date(a.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              description: a.description || 'Actividad física',
+              type: 'activity',
+              duration: a.duration
+            })));
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching activity events:', error);
+      }
+
+      // Sort all events by timestamp and take the latest 10
+      if (allEvents.length > 0) {
+        allEvents.sort((a, b) => 
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        );
+        setEvents(allEvents.slice(0, 10));
+      }
+    } catch (error) {
+      console.error('Error in fetchEvents:', error);
+      // Set empty events array to avoid undefined errors
+      setEvents([]);
+    }
+  };
+
+  const onRefresh = async () => {
+    setIsRefreshing(true);
+    await Promise.all([
+      ...plots.map(plot => fetchData(plot)),
+      fetchEvents()
+    ]);
+    setIsRefreshing(false);
+  };
+
+  useEffect(() => {
+    if (token && isAuthenticated) {
+      fetchEvents();
+    }
+  }, [token, isAuthenticated]);
+
+  useEffect(() => {
+    if (token && isAuthenticated) {
+      plots.forEach(plot => {
+        if (!plotData[plot.id]) {
+          fetchData(plot);
+        }
+      });
+    }
+  }, [plots, token, isAuthenticated]);
 
   const addPlot = (plot: Omit<Plot, 'id'>) => {
     setPlots([...plots, { ...plot, id: Date.now() }]);
@@ -91,21 +309,37 @@ export default function HistoryPage() {
   };
 
   const renderPlot = (plot: Plot) => {
+    if (isLoading[plot.id]) {
+      return <LoadingSpinner text="Cargando datos..." />;
+    }
+
+    const error = errors.find(e => e.plotId === plot.id);
+    if (error) {
+      return (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error.message}</Text>
+        </View>
+      );
+    }
+
+    const data = plotData[plot.id];
+    if (!data) return null;
+
     switch (plot.type) {
       case 'glucose':
         return (
           <GlucoseTrendsChart
-            data={mockGlucoseData}
+            data={data.glucose || []}
             timeRange={plot.timeRange}
           />
         );
       case 'daily_pattern':
-        return <DailyPatternChart data={mockDailyPatternData} />;
+        return <DailyPatternChart data={data.stats || []} />;
       case 'glucose_meals':
         return (
-          <GlucoseWithMealsChart
-            data={mockGlucoseData}
-            meals={mockEvents.filter((e) => e.type === 'meal')}
+          <GlucoseWithMealsChart 
+            data={data.glucose || []}
+            meals={Array.isArray(data.meals) ? data.meals : []}
             timeRange={plot.timeRange}
           />
         );
@@ -116,7 +350,15 @@ export default function HistoryPage() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView>
+      <ScrollView 
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            colors={['#4CAF50']}
+          />
+        }
+      >
         <View style={styles.header}>
           <View style={styles.titleContainer}>
             <TouchableOpacity
@@ -171,7 +413,7 @@ export default function HistoryPage() {
               </AccordionTrigger>
               <AccordionContent>
                 <View style={styles.card}>
-                  <EventList events={mockEvents} />
+                  <EventList events={events} />
                 </View>
               </AccordionContent>
             </AccordionItem>
@@ -288,5 +530,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333333', // --text-primary
     marginLeft: 8,
+  },
+  errorContainer: {
+    padding: 16,
+    backgroundColor: '#FEE2E2',
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  errorText: {
+    color: '#EF4444',
+    fontSize: 14,
+    textAlign: 'center',
   },
 });
