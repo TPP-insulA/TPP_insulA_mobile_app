@@ -3,6 +3,9 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, Imag
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "../hooks/use-auth";
+import { useBiometrics } from "../hooks/use-biometrics";
+import { BiometricEnrollModal } from "../components/biometric-enroll-modal";
+import { Fingerprint } from "lucide-react-native";
 
 type RootStackParamList = {
   Login: undefined;
@@ -17,8 +20,47 @@ export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [showBiometricsModal, setShowBiometricsModal] = useState(false);
+  const [justLoggedIn, setJustLoggedIn] = useState(false);
   const { login, isLoading, error: authError, isAuthenticated } = useAuth();
   const navigation = useNavigation<LoginScreenNavigationProp>();
+  
+  const { 
+    isBiometricsAvailable, 
+    biometricType, 
+    isBiometricsEnabled, 
+    authenticateWithBiometrics, 
+    saveBiometricsChoice,
+    hasUserBeenAskedForBiometrics
+  } = useBiometrics();
+  // Check if biometrics can be used on component mount
+  useEffect(() => {
+    const checkBiometrics = async () => {
+      // If biometrics is enabled, show the biometric auth prompt
+      if (isBiometricsAvailable && isBiometricsEnabled) {
+        handleBiometricAuth();
+      }
+    };
+
+    checkBiometrics();
+  }, [isBiometricsAvailable, isBiometricsEnabled]);
+  
+  // Check if we should show the biometrics enrollment modal after successful login
+  useEffect(() => {
+    const checkBiometricsEnrollment = async () => {
+      if (
+        justLoggedIn && // User just logged in
+        isAuthenticated && // Authentication was successful
+        isBiometricsAvailable && // Device has biometrics
+        !isBiometricsEnabled && // Biometrics not already enabled
+        !(await hasUserBeenAskedForBiometrics()) // User hasn't been asked before
+      ) {
+        setShowBiometricsModal(true);
+      }
+    };
+
+    checkBiometricsEnrollment();
+  }, [justLoggedIn, isAuthenticated]);
 
   // Update error message if authError changes
   useEffect(() => {
@@ -30,12 +72,23 @@ export default function LoginScreen() {
   // Handle navigation based on authentication state
   useEffect(() => {
     if (isAuthenticated) {
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Dashboard' }],
-      });
+      // Check if user just logged in and hasn't been asked about biometrics before
+      const checkBiometricsPrompt = async () => {
+        const hasBeenAskedBefore = await hasUserBeenAskedForBiometrics();
+        
+        if (justLoggedIn && !hasBeenAskedBefore && isBiometricsAvailable && !isBiometricsEnabled) {
+          setShowBiometricsModal(true);
+        } else {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Dashboard' }],
+          });
+        }
+      };
+      
+      checkBiometricsPrompt();
     }
-  }, [isAuthenticated, navigation]);
+  }, [isAuthenticated, justLoggedIn, isBiometricsAvailable, isBiometricsEnabled, navigation]);
 
   const handleSubmit = async () => {
     if (!email || !password) {
@@ -45,9 +98,42 @@ export default function LoginScreen() {
 
     try {
       await login(email, password);
+      setJustLoggedIn(true); // Mark as just logged in to potentially show biometrics prompt
     } catch (err) {
       // Error is handled by useAuth and displayed through the error state
     }
+  };
+  const handleBiometricAuth = async () => {
+    try {
+      const result = await authenticateWithBiometrics("Iniciar sesión en Insula");
+      
+      if (result.success && result.credentials) {
+        // If successfully authenticated with biometrics, log in with stored credentials
+        await login(result.credentials.email, result.credentials.password);
+      }
+    } catch (error) {
+      console.error("Biometric authentication error:", error);
+    }
+  };
+  const handleBiometricsAccept = async () => {
+    // Save email and password for biometric login
+    await saveBiometricsChoice(true, email, password);
+    setShowBiometricsModal(false);
+    
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Dashboard' }],
+    });
+  };
+
+  const handleBiometricsReject = async () => {
+    await saveBiometricsChoice(false);
+    setShowBiometricsModal(false);
+    
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Dashboard' }],
+    });
   };
 
   const handleDemoLogin = () => {
@@ -57,6 +143,13 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <BiometricEnrollModal
+        visible={showBiometricsModal}
+        biometricType={biometricType}
+        onAccept={handleBiometricsAccept}
+        onReject={handleBiometricsReject}
+      />
+      
       <View style={styles.content}>
         <View style={styles.logoContainer}>
           <Image
@@ -125,6 +218,19 @@ export default function LoginScreen() {
                   {isLoading ? "Ingresando..." : "Iniciar Sesión"}
                 </Text>
               </TouchableOpacity>
+
+              {isBiometricsAvailable && isBiometricsEnabled && (
+                <TouchableOpacity
+                  style={[styles.biometricButton]}
+                  onPress={handleBiometricAuth}
+                  disabled={isLoading}
+                >
+                  <Fingerprint size={18} color="#4CAF50" />
+                  <Text style={styles.biometricButtonText}>
+                    Usar {biometricType === 'FaceID' ? 'Face ID' : biometricType === 'TouchID' ? 'Touch ID' : 'Biometría'}
+                  </Text>
+                </TouchableOpacity>
+              )}
 
               <TouchableOpacity
                 style={[styles.demoButton]}
@@ -262,6 +368,23 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '500',
+  },
+  biometricButton: {
+    backgroundColor: 'transparent',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#4CAF50',
+  },
+  biometricButtonText: {
+    color: '#4CAF50',
+    fontSize: 16,
+    fontWeight: '500',
+    marginLeft: 8,
   },
   demoButton: {
     backgroundColor: 'transparent',

@@ -22,6 +22,7 @@ type RootStackParamList = {
   Meals: undefined;
   Insulin: undefined;
   Trends: undefined;
+  Notifications: undefined;
   // Add other screens here as needed
 };
 
@@ -228,15 +229,21 @@ export default function DashboardScreen() {
         <ScrollView style={styles.container}>
           <View style={styles.header}>
             <TouchableOpacity 
-              style={styles.settingsButton}
-              onPress={() => navigation.navigate('Settings')}
+              style={styles.notificationsButton}
+              onPress={() => navigation.navigate('Notifications')}
             >
-              <Settings width={20} height={20} color="#4b5563" />
+              <Feather name="bell" size={20} color="#4b5563" />
             </TouchableOpacity>
             <View style={styles.titleContainer}>
               <Activity width={32} height={32} color="#4CAF50" />
               <Text style={styles.title}>Indicadores</Text>
             </View>
+            <TouchableOpacity 
+              style={styles.settingsButton}
+              onPress={() => navigation.navigate('Settings')}
+            >
+              <Settings width={20} height={20} color="#4b5563" />
+            </TouchableOpacity>
           </View>
 
           <View style={styles.statusContainer}>
@@ -331,18 +338,22 @@ export default function DashboardScreen() {
                             height: `${height}%`,
                             backgroundColor: barColors.fill,
                             opacity: barColors.opacity
-                          }
+                          } as any
                         ]}>
-                          <Text style={[
-                            styles.barValue,
-                            { color: reading.value >= 70 && reading.value <= 140 ? '#4CAF50' : '#ef4444' }
-                          ]}>
-                            {reading.value}
+                          <View style={styles.barValueContainer}>
+                            <Text style={[
+                              styles.barValue,
+                              { color: reading.value >= 70 && reading.value <= 140 ? '#4CAF50' : '#ef4444' }
+                            ]}>
+                              {reading.value}
+                            </Text>
+                          </View>
+                        </View>
+                        <View style={styles.xAxisLabelContainer}>
+                          <Text style={styles.xAxisLabel}>
+                            {format(new Date(reading.timestamp), 'HH:mm')}
                           </Text>
                         </View>
-                        <Text style={styles.xAxisLabel}>
-                          {format(new Date(reading.timestamp), 'HH:mm')}
-                        </Text>
                       </View>
                     );
                   })}
@@ -444,9 +455,9 @@ export default function DashboardScreen() {
                     </View>
                     <View>
                       <Text style={styles.activityName}>
-                        {activity.type === 'glucose' && 'Lectura de glucosa'}
-                        {activity.type === 'meal' && activity.mealType}
-                        {activity.type === 'insulin' && 'Dosis de insulina'}
+                        {activity.type === 'glucose' ? 'Lectura de glucosa' : 
+                         activity.type === 'meal' ? activity.mealType || '' : 
+                         activity.type === 'insulin' ? 'Dosis de insulina' : ''}
                       </Text>
                       <Text style={styles.activityTime}>
                         {activity.timestamp 
@@ -456,14 +467,13 @@ export default function DashboardScreen() {
                       {activity.type === 'glucose' && activity.notes && (
                         <Text style={styles.activityNotes} numberOfLines={2}>
                           {activity.notes}
-                        </Text>
-                      )}
+                        </Text>                      )}
                     </View>
                   </View>
                   <Text style={styles.activityValue}>
-                    {activity.type === 'glucose' && `${activity.value} mg/dL`}
-                    {activity.type === 'meal' && `${activity.carbs}g carbohidratos`}
-                    {activity.type === 'insulin' && `${activity.units} unidades`}
+                    {activity.type === 'glucose' ? `${activity.value} mg/dL` :
+                     activity.type === 'meal' ? `${activity.carbs}g carbohidratos` :
+                     activity.type === 'insulin' ? `${activity.units} unidades` : ''}
                   </Text>
                 </View>
               ))}
@@ -544,10 +554,12 @@ export default function DashboardScreen() {
                       placeholderTextColor="#9ca3af"
                     />
                   </View>
-                  <Text style={styles.helperText}>
-                    <AlertCircle width={12} height={12} color="#6b7280" /> 
-                    Las notas te ayudarán a recordar el contexto de esta lectura
-                  </Text>
+                  <View style={[styles.helperText, { flexDirection: 'row', alignItems: 'center' }]}>
+                    <AlertCircle width={12} height={12} color="#6b7280" />
+                    <Text style={{ marginLeft: 4, fontSize: 12, color: '#6b7280' }}>
+                      Las notas te ayudarán a recordar el contexto de esta lectura
+                    </Text>
+                  </View>
                 </View>
 
                 <View style={styles.modalFooter}>
@@ -609,13 +621,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
     padding: 16,
-  },
-  header: {
+  },  header: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 24,
     position: 'relative',
     paddingTop: 30,
+    minHeight: 40, // Ensure consistent height for alignment
   },
   titleContainer: {
     flexDirection: 'row',
@@ -628,6 +640,12 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#111827',
+  },  notificationsButton: {
+    padding: 8,
+    borderRadius: 20,
+    position: 'absolute',
+    left: 0,
+    zIndex: 1,
   },
   settingsButton: {
     padding: 8,
@@ -635,8 +653,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 0,
     zIndex: 1,
-    alignSelf: 'center',
-    marginTop: 8,  // Add margin to lower the button
   },
   statusContainer: {
     flexDirection: 'row',
@@ -814,23 +830,29 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     position: 'relative',
   },
-  barValue: {
+  barValueContainer: {
     position: 'absolute',
     top: -20,
-    width: 40,
-    textAlign: 'center',
     left: -12,
+    width: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  barValue: {
     fontSize: 11,
     fontWeight: '500',
+    textAlign: 'center',
   },
-  xAxisLabel: {
+  xAxisLabelContainer: {
     position: 'absolute',
     bottom: -22,
+    left: -12,
+    width: 40,
+    alignItems: 'center',
+  },
+  xAxisLabel: {
     fontSize: 11,
     color: '#6b7280',
-    width: 40,
-    textAlign: 'center',
-    left: -12,
   },
   statsGrid: {
     flexDirection: 'row',

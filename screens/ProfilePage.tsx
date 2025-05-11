@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
-import { Settings, User, Bell, ChevronRight, LogOut } from 'lucide-react-native';
+import { Settings, User, Bell, ChevronRight, LogOut, ClipboardList, Stethoscope } from 'lucide-react-native';
 import { Footer } from "../components/footer";
 import { ProfilePhoto } from '../components/profile-photo';
 import { useNavigation } from '@react-navigation/native';
 import { NavigationProp } from '@react-navigation/native';
 import { useAuth } from '../hooks/use-auth';
-import { getUserProfile, updateProfileImage, ProfileResponse } from '../lib/api/auth';
+import { getUserProfile, updateProfileImage, ProfileResponse, API_URL } from '../lib/api/auth';
 import { LoadingSpinner } from '../components/loading-spinner';
 
 type RootStackParamList = {
@@ -16,10 +16,9 @@ type RootStackParamList = {
   Notifications: undefined;
 };
 
-export default function ProfilePage() {
-    const [profileImage, setProfileImage] = useState<string | null>(null);
-    const [profileData, setProfileData] = useState<ProfileResponse | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+export default function ProfilePage() {    const [profileImage, setProfileImage] = useState<string | null>(null);
+    const [profileData, setProfileData] = useState<ProfileResponse | null>(null);    const [isLoading, setIsLoading] = useState(true);
+    // Removed unused showDropdown state
     const navigation = useNavigation<NavigationProp<RootStackParamList>>();
     const { token, logout } = useAuth();
 
@@ -34,8 +33,8 @@ export default function ProfilePage() {
             setIsLoading(true);
             const data = await getUserProfile(token);
             setProfileData(data);
-            if (data.imageUrl) {
-                setProfileImage(data.imageUrl);
+            if (data.profileImage) {
+                setProfileImage(data.profileImage);
             }
         } catch (error) {
             console.error('Error fetching profile:', error);
@@ -48,11 +47,23 @@ export default function ProfilePage() {
     const handleImageChange = async (newImageUrl: string) => {
         if (!token) return;
         
+        console.log('Starting profile image update process...', { newImageUrl });
         try {
+            // newImageUrl is already a base64 data URI from the image picker
+            console.log('Sending profile image update request...');
             await updateProfileImage(newImageUrl, token);
+            console.log('Profile update successful');
+            
             setProfileImage(newImageUrl);
+            console.log('Local state updated with new image');
         } catch (error) {
-            console.error('Error updating profile image:', error);
+            console.error('Error in handleImageChange:', error);
+            if (error instanceof Error) {
+                console.error('Error details:', {
+                    message: error.message,
+                    stack: error.stack
+                });
+            }
             Alert.alert('Error', 'No se pudo actualizar la imagen de perfil');
         }
     };
@@ -73,27 +84,40 @@ export default function ProfilePage() {
                 <LoadingSpinner color="#4CAF50" text="Cargando perfil..." />
             </SafeAreaView>
         );
-    }
-
-    return (
+    }    return (
         <SafeAreaView style={styles.container}>
-            <ScrollView>
+            <ScrollView contentContainerStyle={styles.scrollContent}>
                 <View style={styles.content}>
                     <View style={styles.profileSection}>
-                        <ProfilePhoto 
-                            imageUri={profileImage} 
-                            onImageChange={handleImageChange}
-                        />
+                        <View>
+                            <ProfilePhoto 
+                                imageUri={profileImage} 
+                                onImageChange={handleImageChange}
+                            />
+                        </View>
                         <View style={styles.profileInfo}>
                             <Text style={styles.name}>
                                 {profileData ? `${profileData.firstName} ${profileData.lastName}` : 'Usuario'}
                             </Text>
-                            <Text style={styles.email}>{profileData?.email}</Text>
+                            <Text style={styles.email}>
+                                {profileData?.email || ''}
+                            </Text>
+                            <TouchableOpacity 
+                                style={styles.logoutButton}
+                                onPress={handleLogout}
+                            >
+                                <LogOut size={20} color="#dc2626" />
+                                <Text style={styles.logoutButtonText}>
+                                    Cerrar Sesión
+                                </Text>
+                            </TouchableOpacity>
                         </View>
                     </View>
-
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Información Personal</Text>
+                        <View style={styles.sectionHeader}>
+                            <ClipboardList size={24} color="#4b5563" />
+                            <Text style={styles.sectionTitle}>Información Personal</Text>
+                        </View>
                         <View style={styles.card}>
                             <TouchableOpacity 
                                 style={styles.menuItem}
@@ -129,9 +153,11 @@ export default function ProfilePage() {
                             </TouchableOpacity>
                         </View>
                     </View>
-
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Datos Médicos</Text>
+                        <View style={styles.sectionHeader}>
+                            <Stethoscope size={24} color="#4b5563" />
+                            <Text style={styles.sectionTitle}>Datos Médicos</Text>
+                        </View>
                         <View style={styles.card}>
                             <View style={styles.infoRow}>
                                 <Text style={styles.infoLabel}>Tipo de Diabetes</Text>
@@ -140,12 +166,18 @@ export default function ProfilePage() {
                                 </Text>
                             </View>
                             <View style={styles.infoRow}>
-                              <Text style={styles.infoLabel}>Fecha de Diagnóstico</Text>
-                              <Text style={styles.infoValue}>
-                                {profileData?.medicalInfo?.diagnosisDate 
-                                  ? new Date(profileData.medicalInfo.diagnosisDate).toLocaleDateString('es-ES')
-                                  : '-'}
-                              </Text>
+                                <Text style={styles.infoLabel}>
+                                    Fecha de Diagnóstico
+                                </Text>
+                                <Text style={styles.infoValue}>
+                                    {profileData?.medicalInfo?.diagnosisDate 
+                                        ? new Date(profileData.medicalInfo.diagnosisDate).toLocaleDateString('es-ES', {
+                                            year: 'numeric',
+                                            month: 'long',
+                                            day: 'numeric'
+                                        })
+                                        : '-'}
+                                </Text>
                             </View>
                             <View style={styles.infoRow}>
                                 <Text style={styles.infoLabel}>Médico Tratante</Text>
@@ -155,14 +187,6 @@ export default function ProfilePage() {
                             </View>
                         </View>
                     </View>
-
-                    <TouchableOpacity 
-                        style={styles.logoutButton}
-                        onPress={handleLogout}
-                    >
-                        <LogOut size={20} color="#dc2626" />
-                        <Text style={styles.logoutText}>Cerrar Sesión</Text>
-                    </TouchableOpacity>
                 </View>
             </ScrollView>
             <Footer />
@@ -170,16 +194,16 @@ export default function ProfilePage() {
     );
 }
 
+// Clean up unnecessary showDropdown state since we're not using dropdown anymore
+ProfilePage.displayName = 'ProfilePage';
+
 const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#f4f4f5',
     },
-    header: {
-        padding: 16,
-        backgroundColor: 'white',
-        borderBottomWidth: 1,
-        borderBottomColor: '#e5e7eb',
+    scrollContent: {
+        flexGrow: 1,
     },
     title: {
         fontSize: 20,
@@ -189,11 +213,26 @@ const styles = StyleSheet.create({
     content: {
         padding: 16,
         gap: 24,
-    },
-    profileSection: {
-        marginTop:25,
+    },    profileSection: {
+        marginTop: 45,
         alignItems: 'center',
         marginBottom: 24,
+        width: '100%',
+    },
+    logoutButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#fef2f2',
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        gap: 8,
+        marginTop: 16,
+    },
+    logoutButtonText: {
+        color: '#dc2626',
+        fontSize: 14,
+        fontWeight: '500',
     },
     avatar: {
         width: 100,
@@ -212,15 +251,23 @@ const styles = StyleSheet.create({
     },
     email: {
         fontSize: 16,
-        color: '#6b7280',
-    },
+        color: '#6b7280',    },
     section: {
         gap: 16,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        marginBottom: 8,
+        width: '100%',
     },
     sectionTitle: {
         fontSize: 18,
         fontWeight: '600',
         color: '#111827',
+        textAlign: 'center',
     },
     card: {
         backgroundColor: 'white',
@@ -262,26 +309,11 @@ const styles = StyleSheet.create({
     },
     infoLabel: {
         fontSize: 16,
-        color: '#6b7280',
-    },
+        color: '#6b7280',    },
     infoValue: {
         fontSize: 16,
         fontWeight: '500',
         color: '#111827',
-    },
-    logoutButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 16,
-        backgroundColor: '#fee2e2',
-        borderRadius: 8,
-        gap: 8,
-    },
-    logoutText: {
-        color: '#dc2626',
-        fontSize: 16,
-        fontWeight: '500',
     },
     loadingContainer: {
         flex: 1,

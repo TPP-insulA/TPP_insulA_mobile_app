@@ -8,8 +8,7 @@ interface ProfilePhotoProps {
     onImageChange: (uri: string) => void;
 }
 
-export function ProfilePhoto({ imageUri, onImageChange }: ProfilePhotoProps) {
-    const pickImage = async () => {
+export function ProfilePhoto({ imageUri, onImageChange }: ProfilePhotoProps) {    const pickImage = async () => {
         try {
             // Request permissions
             const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -18,17 +17,17 @@ export function ProfilePhoto({ imageUri, onImageChange }: ProfilePhotoProps) {
                 return;
             }
 
-            // Launch image picker
+            // Launch image picker with optimized settings for profile photos
             const result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
                 allowsEditing: true,
                 aspect: [1, 1],
-                quality: 0.8,
+                quality: 0.5, // Reduced quality for smaller file size
+                base64: false,
+                exif: false,
             });
 
             if (!result.canceled && result.assets[0].uri) {
-                // Here you would typically upload the image to your server first
-                // For now, we'll just pass the local URI
                 onImageChange(result.assets[0].uri);
             }
         } catch (error) {

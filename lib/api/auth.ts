@@ -50,7 +50,7 @@ export interface MedicalInfo {
 
 export interface ProfileResponse extends UserResponse {
   medicalInfo: MedicalInfo;
-  imageUrl?: string;
+  profileImage?: string;
 }
 
 export interface UpdateProfileInput {
@@ -175,7 +175,7 @@ export const updateProfileImage = async (imageUrl: string, token: string): Promi
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
     },
-    body: JSON.stringify({ imageUrl }),
+    body: JSON.stringify({ profileImage: imageUrl }),
   });
 
   const data = await response.json();

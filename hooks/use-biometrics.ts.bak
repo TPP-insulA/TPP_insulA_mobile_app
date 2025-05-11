@@ -1,0 +1,164 @@
+import { useEffect, useState } from 'react';
+import ReactNativeBiometrics, { BiometryTypes } from 'react-native-biometrics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { 
+  saveCredentialsForBiometrics,
+  removeCredentialsForBiometrics, 
+  getCredentialsForBiometrics
+} from '../lib/secure-storage';
+
+type BiometricType = 'TouchID' | 'FaceID' | 'Biometrics' | null;
+
+interface UseBiometricsReturn {
+  isBiometricsAvailable: boolean;
+  biometricType: BiometricType;
+  isBiometricsEnabled: boolean;
+  isEnrollingBiometrics: boolean;
+  enableBiometrics: (email: string, password: string) => Promise<boolean>;
+  disableBiometrics: () => Promise<void>;
+  authenticateWithBiometrics: (promptMessage: string) => Promise<{ success: boolean, credentials?: { email: string, password: string } }>;
+  showBiometricPrompt: (promptMessage: string) => Promise<boolean>;
+  saveBiometricsChoice: (shouldEnable: boolean, email?: string, password?: string) => Promise<void>;
+  hasUserBeenAskedForBiometrics: () => Promise<boolean>;
+}
+
+export const useBiometrics = (): UseBiometricsReturn => {
+  const [isBiometricsAvailable, setIsBiometricsAvailable] = useState<boolean>(false);
+  const [biometricType, setBiometricType] = useState<BiometricType>(null);
+  const [isBiometricsEnabled, setIsBiometricsEnabled] = useState<boolean>(false);
+  const [isEnrollingBiometrics, setIsEnrollingBiometrics] = useState<boolean>(false);
+
+  const rnBiometrics = new ReactNativeBiometrics();
+
+  useEffect(() => {
+    const checkBiometrics = async () => {
+      try {
+        // Check if biometrics is available on the device
+        const { available, biometryType } = await rnBiometrics.isSensorAvailable();
+        
+        setIsBiometricsAvailable(available);
+        
+        if (available) {
+          switch (biometryType) {
+            case BiometryTypes.TouchID:
+              setBiometricType('TouchID');
+              break;
+            case BiometryTypes.FaceID:
+              setBiometricType('FaceID');
+              break;
+            case BiometryTypes.Biometrics:
+              setBiometricType('Biometrics');
+              break;
+            default:
+              setBiometricType(null);
+          }
+        }
+
+        // Check if user has enabled biometrics for this app
+        const isEnabled = await AsyncStorage.getItem('biometricsEnabled');
+        setIsBiometricsEnabled(isEnabled === 'true');
+      } catch (error) {
+        console.error('Error checking biometrics:', error);
+      }
+    };
+
+    checkBiometrics();
+  }, []);
+
+  const enableBiometrics = async (): Promise<boolean> => {
+    try {
+      setIsEnrollingBiometrics(true);
+      
+      // Create a new key pair for biometric authentication
+      const { publicKey } = await rnBiometrics.createKeys();
+      
+      if (publicKey) {
+        // Store biometrics enabled flag
+        await AsyncStorage.setItem('biometricsEnabled', 'true');
+        setIsBiometricsEnabled(true);
+        setIsEnrollingBiometrics(false);
+        return true;
+      }
+      
+      setIsEnrollingBiometrics(false);
+      return false;
+    } catch (error) {
+      console.error('Error enabling biometrics:', error);
+      setIsEnrollingBiometrics(false);
+      return false;
+    }
+  };
+
+  const disableBiometrics = async (): Promise<void> => {
+    try {
+      await rnBiometrics.deleteKeys();
+      await AsyncStorage.removeItem('biometricsEnabled');
+      setIsBiometricsEnabled(false);
+    } catch (error) {
+      console.error('Error disabling biometrics:', error);
+    }
+  };
+
+  const authenticateWithBiometrics = async (promptMessage: string): Promise<boolean> => {
+    if (!isBiometricsAvailable || !isBiometricsEnabled) {
+      return false;
+    }
+
+    try {
+      // Sign the challenge with biometrics
+      const { success } = await rnBiometrics.simplePrompt({
+        promptMessage,
+        cancelButtonText: 'Cancelar',
+      });
+
+      return success;
+    } catch (error) {
+      console.error('Error authenticating with biometrics:', error);
+      return false;
+    }
+  };
+
+  const showBiometricPrompt = async (promptMessage: string): Promise<boolean> => {
+    if (!isBiometricsAvailable) {
+      return false;
+    }
+
+    try {
+      const { success } = await rnBiometrics.simplePrompt({
+        promptMessage,
+        cancelButtonText: 'Cancelar',
+      });
+
+      return success;
+    } catch (error) {
+      console.error('Error showing biometric prompt:', error);
+      return false;
+    }
+  };
+
+  const saveBiometricsChoice = async (shouldEnable: boolean): Promise<void> => {
+    await AsyncStorage.setItem('userAskedForBiometrics', 'true');
+    
+    if (shouldEnable) {
+      await enableBiometrics();
+    }
+  };
+
+  const hasUserBeenAskedForBiometrics = async (): Promise<boolean> => {
+    const userAsked = await AsyncStorage.getItem('userAskedForBiometrics');
+    return userAsked === 'true';
+  };
+
+  return {
+    isBiometricsAvailable,
+    biometricType,
+    isBiometricsEnabled,
+    isEnrollingBiometrics,
+    enableBiometrics,
+    disableBiometrics,
+    authenticateWithBiometrics,
+    showBiometricPrompt,
+    saveBiometricsChoice,
+    hasUserBeenAskedForBiometrics,
+  };
+};
