@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, Image as RNImage, ScrollView } from "react-native";
 import * as Form from "react-hook-form";
 import * as ImagePicker from 'expo-image-picker';
-import { Camera, Image as GalleryIcon, Plus, Trash2 } from 'lucide-react-native';
+import { Camera, Image as GalleryIcon, Plus, Trash2, UtensilsCrossed, ScrollText, Scale, Banana, Cookie, GanttChart, CalendarClock, Pizza } from 'lucide-react-native';
 import tw from '../styles/theme';
 import { CreateMealInput, FoodItem, processFoodName, Meal } from '../lib/api/meals';
 import { useToast } from '../hooks/use-toast';
@@ -38,6 +38,7 @@ type ControlledInputProps = {
   keyboardType?: "default" | "numeric";
   multiline?: boolean;
   required?: boolean;
+  icon?: React.ReactNode;
 }
 
 const ControlledInput = ({ 
@@ -48,17 +49,21 @@ const ControlledInput = ({
   placeholder = "", 
   keyboardType = "default",
   multiline = false,
-  required = true
+  required = true,
+  icon
 }: ControlledInputProps) => (
   <View style={tw`mb-4`}>
-    <Text style={tw`text-sm font-medium mb-2 text-text-primary`}>{label}</Text>
+    <View style={tw`flex-row items-center mb-2`}>
+      {icon && <View style={tw`mr-2`}>{icon}</View>}
+      <Text style={tw`text-sm font-medium text-text-primary`}>{label}</Text>
+    </View>
     <Form.Controller
       control={control}
       name={name}
       rules={{ required: required ? "Este campo es requerido" : false }}
       render={({ field: { onChange, onBlur, value } }) => (
         <TextInput
-          style={tw`border border-gray-300 rounded-lg p-2.5 text-base`}
+          style={tw`border border-gray-300 rounded-lg p-2.5 text-base bg-white`}
           onChangeText={onChange}
           onBlur={onBlur}
           value={value}
@@ -77,13 +82,38 @@ type MealTypeOption = {
   label: string;
   bgColor: string;
   textColor: string;
+  icon: React.ReactNode;
 };
 
 const mealTypeOptions: MealTypeOption[] = [
-  { value: 'breakfast', label: 'Desayuno', bgColor: '#fef3c7', textColor: '#92400e' },
-  { value: 'lunch', label: 'Almuerzo', bgColor: '#fee2e2', textColor: '#991b1b' },
-  { value: 'snack', label: 'Merienda', bgColor: '#dcfce7', textColor: '#166534' },
-  { value: 'dinner', label: 'Cena', bgColor: '#dbeafe', textColor: '#1e40af' },
+  { 
+    value: 'breakfast', 
+    label: 'Desayuno', 
+    bgColor: '#fef3c7', 
+    textColor: '#92400e',
+    icon: <Cookie width={18} height={18} color="#92400e" />
+  },
+  { 
+    value: 'lunch', 
+    label: 'Almuerzo', 
+    bgColor: '#fee2e2', 
+    textColor: '#991b1b',
+    icon: <UtensilsCrossed width={18} height={18} color="#991b1b" />
+  },
+  { 
+    value: 'snack', 
+    label: 'Merienda', 
+    bgColor: '#dcfce7', 
+    textColor: '#166534',
+    icon: <Banana width={18} height={18} color="#166534" />
+  },
+  { 
+    value: 'dinner', 
+    label: 'Cena', 
+    bgColor: '#dbeafe', 
+    textColor: '#1e40af',
+    icon: <Pizza width={18} height={18} color="#1e40af" />
+  },
 ];
 
 export function FoodEntryForm({ onSubmit, onCancel, initialData }: FoodEntryFormProps) {
@@ -91,6 +121,42 @@ export function FoodEntryForm({ onSubmit, onCancel, initialData }: FoodEntryForm
   const [currentFoodIndex, setCurrentFoodIndex] = useState(0);
   const [photo, setPhoto] = useState<string | null>(initialData?.photo || null);
   const { toast } = useToast();
+
+  const {
+    control,
+    handleSubmit,
+    setValue,
+    watch,
+    reset,
+    formState: { errors },
+  } = Form.useForm<FormData>({
+    defaultValues: {
+      name: initialData?.name || "",
+      type: initialData?.type || "lunch",
+      foods: initialData?.foods?.map(food => ({
+        name: food.name,
+        description: food.description || "",
+        carbs: food.carbs.toString(),
+        protein: food.protein.toString(),
+        fat: food.fat.toString(),
+        calories: food.calories.toString(),
+        servingSize: food.servingSize?.toString() || "100",
+        quantity: food.quantity?.toString() || "1",
+      })) || [{
+        name: "",
+        description: "",
+        carbs: "",
+        protein: "",
+        fat: "",
+        calories: "",
+        servingSize: "100",
+        quantity: "1",
+      }],
+    }
+  });
+
+  const foods = watch('foods');
+  const selectedType = watch('type');
 
   const pickImage = async () => {
     try {
@@ -101,14 +167,14 @@ export function FoodEntryForm({ onSubmit, onCancel, initialData }: FoodEntryForm
         quality: 0.5,
       });
 
-      if (!result.canceled) {
+      if (!result.canceled && result.assets && result.assets.length > 0) {
         setPhoto(result.assets[0].uri);
       }
     } catch (error) {
       console.error('Error picking image:', error);
       toast({
         title: 'Error',
-        description: 'No se pudo seleccionar la imagen',
+        description: 'No se pudo cargar la imagen',
         variant: 'destructive',
       });
     }
@@ -132,7 +198,7 @@ export function FoodEntryForm({ onSubmit, onCancel, initialData }: FoodEntryForm
         quality: 0.5,
       });
 
-      if (!result.canceled) {
+      if (!result.canceled && result.assets && result.assets.length > 0) {
         setPhoto(result.assets[0].uri);
       }
     } catch (error) {
@@ -144,40 +210,6 @@ export function FoodEntryForm({ onSubmit, onCancel, initialData }: FoodEntryForm
       });
     }
   };
-
-  const { control, handleSubmit, formState: { errors }, watch, setValue, reset } = Form.useForm<FormData>({
-    defaultValues: initialData ? {
-      name: initialData.name,
-      type: initialData.type,
-      foods: initialData.foods.map((food: FoodItem) => ({
-        name: food.name,
-        description: food.description || "",
-        carbs: food.carbs.toString(),
-        protein: food.protein.toString(),
-        fat: food.fat.toString(),
-        calories: food.calories.toString(),
-        servingSize: food.servingSize.toString(),
-        quantity: food.quantity.toString(),
-        photo: food.photo
-      }))
-    } : {
-      name: "",
-      type: "lunch",
-      foods: [{
-        name: "",
-        description: "",
-        carbs: "",
-        protein: "",
-        fat: "",
-        calories: "",
-        servingSize: "100",  // Default serving size
-        quantity: "100",     // Default quantity
-      }]
-    },
-  });
-
-  const foods = watch('foods');
-  const selectedType = watch('type');
 
   const handleProcessFood = async (index: number) => {
     const description = foods[index].description;
@@ -295,16 +327,19 @@ export function FoodEntryForm({ onSubmit, onCancel, initialData }: FoodEntryForm
     }
   };
 
-  return (
-    <ScrollView style={tw`bg-white`}>
-      <View style={tw`p-6`}>
-        <Text style={tw`text-xl font-bold mb-6 text-center text-text-primary`}>
+  return (    <ScrollView style={tw`bg-white`}>
+      <View style={tw`bg-apple-green px-6 py-4 mb-6 shadow-md`}>
+        <Text style={tw`text-2xl font-bold text-center text-white`}>
           {initialData ? 'Editar Comida' : 'Agregar Comida'}
         </Text>
-
+      </View>
+      <View style={tw`px-6`}>
         {/* Photo Section */}
         <View style={tw`mb-6`}>
-          <Text style={tw`text-sm font-medium mb-2 text-text-primary`}>Foto</Text>
+          <View style={tw`flex-row items-center mb-2`}>
+            <GalleryIcon size={18} color="#666666" style={tw`mr-2`} />
+            <Text style={tw`text-sm font-medium text-text-primary`}>Foto</Text>
+          </View>
           {photo ? (
             <View style={tw`items-center`}>
               <RNImage 
@@ -313,9 +348,10 @@ export function FoodEntryForm({ onSubmit, onCancel, initialData }: FoodEntryForm
                 resizeMode="cover"
               />
               <TouchableOpacity
-                style={tw`bg-red-100 py-2 px-4 rounded-lg`}
+                style={tw`bg-red-100 py-2 px-4 rounded-lg flex-row items-center`}
                 onPress={() => setPhoto(null)}
               >
+                <Trash2 size={18} color="#dc2626" style={tw`mr-2`} />
                 <Text style={tw`text-red-600`}>Eliminar foto</Text>
               </TouchableOpacity>
             </View>
@@ -345,27 +381,33 @@ export function FoodEntryForm({ onSubmit, onCancel, initialData }: FoodEntryForm
           label="Nombre de la Comida"
           error={errors.name}
           placeholder="Ej: Almuerzo del mediodía"
+          icon={<UtensilsCrossed size={18} color="#666666" />}
         />
 
         <View style={tw`mb-6`}>
-          <Text style={tw`text-sm font-medium mb-2 text-text-primary`}>Tipo de Comida</Text>
+          <View style={tw`flex-row items-center mb-2`}>
+            <CalendarClock size={18} color="#666666" style={tw`mr-2`} />
+            <Text style={tw`text-sm font-medium text-text-primary`}>Tipo de Comida</Text>
+          </View>
           <View style={tw`flex-row flex-wrap gap-2`}>
             {mealTypeOptions.map((option) => (
               <TouchableOpacity
                 key={option.value}
-                style={tw`${
-                  selectedType === option.value
-                    ? `bg-[${option.bgColor}] border-[${option.textColor}]`
-                    : 'bg-gray-100 border-gray-300'
-                } border rounded-full px-4 py-2`}
+                style={[
+                  tw`flex-row items-center border rounded-full px-4 py-2`,
+                  { 
+                    backgroundColor: selectedType === option.value ? option.bgColor : '#f3f4f6',
+                    borderColor: selectedType === option.value ? option.textColor : '#e5e7eb'
+                  }
+                ]}
                 onPress={() => setValue('type', option.value)}
               >
+                {option.icon}
                 <Text
-                  style={tw`${
-                    selectedType === option.value
-                      ? `text-[${option.textColor}]`
-                      : 'text-gray-600'
-                  } text-sm font-medium`}
+                  style={[
+                    tw`text-sm font-medium ml-2`,
+                    { color: selectedType === option.value ? option.textColor : '#666666' }
+                  ]}
                 >
                   {option.label}
                 </Text>
@@ -374,225 +416,144 @@ export function FoodEntryForm({ onSubmit, onCancel, initialData }: FoodEntryForm
           </View>
         </View>
 
-        <View style={tw`mb-6`}>
-          <View style={tw`flex-row justify-between items-center mb-4`}>
-            <Text style={tw`text-lg font-semibold text-text-primary`}>Alimentos</Text>
-            <TouchableOpacity
-              style={tw`flex-row items-center bg-apple-green py-2 px-3 rounded-lg`}
-              onPress={addFood}
-            >
-              <Plus size={20} color="white" />
-              <Text style={tw`text-white text-sm font-medium ml-1`}>Agregar</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={tw`gap-4`}>
-            {foods.map((food, index) => (
-              <View key={index} style={tw`bg-gray-50 rounded-lg p-4`}>
-                <View style={tw`flex-row justify-between items-center mb-2`}>
-                  <Text style={tw`text-base font-medium text-text-primary`}>
-                    Alimento {index + 1}
-                  </Text>
-                  {foods.length > 1 && (
-                    <TouchableOpacity
-                      onPress={() => removeFood(index)}
-                      style={tw`p-2`}
-                    >
-                      <Trash2 size={20} color="#ef4444" />
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                <Form.Controller
-                  control={control}
-                  name={`foods.${index}.description`}
-                  render={({ field: { onChange, value } }) => (
-                    <View style={tw`mb-4`}>
-                      <Text style={tw`text-sm font-medium mb-2 text-text-primary`}>Descripción</Text>
-                      <TextInput
-                        style={tw`border border-gray-300 rounded-lg p-2.5 text-base`}
-                        value={value}
-                        onChangeText={onChange}
-                        placeholder="Ej: 200gr de pollo grillado"
-                        multiline
-                      />
-                    </View>
-                  )}
-                />
-
-                <TouchableOpacity 
-                  style={tw`${foods[index].description ? 'bg-apple-green' : 'bg-gray-300'} py-2.5 px-5 rounded-lg items-center mb-4`}
-                  onPress={() => handleProcessFood(index)}
-                  disabled={!foods[index].description || isProcessing}
-                >
-                  <Text style={tw`text-base font-medium text-white`}>
-                    {isProcessing ? 'Procesando...' : 'Completar nutrición'}
-                  </Text>
-                </TouchableOpacity>
-
-                <Form.Controller
-                  control={control}
-                  name={`foods.${index}.name`}
-                  rules={{ required: "El nombre es requerido" }}
-                  render={({ field: { onChange, value } }) => (
-                    <View style={tw`mb-4`}>
-                      <Text style={tw`text-sm font-medium mb-2 text-text-primary`}>Nombre</Text>
-                      <TextInput
-                        style={tw`border border-gray-300 rounded-lg p-2.5 text-base`}
-                        value={value}
-                        onChangeText={onChange}
-                        placeholder="Nombre del alimento"
-                      />
-                    </View>
-                  )}
-                />
-
-                <View style={tw`flex-row flex-wrap justify-between`}>
-                  <View style={tw`w-[48%]`}>
-                    <Form.Controller
-                      control={control}
-                      name={`foods.${index}.carbs`}
-                      rules={{ required: "Los carbohidratos son requeridos" }}
-                      render={({ field: { onChange, value } }) => (
-                        <View style={tw`mb-4`}>
-                          <Text style={tw`text-sm font-medium mb-2 text-text-primary`}>Carbohidratos (g)</Text>
-                          <TextInput
-                            style={tw`border border-gray-300 rounded-lg p-2.5 text-base`}
-                            value={value}
-                            onChangeText={onChange}
-                            placeholder="0"
-                            keyboardType="numeric"
-                          />
-                        </View>
-                      )}
-                    />
-                  </View>
-
-                  <View style={tw`w-[48%]`}>
-                    <Form.Controller
-                      control={control}
-                      name={`foods.${index}.protein`}
-                      rules={{ required: "Las proteínas son requeridas" }}
-                      render={({ field: { onChange, value } }) => (
-                        <View style={tw`mb-4`}>
-                          <Text style={tw`text-sm font-medium mb-2 text-text-primary`}>Proteínas (g)</Text>
-                          <TextInput
-                            style={tw`border border-gray-300 rounded-lg p-2.5 text-base`}
-                            value={value}
-                            onChangeText={onChange}
-                            placeholder="0"
-                            keyboardType="numeric"
-                          />
-                        </View>
-                      )}
-                    />
-                  </View>
-
-                  <View style={tw`w-[48%]`}>
-                    <Form.Controller
-                      control={control}
-                      name={`foods.${index}.fat`}
-                      rules={{ required: "Las grasas son requeridas" }}
-                      render={({ field: { onChange, value } }) => (
-                        <View style={tw`mb-4`}>
-                          <Text style={tw`text-sm font-medium mb-2 text-text-primary`}>Grasas (g)</Text>
-                          <TextInput
-                            style={tw`border border-gray-300 rounded-lg p-2.5 text-base`}
-                            value={value}
-                            onChangeText={onChange}
-                            placeholder="0"
-                            keyboardType="numeric"
-                          />
-                        </View>
-                      )}
-                    />
-                  </View>
-
-                  <View style={tw`w-[48%]`}>
-                    <Form.Controller
-                      control={control}
-                      name={`foods.${index}.calories`}
-                      rules={{ required: "Las calorías son requeridas" }}
-                      render={({ field: { onChange, value } }) => (
-                        <View style={tw`mb-4`}>
-                          <Text style={tw`text-sm font-medium mb-2 text-text-primary`}>Calorías</Text>
-                          <TextInput
-                            style={tw`border border-gray-300 rounded-lg p-2.5 text-base`}
-                            value={value}
-                            onChangeText={onChange}
-                            placeholder="0"
-                            keyboardType="numeric"
-                          />
-                        </View>
-                      )}
-                    />
-                  </View>
-
-                  <View style={tw`w-[48%]`}>
-                    <Form.Controller
-                      control={control}
-                      name={`foods.${index}.servingSize`}
-                      rules={{ required: "El tamaño de porción es requerido" }}
-                      render={({ field: { onChange, value } }) => (
-                        <View style={tw`mb-4`}>
-                          <Text style={tw`text-sm font-medium mb-2 text-text-primary`}>Porción (g)</Text>
-                          <TextInput
-                            style={tw`border border-gray-300 rounded-lg p-2.5 text-base`}
-                            value={value}
-                            onChangeText={onChange}
-                            placeholder="100"
-                            keyboardType="numeric"
-                          />
-                        </View>
-                      )}
-                    />
-                  </View>
-
-                  <View style={tw`w-[48%]`}>
-                    <Form.Controller
-                      control={control}
-                      name={`foods.${index}.quantity`}
-                      rules={{ required: "La cantidad es requerida" }}
-                      render={({ field: { onChange, value } }) => (
-                        <View style={tw`mb-4`}>
-                          <Text style={tw`text-sm font-medium mb-2 text-text-primary`}>Cantidad (g)</Text>
-                          <TextInput
-                            style={tw`border border-gray-300 rounded-lg p-2.5 text-base`}
-                            value={value}
-                            onChangeText={onChange}
-                            placeholder="100"
-                            keyboardType="numeric"
-                          />
-                        </View>
-                      )}
-                    />
-                  </View>
-                </View>
+        {/* Foods Section */}
+        {foods.map((food, index) => (
+          <View key={index} style={tw`mb-6 bg-gray-50 p-4 rounded-lg`}>
+            <View style={tw`flex-row justify-between items-center mb-4`}>
+              <View style={tw`flex-row items-center`}>
+                <Pizza size={18} color="#666666" style={tw`mr-2`} />
+                <Text style={tw`text-lg font-semibold text-text-primary`}>Alimento {index + 1}</Text>
               </View>
-            ))}
-          </View>
-        </View>
+              {foods.length > 1 && (
+                <TouchableOpacity
+                  style={tw`bg-red-100 p-2 rounded-full`}
+                  onPress={() => removeFood(index)}
+                >
+                  <Trash2 size={18} color="#dc2626" />
+                </TouchableOpacity>
+              )}
+            </View>
 
-        <View style={tw`flex-row justify-between mt-6`}>
-          <TouchableOpacity 
-            style={tw`bg-red-100 py-2.5 px-5 rounded-lg flex-1 items-center mr-2`} 
+            <ControlledInput
+              control={control}
+              name={`foods.${index}.name`}
+              label="Nombre"
+              error={errors.foods?.[index]?.name}
+              placeholder="Ej: Pollo a la plancha"
+              icon={<UtensilsCrossed size={18} color="#666666" />}
+            />
+
+            <ControlledInput
+              control={control}
+              name={`foods.${index}.description`}
+              label="Descripción"
+              error={errors.foods?.[index]?.description}
+              placeholder="Ej: Con especias y limón"
+              multiline
+              required={false}
+              icon={<ScrollText size={18} color="#666666" />}
+            />
+
+            <View style={tw`flex-row gap-4`}>
+              <View style={tw`flex-1`}>
+                <ControlledInput
+                  control={control}
+                  name={`foods.${index}.servingSize`}
+                  label="Porción (g)"
+                  error={errors.foods?.[index]?.servingSize}
+                  keyboardType="numeric"
+                  placeholder="100"
+                  icon={<Scale size={18} color="#666666" />}
+                />
+              </View>
+              <View style={tw`flex-1`}>
+                <ControlledInput
+                  control={control}
+                  name={`foods.${index}.quantity`}
+                  label="Cantidad"
+                  error={errors.foods?.[index]?.quantity}
+                  keyboardType="numeric"
+                  placeholder="1"
+                  icon={<GanttChart size={18} color="#666666" />}
+                />
+              </View>
+            </View>
+
+            <View style={tw`flex-row gap-4`}>
+              <View style={tw`flex-1`}>
+                <ControlledInput
+                  control={control}
+                  name={`foods.${index}.carbs`}
+                  label="Carbohidratos (g)"
+                  error={errors.foods?.[index]?.carbs}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  icon={<Cookie size={18} color="#666666" />}
+                />
+              </View>
+              <View style={tw`flex-1`}>
+                <ControlledInput
+                  control={control}
+                  name={`foods.${index}.protein`}
+                  label="Proteína (g)"
+                  error={errors.foods?.[index]?.protein}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  icon={<Scale size={18} color="#666666" />}
+                />
+              </View>
+            </View>
+
+            <View style={tw`flex-row gap-4`}>
+              <View style={tw`flex-1`}>
+                <ControlledInput
+                  control={control}
+                  name={`foods.${index}.fat`}
+                  label="Grasa (g)"
+                  error={errors.foods?.[index]?.fat}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  icon={<Scale size={18} color="#666666" />}
+                />
+              </View>
+              <View style={tw`flex-1`}>
+                <ControlledInput
+                  control={control}
+                  name={`foods.${index}.calories`}
+                  label="Calorías"
+                  error={errors.foods?.[index]?.calories}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  icon={<Scale size={18} color="#666666" />}
+                />
+              </View>
+            </View>
+          </View>
+        ))}
+
+        <TouchableOpacity
+          style={tw`flex-row items-center justify-center bg-gray-100 p-4 rounded-lg mb-6`}
+          onPress={addFood}
+        >
+          <Plus size={24} color="#4CAF50" />
+          <Text style={tw`ml-2 text-apple-green font-medium`}>Agregar Alimento</Text>
+        </TouchableOpacity>
+
+        {/* Footer Buttons */}
+        <View style={tw`flex-row gap-4`}>
+          <TouchableOpacity
+            style={tw`flex-1 bg-gray-100 py-3 rounded-lg`}
             onPress={onCancel}
           >
-            <Text style={tw`text-base font-medium text-red-600`}>Cancelar</Text>
+            <Text style={tw`text-center text-gray-600 font-medium`}>Cancelar</Text>
           </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={tw`bg-gray-200 py-2.5 px-5 rounded-lg flex-1 items-center mx-2`}
-            onPress={handleClearForm}
-          >
-            <Text style={tw`text-base font-medium text-gray-600`}>Limpiar</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={tw`bg-apple-green py-2.5 px-5 rounded-lg flex-1 items-center ml-2`}
+          <TouchableOpacity
+            style={tw`flex-1 bg-apple-green py-3 rounded-lg`}
             onPress={handleSubmit(onFormSubmit)}
           >
-            <Text style={tw`text-base font-medium text-white`}>Guardar</Text>
+            <Text style={tw`text-center text-white font-medium`}>
+              {initialData ? 'Actualizar' : 'Guardar'}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>

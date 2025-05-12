@@ -1,43 +1,15 @@
+// BIOMETRICS TEMPORARILY DISABLED
 import React from 'react';
 import { TouchableOpacity, StyleSheet, View, Text } from 'react-native';
-import { Fingerprint, ScanFace } from 'lucide-react-native';
 
 interface BiometricButtonProps {
   biometricType: 'TouchID' | 'FaceID' | 'Biometrics' | null;
   onPress: () => void;
 }
 
-export const BiometricButton: React.FC<BiometricButtonProps> = ({ biometricType, onPress }) => {
-  const getBiometricIcon = () => {
-    switch (biometricType) {
-      case 'TouchID':
-        return <Fingerprint size={22} color="#FFFFFF" />;
-      case 'FaceID':
-        return <ScanFace size={22} color="#FFFFFF" />;
-      default:
-        return <Fingerprint size={22} color="#FFFFFF" />;
-    }
-  };
-
-  const getBiometricName = () => {
-    switch (biometricType) {
-      case 'TouchID':
-        return 'Touch ID';
-      case 'FaceID':
-        return 'Face ID';
-      default:
-        return 'Biometría';
-    }
-  };
-
-  return (
-    <TouchableOpacity style={styles.biometricButton} onPress={onPress}>
-      <View style={styles.biometricContent}>
-        {getBiometricIcon()}
-        <Text style={styles.biometricText}>Iniciar sesión con {getBiometricName()}</Text>
-      </View>
-    </TouchableOpacity>
-  );
+export const BiometricButton: React.FC<BiometricButtonProps> = () => {
+  // Return null while biometrics are disabled
+  return null;
 };
 
 const styles = StyleSheet.create({

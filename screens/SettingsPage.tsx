@@ -215,11 +215,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 8,
+    marginBottom: 4,
     position: 'relative',
     width: '100%',
     justifyContent: 'center',
-    paddingVertical: 8,
+    paddingVertical: 4,
     marginTop: 30,
   },
   title: {

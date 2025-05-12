@@ -49,10 +49,9 @@ export const getInsulinDoses = async (
   if (params?.startDate) queryParams.append('startDate', params.startDate);
   if (params?.endDate) queryParams.append('endDate', params.endDate);
   if (params?.limit) queryParams.append('limit', params.limit.toString());
-
   const url = `${API_URL}/insulin/doses?${queryParams}`;
   console.log('Fetching insulin doses from:', url);
-  console.log('With headers:', { 'Authorization': `Bearer ${token.substring(0, 10)}...` });
+  console.log('With headers:', token ? { 'Authorization': `Bearer ${token.slice(0, 10)}...` } : 'No token provided');
 
   try {
     const response = await fetch(url, {

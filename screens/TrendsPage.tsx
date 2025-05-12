@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f4f4f5',
   },
   header: {
-    padding: 16,
+    paddingHorizontal: 16,
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
@@ -92,6 +92,8 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#111827',
+    marginTop: 30,
+    paddingVertical: 4,
   },
   content: {
     padding: 16,

@@ -1,281 +1,443 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, Modal, ScrollView, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  Modal,
+  ScrollView,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+} from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { Button } from './ui/button'; 
+import { Bot } from 'lucide-react-native';
+import { Button } from './ui/button';
 
-// Types for our chat messages
+import { getGlucoseReadings } from '../lib/api/glucose';
+import { getInsulinDoses }     from '../lib/api/insulin';
+import { getMeals }            from '../lib/api/meals';
+
+// Gemini API key — move into .env for production
+const GEMINI_API_KEY = 'AIzaSyAgeqKiHyTZCENJS-tHp0t1hRwj1EUfHWU';
+
 type MessageType = {
-  id: string
-  content: string
-  sender: "user" | "ai"
-  timestamp: Date
-  showSuggestions?: boolean
-}
+  id: string;
+  content: string;
+  sender: 'user' | 'ai';
+  timestamp: Date;
+  showSuggestions?: boolean;
+};
 
-// Pre-written suggested questions
 const suggestedQuestions = [
-  "Control de niveles de glucosa",
-  "Qué hacer si el azúcar está alto",
-  "Rangos ideales de glucosa",
-  "Ejercicios recomendados",
-  "Ejercicio y niveles de glucosa",
-  "Alimentos a evitar",
-]
+  'Control de niveles de glucosa',
+  'Qué hacer si el azúcar está alto',
+  'Rangos ideales de glucosa',
+  'Ejercicios recomendados',
+  'Ejercicio y niveles de glucosa',
+  'Alimentos a evitar',
+];
 
-// Mock AI responses - in a real app, these would come from an AI service
-const getAIResponse = (question: string): string => {
-  const responses: Record<string, string> = {
-    "Control de niveles de glucosa":
-      "Para controlar mejor tus niveles de glucosa, es importante mantener una alimentación equilibrada, hacer ejercicio regularmente, tomar tus medicamentos según lo prescrito, y monitorear tus niveles de glucosa. También es útil llevar un registro de tus comidas y actividades para identificar patrones.",
-    "Qué hacer si el azúcar está alto":
-      "Si tu nivel de azúcar está muy alto (hiperglucemia), debes beber agua para mantenerte hidratado, hacer ejercicio ligero si es posible, y seguir tu plan de medicación. Si los niveles son extremadamente altos o persisten, contacta a tu médico inmediatamente.",
-    "Rangos ideales de glucosa":
-      "Los rangos ideales de glucosa varían según la persona, pero generalmente se recomienda entre 80-130 mg/dL antes de las comidas y menos de 180 mg/dL después de las comidas. Tu médico puede establecer rangos específicos para ti basados en tu situación particular.",
-    "Ejercicios recomendados":
-      "Los ejercicios aeróbicos como caminar, nadar, o andar en bicicleta son excelentes para personas con diabetes. También se recomienda incluir entrenamiento de fuerza 2-3 veces por semana. Siempre consulta con tu médico antes de comenzar un nuevo régimen de ejercicios.",
-    "Ejercicio y niveles de glucosa":
-      "El ejercicio generalmente disminuye los niveles de glucosa al aumentar la sensibilidad a la insulina. Sin embargo, el ejercicio intenso puede temporalmente aumentar la glucosa. Es importante monitorear tus niveles antes, durante y después del ejercicio, especialmente si usas insulina.",
-    "Alimentos a evitar":
-      "Es recomendable limitar alimentos con alto contenido de azúcares añadidos, carbohidratos refinados, grasas saturadas y sodio. Esto incluye bebidas azucaradas, dulces, pasteles, frituras y alimentos procesados. Consulta con un nutricionista para un plan personalizado.",
+// Single-shot Gemini call
+async function getAIResponse(prompt: string): Promise<string> {
+  try {
+    console.log('[Chat] Calling Gemini API...');
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+        }),
+      }
+    );
+    const json = await res.json();
+    console.log('[Chat] Gemini API response received');
+    return json?.candidates?.[0]?.content?.parts?.[0]?.text
+      || 'Lo siento, no tengo una respuesta en este momento.';
+  } catch (err) {
+    console.error('[Chat] Gemini API error:', err);
+    return 'Hubo un error al conectar con el asistente. Intenta más tarde.';
   }
-
-  return (
-    responses[question] ||
-    "Lo siento, no tengo información específica sobre esa pregunta. ¿Podrías reformularla o preguntar algo más?"
-  )
 }
 
-export function ChatInterface({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const [messages, setMessages] = useState<MessageType[]>([
-    {
-      id: "welcome",
-      content: "Hola, soy tu asistente de salud. ¿En qué puedo ayudarte hoy?",
-      sender: "ai",
-      timestamp: new Date(),
-      showSuggestions: true,
-    },
-  ])
-  const [inputValue, setInputValue] = useState("")
-  const scrollViewRef = useRef<ScrollView>(null)
-
-  // Auto-scroll to bottom of messages
+export function ChatInterface({
+  isOpen,
+  onClose,
+  token,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  token: string | null;
+}) {
+  const [messages, setMessages] = useState<MessageType[]>([{
+    id: 'welcome',
+    content: 'Hola, soy tu asistente de salud. ¿En qué puedo ayudarte hoy?',
+    sender: 'ai',
+    timestamp: new Date(),
+    showSuggestions: true,
+  }]);
+  const [inputText, setInputText] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [isValidToken, setIsValidToken] = useState(true);
+  // Validate token on mount and when token changes
   useEffect(() => {
-    if (scrollViewRef.current) {
-      scrollViewRef.current.scrollToEnd({ animated: true })
-    }
-  }, [messages])
-
-  const handleSendMessage = (content: string) => {
-    if (!content.trim()) return
-
-    // Add user message
-    const userMessage: MessageType = {
-      id: Date.now().toString(),
-      content,
-      sender: "user",
-      timestamp: new Date(),
-    }
-    setMessages((prev) => [...prev, userMessage])
-    setInputValue("")
-
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse: MessageType = {
-        id: (Date.now() + 1).toString(),
-        content: getAIResponse(content),
-        sender: "ai",
-        timestamp: new Date(),
+    const validateToken = async () => {
+      if (!token) {
+        console.warn('[Chat] No token provided');
+        setIsValidToken(false);
+        if (messages.length === 1 && messages[0].id === 'welcome') {
+          // Only update the message if it's just the welcome message
+          setMessages([{
+            id: 'auth-error',
+            content: 'Lo siento, necesitas iniciar sesión para usar el asistente.',
+            sender: 'ai',
+            timestamp: new Date(),
+            showSuggestions: false,
+          }]);
+        }
+        return;
       }
-      setMessages((prev) => [...prev, aiResponse])
-    }, 1000)
-  }
+
+      try {
+        // Try to fetch some data to validate token
+        await getGlucoseReadings(token, { limit: 1 });
+        setIsValidToken(true);
+      } catch (error) {
+        console.error('[Chat] Token validation failed:', error instanceof Error ? error.message : String(error));
+        setIsValidToken(false);
+        setMessages([{
+          id: 'auth-error',
+          content: 'Lo siento, tu sesión ha expirado. Por favor, inicia sesión nuevamente.',
+          sender: 'ai',
+          timestamp: new Date(),
+          showSuggestions: false,
+        }]);
+      }
+    };
+
+    validateToken();
+  }, [token]);
+
+  useEffect(() => {
+    scrollViewRef.current?.scrollToEnd({ animated: true });
+  }, [messages]);  const sendMessage = async (text: string) => {
+    if (!token || !isValidToken) {
+      console.error('[Chat] No valid token available for API calls');
+      setMessages(prev => {
+        // Only add the error message if it's not already the last message
+        const lastMessage = prev[prev.length - 1];
+        if (lastMessage?.content?.includes('sesión ha expirado')) {
+          return prev;
+        }
+        return [...prev, {
+          id: Date.now().toString() + '-error',
+          content: 'Lo siento, parece que tu sesión ha expirado. Por favor, inicia sesión nuevamente.',
+          sender: 'ai',
+          timestamp: new Date(),
+          showSuggestions: false,
+        }];
+      });
+      return;
+    }
+
+    console.log('[Chat] Sending new message:', text);
+    // 1️⃣ Add user message
+    const userMsg: MessageType = {
+      id: Date.now().toString(),
+      content: text,
+      sender: 'user',
+      timestamp: new Date(),
+      showSuggestions: false,
+    };
+    setMessages(prev => [...prev, userMsg]);
+    setInputText('');
+    setIsLoading(true); // Start loading
+
+    try {
+      // 2️⃣ Fetch patient data in parallel
+      const safeToken = token ? `${token.slice(0, 10)}...` : 'No token';
+      console.log('[Chat] Fetching patient data with token:', safeToken);
+      
+      const [glucoseData, insulinData, mealsData] = await Promise.all([
+        getGlucoseReadings(token, { limit: 5 }).catch(err => {
+          console.error(`[Chat] Error fetching glucose data with token ${safeToken}:`, err?.message || String(err));
+          return [];
+        }),
+        getInsulinDoses(token, { limit: 3 }).catch(err => {
+          console.error('[Chat] Error fetching insulin data:', err?.message || String(err));
+          return { doses: [] };
+        }),
+        getMeals(token, { limit: 3 }).catch(err => {
+          console.error('[Chat] Error fetching meals data:', err?.message || String(err));
+          return [];
+        })
+      ]);      // Log data counts and mask token in all logs for security
+      const maskedToken = token ? `${token.slice(0, 10)}...` : 'No token';
+      const dataCounts = {
+        glucoseCount: Array.isArray(glucoseData) ? glucoseData.length : 0,
+        insulinCount: insulinData?.doses?.length || 0,
+        mealsCount: Array.isArray(mealsData) ? mealsData.length : 0
+      };
+      console.log(`[Chat] Patient data fetched successfully with token ${maskedToken}:`, dataCounts);
+
+      // 3️⃣ Build summaries with null checks and type guards
+      const glucoseSummary = Array.isArray(glucoseData) && glucoseData.length > 0
+        ? glucoseData
+            .map(r => `${r.value} mg/dL @ ${new Date(r.timestamp).toLocaleDateString()}`)
+            .join('; ')
+        : 'No hay lecturas recientes';
+
+      const insulinSummary = insulinData?.doses && Array.isArray(insulinData.doses) && insulinData.doses.length > 0
+        ? insulinData.doses
+            .map(d => `${d.units}U ${d.type} @ ${new Date(d.timestamp).toLocaleTimeString()}`)
+            .join('; ')
+        : 'No hay dosis recientes';
+
+      const mealsSummary = Array.isArray(mealsData) && mealsData.length > 0
+        ? mealsData
+            .map(m => `${m.type} (${m.totalCarbs}g carbs) @ ${new Date(m.timestamp).toLocaleTimeString()}`)
+            .join('; ')
+        : 'No hay comidas recientes';
+
+      // 4️⃣ Compose full prompt
+      const context = [
+        `Paciente (últimos registros):`,
+        `• Glucosa: ${glucoseSummary}`,
+        `• Insulina: ${insulinSummary}`,
+        `• Comidas: ${mealsSummary}`,
+      ].join('\n');
+
+      const prompt = `${context}\n\nUsuario pregunta: "${text}"\n\nAsistente:`;
+      console.log('[Chat] Generated prompt:', prompt);
+
+      // 5️⃣ Call Gemini
+      const aiText = await getAIResponse(prompt);
+
+      // 6️⃣ Append AI message
+      const aiMsg: MessageType = {
+        id: Date.now().toString() + '-ai',
+        content: aiText,
+        sender: 'ai',
+        timestamp: new Date(),
+        showSuggestions: false,
+      };
+
+      setMessages(prev => {
+        const updatedMessages = prev.map(m => ({
+          ...m,
+          showSuggestions: false as const,
+        }));
+        return [...updatedMessages, aiMsg];
+      });
+    } catch (error) {
+      const safeToken = token ? `${token.slice(0, 10)}...` : 'No token';
+      console.error(`[Chat] Error processing message with token ${safeToken}:`, error instanceof Error ? error.message : String(error));
+      
+      // Check for specific error types and provide appropriate user messages
+      let errorMessage = 'Lo siento, hubo un error al procesar tu mensaje. Por favor, intenta nuevamente.';
+      if (error instanceof Error) {
+        if (error.message.includes('Failed to fetch')) {
+          errorMessage = 'No se pudo conectar con el servidor. Por favor, verifica tu conexión a internet.';
+        } else if (error.message.includes('Unauthorized') || error.message.includes('token')) {
+          errorMessage = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
+        }
+      }
+      
+      const errorMsg: MessageType = {
+        id: Date.now().toString() + '-error',
+        content: errorMessage,
+        sender: 'ai',
+        timestamp: new Date(),
+        showSuggestions: false,
+      };
+      setMessages(prev => [...prev, errorMsg]);
+    } finally {
+      setIsLoading(false); // End loading
+    }
+  };
+
+  const handleSuggestion = (q: string) => sendMessage(q);
 
   return (
-    <Modal
-      visible={isOpen}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={onClose}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.chatContainer}>
-          {/* Chat header */}
+    <Modal visible={isOpen} animationType="fade" transparent onRequestClose={onClose}>
+      <View style={styles.container}>
+        <View style={styles.chatWindow}>
+          {/* Header */}
           <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <View style={styles.iconContainer}>
-                <Feather name="cpu" size={20} color="#4CAF50" />
-              </View>
-              <Text style={styles.headerTitle}>Asistente de Salud</Text>
+            <View style={styles.titleWithIcon}>
+              <Bot size={24} color="#4CAF50" style={{ marginTop: 4 }} />
+              <Text style={styles.headerText}>Asistente de Salud</Text>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Feather name="x" size={20} color="#4CAF50" />
+            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+              <Feather name="minimize-2" size={18} color="#6b7280" />
+              <Text style={styles.closeButtonText}>Ocultar</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Chat content */}
-          <ScrollView
-            ref={scrollViewRef}
-            style={styles.messagesContainer}
-            contentContainerStyle={styles.messagesContent}
+          {/* Messages */}
+          <KeyboardAvoidingView
+            style={styles.content}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={80}
           >
-            {messages.map((message) => (
-              <View key={message.id} style={styles.messageWrapper}>
+            <ScrollView
+              style={styles.chat}
+              contentContainerStyle={styles.chatContent}
+              ref={scrollViewRef}
+            >
+              {messages.map(msg => (
                 <View
+                  key={msg.id}
                   style={[
                     styles.message,
-                    message.sender === "user" ? styles.userMessage : styles.aiMessage,
+                    msg.sender === 'user' ? styles.userMessage : styles.aiMessage,
                   ]}
                 >
-                  <Text style={message.sender === "user" ? styles.userMessageText : styles.aiMessageText}>
-                    {message.content}
+                  <Text style={[
+                    styles.messageText,
+                    msg.sender === 'user' && styles.userMessageText,
+                  ]}>
+                    {msg.content}
                   </Text>
-                  <Text style={styles.timestamp}>
-                    {message.timestamp.toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </Text>
+                  {msg.showSuggestions && (
+                    <View style={styles.suggestionContainer}>
+                      {suggestedQuestions.map(q => (
+                        <TouchableOpacity
+                          key={q}
+                          style={styles.suggestionButton}
+                          onPress={() => handleSuggestion(q)}
+                        >
+                          <Text style={styles.suggestionText}>{q}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
                 </View>
-                {message.showSuggestions && (
-                  <View style={styles.suggestionsContainer}>
-                    {suggestedQuestions.map((question) => (
-                      <Button
-                        key={question}
-                        variant="secondary"
-                        onPress={() => handleSendMessage(question)}
-                        style={styles.suggestionButton}
-                      >
-                        {question}
-                      </Button>
-                    ))}
-                  </View>
-                )}
-              </View>
-            ))}
-          </ScrollView>
+              ))}
+              {isLoading && (
+                <View style={[styles.message, styles.aiMessage, styles.loadingContainer]}>
+                  <ActivityIndicator size="small" color="#4CAF50" style={styles.loadingSpinner} />
+                  <Text style={styles.messageText}>Pensando...</Text>
+                </View>
+              )}
+            </ScrollView>
 
-          {/* Input form */}
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              value={inputValue}
-              onChangeText={setInputValue}
-              placeholder="Escribe tu mensaje..."
-              onSubmitEditing={() => handleSendMessage(inputValue)}
-            />
-            <Button
-              variant="default"
-              style={styles.sendButton}
-              onPress={() => handleSendMessage(inputValue)}
-            >
-              <Feather name="send" size={20} color="#fff" />
-            </Button>
-          </View>
+            {/* Input */}
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                value={inputText}
+                onChangeText={setInputText}
+                placeholder="Escribe tu pregunta..."
+                placeholderTextColor="#6b7280"
+              />
+              <TouchableOpacity
+                style={styles.sendButton}
+                onPress={() => inputText.trim() && sendMessage(inputText)}
+              >
+                <Feather name="send" size={24} color="#4CAF50" />
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
         </View>
       </View>
     </Modal>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
-  modalOverlay: {
+  container: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: 16,
   },
-  chatContainer: {
-    height: '80%',
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+  chatWindow: {
+    backgroundColor: '#f4f4f5',
+    borderRadius: 16,
+    height: '90%',
+    maxWidth: 600,
+    alignSelf: 'center',
+    width: '100%',
     overflow: 'hidden',
+    elevation: 5,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    alignItems: 'center',
+    backgroundColor: 'white',
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderColor: '#e5e7eb',
+    padding: 16,
   },
-  headerLeft: {
+  titleWithIcon: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerText: { fontSize: 24, fontWeight: 'bold', color: '#111827' },
+  closeButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  iconContainer: {
-    backgroundColor: 'rgba(34, 197, 94, 0.1)', // #4CAF50 with 0.1 opacity
-    padding: 8,
+    backgroundColor: '#f4f4f5',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 20,
   },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4CAF50',
-  },
-  closeButton: {
-    padding: 8,
-  },
-  messagesContainer: {
-    flex: 1,
-  },
-  messagesContent: {
-    padding: 16,
-    gap: 16,
-  },
-  messageWrapper: {
-    gap: 8,
-  },
+  closeButtonText: { marginLeft: 4, color: '#6b7280' },
+  content: { flex: 1 },
+  chat: { flex: 1, backgroundColor: '#f4f4f5', paddingHorizontal: 16 },
+  chatContent: { paddingVertical: 16, gap: 16 },
   message: {
-    maxWidth: '80%',
-    padding: 12,
-    borderRadius: 12,
-  },
-  userMessage: {
-    alignSelf: 'flex-end',
-    backgroundColor: '#4CAF50',
-  },
-  aiMessage: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(34, 197, 94, 0.1)',
-  },
-  userMessageText: {
-    color: '#fff',
-  },
-  aiMessageText: {
-    color: '#111827',
-  },
-  timestamp: {
-    fontSize: 12,
-    opacity: 0.7,
-    marginTop: 4,
-  },
-  suggestionsContainer: {
-    gap: 8,
-  },
-  suggestionButton: {
     marginVertical: 4,
+    padding: 16,
+    borderRadius: 12,
+    maxWidth: '80%',
+    elevation: 2,
   },
+  userMessage: { alignSelf: 'flex-end', backgroundColor: '#4CAF50' },
+  aiMessage: { alignSelf: 'flex-start', backgroundColor: 'white' },
+  messageText: { fontSize: 16, lineHeight: 24, color: '#111827' },
+  userMessageText: { color: 'white' },
+  suggestionContainer: { marginTop: 16, flexWrap: 'wrap', flexDirection: 'row', gap: 8 },
+  suggestionButton: {
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#4CAF50',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+  },
+  suggestionText: { fontSize: 14, color: '#4CAF50', fontWeight: '500' },
   inputContainer: {
     flexDirection: 'row',
-    padding: 16,
-    gap: 8,
+    alignItems: 'center',
+    backgroundColor: 'white',
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
+    borderColor: '#e5e7eb',
+    padding: 16,
+    gap: 12,
   },
   input: {
     flex: 1,
-    height: 40,
+    backgroundColor: '#f4f4f5',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#4CAF50',
-    borderRadius: 20,
+    borderColor: '#e5e7eb',
     paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#111827',
   },
-  sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#4CAF50',
+  sendButton: { padding: 8, borderRadius: 20 },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
   },
-})
-
+  loadingSpinner: {
+    marginRight: 8,
+  },
+});

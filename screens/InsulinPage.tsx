@@ -627,6 +627,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingBottom: 16,
+    paddingTop: 20,
+
   },
   titleContainer: {
     flexDirection: 'row',

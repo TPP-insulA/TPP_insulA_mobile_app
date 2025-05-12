@@ -1,21 +1,15 @@
+// BIOMETRICS TEMPORARILY DISABLED
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Keys for storing secure data
 const BIOMETRIC_CREDENTIALS_KEY = '@InsulaApp:biometricCredentials';
 
-/**
- * Interface for stored credentials
- */
+/*
 interface StoredCredentials {
   email: string;
   password: string;
 }
 
-/**
- * Save credentials for biometric login
- * Note: In a production app, consider using react-native-keychain or
- * similar libraries for more secure storage of credentials
- */
 export const saveCredentialsForBiometrics = async (
   email: string, 
   password: string
@@ -32,9 +26,6 @@ export const saveCredentialsForBiometrics = async (
   }
 };
 
-/**
- * Retrieve credentials for biometric login
- */
 export const getCredentialsForBiometrics = async (): Promise<StoredCredentials | null> => {
   try {
     const credentialsJson = await AsyncStorage.getItem(BIOMETRIC_CREDENTIALS_KEY);
@@ -47,9 +38,6 @@ export const getCredentialsForBiometrics = async (): Promise<StoredCredentials |
   }
 };
 
-/**
- * Remove stored credentials when biometric login is disabled
- */
 export const removeCredentialsForBiometrics = async (): Promise<void> => {
   try {
     await AsyncStorage.removeItem(BIOMETRIC_CREDENTIALS_KEY);
@@ -57,3 +45,9 @@ export const removeCredentialsForBiometrics = async (): Promise<void> => {
     console.error('Error removing credentials for biometrics:', error);
   }
 };
+*/
+
+// Mock implementations while biometrics are disabled
+export const saveCredentialsForBiometrics = async (): Promise<void> => {};
+export const getCredentialsForBiometrics = async () => null;
+export const removeCredentialsForBiometrics = async (): Promise<void> => {};

@@ -210,6 +210,17 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: '#111827',
     },
+    titleContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        marginBottom: 4,
+        position: 'relative',
+        width: '100%',
+        justifyContent: 'center',
+        paddingVertical: 4,
+        marginTop: 30,
+    },
     content: {
         padding: 16,
         gap: 24,

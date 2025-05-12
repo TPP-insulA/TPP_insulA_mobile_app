@@ -441,16 +441,19 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
     alignItems: 'center',
+    paddingBottom: 12,
+    paddingTop: 20,
+
   },
   titleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 8,
+    marginBottom: 4,
     position: 'relative',
     width: '100%',
     justifyContent: 'center',
-    paddingVertical: 8,
+    paddingVertical: 4,
     marginTop: 30,
   },
   backButton: {
