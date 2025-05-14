@@ -16,7 +16,6 @@ insulA es una aplicación integral para la gestión de la diabetes diseñada par
 - 📈 Análisis y visualización de tendencias
 - 📅 Vista de historial de datos
 - ⚙️ Configuraciones personalizables
-- 📱 Diseño orientado a dispositivos móviles con soporte para notch y dynamic island
 - 🌓 Soporte para modo claro/oscuro
 
 ### Características Planificadas
@@ -48,7 +47,7 @@ Antes de comenzar, asegúrate de tener instalado lo siguiente:
 
 1. Clonar el repositorio:
    ```bash
-   git clone https://github.com/yourusername/TPP_insulA_mobile_app.git
+   git clone https://github.com/TPP-insulA/TPP_insulA_mobile_app.git
    cd TPP_insulA_app
    ```
 

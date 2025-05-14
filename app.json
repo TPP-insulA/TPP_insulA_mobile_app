@@ -24,12 +24,17 @@
       "proguard": true,
       "buildTypes": {
         "release": {
-          "enableSplitAPKs": true 
+          "enableSplitAPKs": true
         }
       }
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "48366feb-0b85-40b4-a7bc-f15f3635dca5"
+      }
     }
   }
 }
