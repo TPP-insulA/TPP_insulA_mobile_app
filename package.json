@@ -2,8 +2,7 @@
   "name": "insulA",
   "license": "0BSD",
   "version": "1.0.0",
-  "main": "index.js",
-  "scripts": {
+  "main": "index.js",  "scripts": {
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
@@ -18,7 +17,8 @@
     "publish:staging": "expo publish --release-channel staging",
     "publish:production": "expo publish --release-channel production",
     "build:android-release": "expo build:android --release-channel production --no-publish",
-    "build:bundle": "react-native bundle --platform android --dev false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res"
+    "build:bundle": "react-native bundle --platform android --dev false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res",
+    "start:clean": "expo start --clear"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.2",
