@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Image as RNImage, ScrollView } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, Image as RNImage, ScrollView, StatusBar, Platform, SafeAreaView } from "react-native";
 import * as Form from "react-hook-form";
 import * as ImagePicker from 'expo-image-picker';
-import { Camera, Image as GalleryIcon, Plus, Trash2, UtensilsCrossed, ScrollText, Scale, Banana, Cookie, GanttChart, CalendarClock, Pizza } from 'lucide-react-native';
+import { Camera, Image as GalleryIcon, Plus, Trash2, UtensilsCrossed, ScrollText, Scale, Banana, Cookie, GanttChart, CalendarClock, Pizza, Brain, ArrowLeft } from 'lucide-react-native';
 import tw from '../styles/theme';
 import { CreateMealInput, FoodItem, processFoodName, Meal } from '../lib/api/meals';
 import { useToast } from '../hooks/use-toast';
@@ -120,7 +120,23 @@ export function FoodEntryForm({ onSubmit, onCancel, initialData }: FoodEntryForm
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentFoodIndex, setCurrentFoodIndex] = useState(0);
   const [photo, setPhoto] = useState<string | null>(initialData?.photo || null);
+  // Initialize with the first food item expanded (not collapsed)
+  const [collapsedFoods, setCollapsedFoods] = useState<{ [key: number]: boolean }>({0: false});
   const { toast } = useToast();
+
+  const getFoodTitle = (food: FormData['foods'][0], index: number) => {
+    if (food.name && food.name.trim()) {
+      return food.name;
+    }
+    return `Alimento ${index + 1}`;
+  };
+
+  const toggleFoodCollapse = (index: number) => {
+    setCollapsedFoods(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
+  };
 
   const {
     control,
@@ -261,8 +277,8 @@ export function FoodEntryForm({ onSubmit, onCancel, initialData }: FoodEntryForm
       setIsProcessing(false);
     }
   };
-
   const addFood = () => {
+    const newIndex = foods.length;
     setValue('foods', [
       ...foods,
       {
@@ -276,7 +292,12 @@ export function FoodEntryForm({ onSubmit, onCancel, initialData }: FoodEntryForm
         quantity: "1",      // Default 1x quantity
       }
     ]);
-    setCurrentFoodIndex(foods.length);
+    // Set the new food item as expanded
+    setCollapsedFoods(prev => ({
+      ...prev,
+      [newIndex]: false
+    }));
+    setCurrentFoodIndex(newIndex);
   };
 
   const removeFood = (index: number) => {
@@ -289,6 +310,12 @@ export function FoodEntryForm({ onSubmit, onCancel, initialData }: FoodEntryForm
 
   const handleClearForm = () => {
     reset();
+  };
+  const toggleCollapse = (index: number) => {
+    setCollapsedFoods(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
   };
 
   const onFormSubmit = async (data: FormData) => {
@@ -325,15 +352,42 @@ export function FoodEntryForm({ onSubmit, onCancel, initialData }: FoodEntryForm
         variant: 'destructive',
       });
     }
-  };
-
-  return (    <ScrollView style={tw`bg-white`}>
-      <View style={tw`bg-apple-green px-6 py-4 mb-6 shadow-md`}>
-        <Text style={tw`text-2xl font-bold text-center text-white`}>
-          {initialData ? 'Editar Comida' : 'Agregar Comida'}
-        </Text>
+  };  return (    
+    <SafeAreaView style={tw`flex-1 bg-white`}>
+      {/* Fixed Header */}
+      <View style={[
+        tw`bg-apple-green px-6 py-4 z-10 shadow-md`, 
+        { 
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 3 },
+          shadowOpacity: 0.2,
+          shadowRadius: 4,
+          elevation: 5,
+          borderBottomLeftRadius: 15,
+          borderBottomRightRadius: 15,
+        }
+      ]}>
+        <View style={tw`flex-row items-center`}>
+          <TouchableOpacity 
+            style={tw`p-2 -ml-2`} 
+            onPress={onCancel}
+            hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+          >
+            <ArrowLeft size={24} color="white" />
+          </TouchableOpacity>
+          <Text style={tw`flex-1 text-2xl font-bold text-center text-white -ml-8`}>
+            {initialData ? 'Editar Comida' : 'Agregar Comida'}
+          </Text>
+        </View>
       </View>
-      <View style={tw`px-6`}>
+      
+      {/* Scrollable Content */}
+      <ScrollView 
+        style={tw`bg-white`} 
+        contentContainerStyle={tw`pb-32 pt-4`}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={tw`px-6`}>
         {/* Photo Section */}
         <View style={tw`mb-6`}>
           <View style={tw`flex-row items-center mb-2`}>
@@ -412,18 +466,33 @@ export function FoodEntryForm({ onSubmit, onCancel, initialData }: FoodEntryForm
                   {option.label}
                 </Text>
               </TouchableOpacity>
-            ))}
-          </View>
+            ))}          </View>
         </View>
-
+        
         {/* Foods Section */}
         {foods.map((food, index) => (
-          <View key={index} style={tw`mb-6 bg-gray-50 p-4 rounded-lg`}>
+          <View key={index} style={[
+            tw`mb-6 bg-gray-50 p-4 rounded-lg`,
+            { 
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 3,
+              elevation: 3 
+            }
+          ]}>
             <View style={tw`flex-row justify-between items-center mb-4`}>
-              <View style={tw`flex-row items-center`}>
+              <TouchableOpacity onPress={() => toggleCollapse(index)} style={tw`flex-row items-center`}>
                 <Pizza size={18} color="#666666" style={tw`mr-2`} />
-                <Text style={tw`text-lg font-semibold text-text-primary`}>Alimento {index + 1}</Text>
-              </View>
+                <View style={tw`flex-row items-center`}>
+                  <Text style={tw`text-lg font-semibold text-text-primary`}>
+                    {getFoodTitle(food, index)}
+                  </Text>
+                  <Text style={tw`ml-2 text-gray-500`}>
+                    {collapsedFoods[index] ? '▼' : '▲'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
               {foods.length > 1 && (
                 <TouchableOpacity
                   style={tw`bg-red-100 p-2 rounded-full`}
@@ -434,117 +503,160 @@ export function FoodEntryForm({ onSubmit, onCancel, initialData }: FoodEntryForm
               )}
             </View>
 
-            <ControlledInput
-              control={control}
-              name={`foods.${index}.name`}
-              label="Nombre"
-              error={errors.foods?.[index]?.name}
-              placeholder="Ej: Pollo a la plancha"
-              icon={<UtensilsCrossed size={18} color="#666666" />}
-            />
+            {collapsedFoods[index] !== true && (
+              <>
+                <ControlledInput
+                  control={control}
+                  name={`foods.${index}.name`}
+                  label="Nombre"
+                  error={errors.foods?.[index]?.name}
+                  placeholder="Ej: Pollo a la plancha"
+                  icon={<UtensilsCrossed size={18} color="#666666" />}
+                />
 
-            <ControlledInput
-              control={control}
-              name={`foods.${index}.description`}
-              label="Descripción"
-              error={errors.foods?.[index]?.description}
-              placeholder="Ej: Con especias y limón"
-              multiline
-              required={false}
-              icon={<ScrollText size={18} color="#666666" />}
-            />
+                <View style={tw`mb-4`}>
+                  <View style={tw`flex-row items-center mb-2`}>
+                    <ScrollText size={18} color="#666666" style={tw`mr-2`} />
+                    <Text style={tw`text-sm font-medium text-text-primary`}>Descripción</Text>
+                  </View>
+                  <View style={tw`flex-row`}>
+                    <View style={tw`flex-1 mr-2`}>
+                      <Form.Controller
+                        control={control}
+                        name={`foods.${index}.description`}
+                        rules={{ required: false }}
+                        render={({ field: { onChange, onBlur, value } }) => (
+                          <TextInput
+                            style={tw`border border-gray-300 rounded-lg p-2.5 text-base bg-white`}                            onChangeText={onChange}
+                            onBlur={onBlur}
+                            value={value}
+                            placeholder="Ej: 100g pechuga de pollo"
+                            multiline={true}
+                          />
+                        )}
+                      />
+                    </View>
+                    <TouchableOpacity
+                      style={tw`bg-blue-500 px-3 py-2 rounded-lg justify-center`}
+                      onPress={() => handleProcessFood(index)}
+                      disabled={isProcessing || !foods[index].description}
+                    >
+                      <View style={tw`flex-row items-center justify-center`}>
+                        <Brain size={16} color="#FFFFFF" style={tw`mr-1`} />
+                        <Text style={[tw`text-white text-center font-medium`, isProcessing && {opacity: 0.7}]}>
+                          {isProcessing ? 'Procesando...' : 'Completar Macros'}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  </View>
+                  {errors.foods?.[index]?.description && (
+                    <Text style={tw`text-red-500 text-xs mt-1`}>{errors.foods?.[index]?.description.message}</Text>
+                  )}
+                </View>
 
-            <View style={tw`flex-row gap-4`}>
-              <View style={tw`flex-1`}>
-                <ControlledInput
-                  control={control}
-                  name={`foods.${index}.servingSize`}
-                  label="Porción (g)"
-                  error={errors.foods?.[index]?.servingSize}
-                  keyboardType="numeric"
-                  placeholder="100"
-                  icon={<Scale size={18} color="#666666" />}
-                />
-              </View>
-              <View style={tw`flex-1`}>
-                <ControlledInput
-                  control={control}
-                  name={`foods.${index}.quantity`}
-                  label="Cantidad"
-                  error={errors.foods?.[index]?.quantity}
-                  keyboardType="numeric"
-                  placeholder="1"
-                  icon={<GanttChart size={18} color="#666666" />}
-                />
-              </View>
-            </View>
+                <View style={tw`flex-row gap-4`}>
+                  <View style={tw`flex-1`}>
+                    <ControlledInput
+                      control={control}
+                      name={`foods.${index}.servingSize`}
+                      label="Porción (g)"
+                      error={errors.foods?.[index]?.servingSize}
+                      keyboardType="numeric"
+                      placeholder="100"
+                      icon={<Scale size={18} color="#666666" />}
+                    />
+                  </View>
+                  <View style={tw`flex-1`}>
+                    <ControlledInput
+                      control={control}
+                      name={`foods.${index}.quantity`}
+                      label="Cantidad"
+                      error={errors.foods?.[index]?.quantity}
+                      keyboardType="numeric"
+                      placeholder="1"
+                      icon={<GanttChart size={18} color="#666666" />}
+                    />
+                  </View>
+                </View>
 
-            <View style={tw`flex-row gap-4`}>
-              <View style={tw`flex-1`}>
-                <ControlledInput
-                  control={control}
-                  name={`foods.${index}.carbs`}
-                  label="Carbohidratos (g)"
-                  error={errors.foods?.[index]?.carbs}
-                  keyboardType="numeric"
-                  placeholder="0"
-                  icon={<Cookie size={18} color="#666666" />}
-                />
-              </View>
-              <View style={tw`flex-1`}>
-                <ControlledInput
-                  control={control}
-                  name={`foods.${index}.protein`}
-                  label="Proteína (g)"
-                  error={errors.foods?.[index]?.protein}
-                  keyboardType="numeric"
-                  placeholder="0"
-                  icon={<Scale size={18} color="#666666" />}
-                />
-              </View>
-            </View>
+                <View style={tw`flex-row gap-4`}>
+                  <View style={tw`flex-1`}>
+                    <ControlledInput
+                      control={control}
+                      name={`foods.${index}.carbs`}
+                      label="Carbohidratos (g)"
+                      error={errors.foods?.[index]?.carbs}
+                      keyboardType="numeric"
+                      placeholder="0"
+                      icon={<Cookie size={18} color="#666666" />}
+                    />
+                  </View>
+                  <View style={tw`flex-1`}>
+                    <ControlledInput
+                      control={control}
+                      name={`foods.${index}.protein`}
+                      label="Proteína (g)"
+                      error={errors.foods?.[index]?.protein}
+                      keyboardType="numeric"
+                      placeholder="0"
+                      icon={<Scale size={18} color="#666666" />}
+                    />
+                  </View>
+                </View>
 
-            <View style={tw`flex-row gap-4`}>
-              <View style={tw`flex-1`}>
-                <ControlledInput
-                  control={control}
-                  name={`foods.${index}.fat`}
-                  label="Grasa (g)"
-                  error={errors.foods?.[index]?.fat}
-                  keyboardType="numeric"
-                  placeholder="0"
-                  icon={<Scale size={18} color="#666666" />}
-                />
-              </View>
-              <View style={tw`flex-1`}>
-                <ControlledInput
-                  control={control}
-                  name={`foods.${index}.calories`}
-                  label="Calorías"
-                  error={errors.foods?.[index]?.calories}
-                  keyboardType="numeric"
-                  placeholder="0"
-                  icon={<Scale size={18} color="#666666" />}
-                />
-              </View>
-            </View>
+                <View style={tw`flex-row gap-4`}>
+                  <View style={tw`flex-1`}>
+                    <ControlledInput
+                      control={control}
+                      name={`foods.${index}.fat`}
+                      label="Grasa (g)"
+                      error={errors.foods?.[index]?.fat}
+                      keyboardType="numeric"
+                      placeholder="0"
+                      icon={<Scale size={18} color="#666666" />}
+                    />
+                  </View>
+                  <View style={tw`flex-1`}>
+                    <ControlledInput
+                      control={control}
+                      name={`foods.${index}.calories`}
+                      label="Calorías"
+                      error={errors.foods?.[index]?.calories}
+                      keyboardType="numeric"
+                      placeholder="0"
+                      icon={<Scale size={18} color="#666666" />}
+                    />
+                  </View>
+                </View>
+              </>
+            )}
           </View>
         ))}
-
+        </View>
+      </ScrollView>      {/* Floating action buttons */}
+      <View style={[
+        tw`absolute bottom-0 left-0 right-0 bg-white px-6 py-4`,
+        {
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: -3 },
+          shadowOpacity: 0.1,
+          shadowRadius: 5,
+          elevation: 10,
+          borderTopWidth: 1,
+          borderColor: "#f0f0f0"
+        }
+      ]}>
         <TouchableOpacity
-          style={tw`flex-row items-center justify-center bg-gray-100 p-4 rounded-lg mb-6`}
+          style={tw`flex-row items-center justify-center bg-gray-100 p-4 rounded-lg mb-4`}
           onPress={addFood}
         >
           <Plus size={24} color="#4CAF50" />
           <Text style={tw`ml-2 text-apple-green font-medium`}>Agregar Alimento</Text>
         </TouchableOpacity>
-
-        {/* Footer Buttons */}
         <View style={tw`flex-row gap-4`}>
           <TouchableOpacity
             style={tw`flex-1 bg-gray-100 py-3 rounded-lg`}
-            onPress={onCancel}
-          >
+            onPress={onCancel}          >
             <Text style={tw`text-center text-gray-600 font-medium`}>Cancelar</Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -552,11 +664,10 @@ export function FoodEntryForm({ onSubmit, onCancel, initialData }: FoodEntryForm
             onPress={handleSubmit(onFormSubmit)}
           >
             <Text style={tw`text-center text-white font-medium`}>
-              {initialData ? 'Actualizar' : 'Guardar'}
-            </Text>
+              {initialData ? 'Actualizar' : 'Guardar'}            </Text>
           </TouchableOpacity>
         </View>
       </View>
-    </ScrollView>
+    </SafeAreaView>
   );
 }

@@ -89,8 +89,8 @@ export default function SettingsPage() {
             <Text style={styles.title}>Configuración</Text>
           </View>
         </View>
-
-        <View style={styles.content}>          <View style={styles.section}>
+        <View style={styles.content}>
+          <View style={styles.section}>
             <Text style={styles.sectionTitle}>Preferencias</Text>
             <View style={styles.card}>
               {isBiometricsAvailable && (
@@ -210,6 +210,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingBottom: 16,
+    paddingTop: 20,
   },
   titleContainer: {
     flexDirection: 'row',

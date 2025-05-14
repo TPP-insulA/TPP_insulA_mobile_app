@@ -54,10 +54,10 @@ Antes de comenzar, asegúrate de tener instalado lo siguiente:
 
 2. Instalar dependencias:
    ```bash
-   npm install
+   npm install --legacy-peer-deps
    ```
 
-3. Crear un archivo `.env.local` en el directorio raíz y agregar las variables de entorno necesarias:
+3. (opcional) Crear un archivo `.env.local` en el directorio raíz y agregar las variables de entorno necesarias:
    ```env
    NEXT_PUBLIC_API_URL=your_api_url_here
    ```
@@ -67,28 +67,51 @@ Antes de comenzar, asegúrate de tener instalado lo siguiente:
 ### Modo Desarrollo
 Para ejecutar la aplicación en modo desarrollo:
 ```bash
-npm expo start
+# Inicia la aplicación con Expo
+npx expo start
+
+# Una vez iniciado, presiona 'S' en la terminal para cambiar al modo de desarrollo
+# También puedes usar directamente:
+npx expo start --dev-client
 ```
-La aplicación estará disponible en `http://localhost:3000`
 
 ### Build de Producción
-Para crear y ejecutar una build de producción:
+Para crear una build de producción:
+
+#### Android
 ```bash
-npm run build
-npm start
+# Construye la aplicación para Android
+npx expo build:android
+
+# Alternativamente, para construir y ejecutar en un dispositivo conectado:
+npx expo run:android --variant release
+```
+
+#### iOS
+```bash
+# Construye la aplicación para iOS
+npx expo build:ios
+
+# Alternativamente, para construir y ejecutar en un simulador o dispositivo:
+npx expo run:ios --configuration Release
 ```
 
 ## Estructura del Proyecto
 
 ```
-TPP_insulA_app/
-├── app/                    # Directorio de Next.js
-│   ├── components/        # Componentes compartidos
-│   ├── lib/              # Funciones de utilidad y hooks
-│   ├── pages/            # Páginas de la aplicación
-│   └── styles/           # Estilos globales
-├── public/               # Archivos estáticos
-└── components/           # Componentes UI reutilizables
+TPP_insulA_mobile_app/
+├── components/           # Componentes reutilizables
+│   └── ui/               # Componentes UI base (botones, tarjetas, etc.)
+├── screens/              # Pantallas de la aplicación
+├── hooks/                # Custom hooks de React
+├── lib/                  # Funciones de utilidad y servicios
+│   └── api/              # Funciones para interactuar con la API
+├── assets/               # Archivos estáticos (imágenes, iconos)
+├── styles/               # Estilos globales y tema
+├── types/                # Definiciones de tipos TypeScript
+├── android/              # Código nativo de Android
+├── __mocks__/            # Mocks para pruebas
+└── App.tsx               # Componente raíz de la aplicación
 ```
 
 ## Contribuir

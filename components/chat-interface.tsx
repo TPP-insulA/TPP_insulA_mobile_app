@@ -14,13 +14,11 @@ import {
 import { Feather } from '@expo/vector-icons';
 import { Bot } from 'lucide-react-native';
 import { Button } from './ui/button';
+import { GEMINI_API_KEY } from '@env';
 
 import { getGlucoseReadings } from '../lib/api/glucose';
 import { getInsulinDoses }     from '../lib/api/insulin';
 import { getMeals }            from '../lib/api/meals';
-
-// Gemini API key — move into .env for production
-const GEMINI_API_KEY = 'AIzaSyAgeqKiHyTZCENJS-tHp0t1hRwj1EUfHWU';
 
 type MessageType = {
   id: string;
