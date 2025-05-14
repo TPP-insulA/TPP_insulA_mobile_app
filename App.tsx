@@ -18,6 +18,7 @@ import ForgotPasswordPage from './screens/ForgotPasswordPage';
 import EditProfileScreen from './screens/EditProfileScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
 import SettingsPage from './screens/SettingsPage';
+import PredictionResultPage from './screens/PredictionResultPage';
 import { BackButton } from './components/back-button';
 
 const Stack = createNativeStackNavigator();
@@ -100,6 +101,7 @@ function AppStack() {
           headerShown: false
         }}
       />
+      <Stack.Screen name="PredictionResultPage" component={PredictionResultPage} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 }
