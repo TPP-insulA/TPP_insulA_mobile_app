@@ -142,6 +142,81 @@ export const deleteInsulinDose = async (id: number, token: string): Promise<{ su
   }
 };
 
+export const getPredictionHistory = async (token: string, id: string): Promise<InsulinPredictionResult[]> => {
+  console.log('Fetching insulin prediction history for id:', id);
+  try {
+    //Commented for testing purposes
+    /*const response = await fetch(`${API_URL}/insulin/predictions`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(id),
+    });
+
+    console.log('Calculate insulin dose response status:', response.status);
+    const data = await response.json();*/
+    // Simulating a response for testing purposes
+    // add sleep of 5 secs
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    const response = {
+      ok: true
+    };
+    const data = [
+      {
+        userId: id,
+        date: "2025-05-16T00:04:16.268Z",
+        cgmPrev: [100, 110, 120],
+        glucoseObjective: 100,
+        carbs: 30,
+        insulinOnBoard: 5,
+        sleepLevel: 1,
+        workLevel: 2,
+        activityLevel: 3,
+        recommendedDose: 5,
+        applyDose: 5,
+        cgmPost: [90, 95, 100],
+      },
+      {
+        userId: id,
+        date: "2025-05-16T00:05:16.268Z",
+        cgmPrev: [95, 100, 105],
+        glucoseObjective: 100,
+        carbs: 25,
+        insulinOnBoard: 4,
+        sleepLevel: 2,
+        workLevel: 3,
+        activityLevel: 2,
+        recommendedDose: 4,
+        applyDose: 4,
+        cgmPost: [85, 90, 95],
+      },
+      {
+        userId: id,
+        date: "2025-05-18T00:06:16.268Z",
+        cgmPrev: [90, 95, 100],
+        glucoseObjective: 100,
+        carbs: 20,
+        insulinOnBoard: 3,
+        sleepLevel: 3,
+        workLevel: 2,
+        activityLevel: 1,
+        recommendedDose: 3,
+        cgmPost: [],
+      },
+    ];
+    if (!response.ok) {
+      //throw new Error(data.message || Failed to retrieve insulin prediction history');
+      throw new Error('Failed to retrieve insulin prediction history');
+    }
+    return data;
+  } catch (error) {
+    console.error('Error fetching insulin prediction history:', error);
+    throw error;
+  }
+};
+
 export const calculateInsulinDose = async (
   calculation: InsulinPredictionData,
   token: string
@@ -247,7 +322,7 @@ export const updateInsulinPredictionResult = async (
     console.error('Error updating insulin dose:', error);
     throw error;
   }
-  }
+};
 
 
 export const getInsulinPredictions = async (
