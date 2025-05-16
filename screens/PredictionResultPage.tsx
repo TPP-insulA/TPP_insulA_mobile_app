@@ -5,52 +5,54 @@ import { Card } from '../components/ui/card';
 import { BackButton } from '../components/back-button';
 import { LineChart } from 'react-native-chart-kit';
 import { format } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
 import type { RouteProp } from '@react-navigation/native';
-
-// Define el tipo de los parámetros esperados
-interface PredictionResultParams {
-  cgm_prev: number[];
-  carbs: string;
-  insulinOnBoard: string;
-  targetBloodGlucose: string;
-  predictedDose: number;
-  applyDose: number;
-  cgm_post: number[];
-  datetime: string;
-}
+import type { InsulinPredictionResult } from '../lib/api/insulin';
+import Icon from 'react-native-vector-icons/Feather';
+import { updateInsulinPredictionResult } from '../lib/api/insulin';
+import { useAuth } from '../hooks/use-auth';
 
 export default function PredictionResultPage() {
   const navigation = useNavigation();
-  const route = useRoute<RouteProp<Record<string, PredictionResultParams>, string>>();
+  const route = useRoute<RouteProp<Record<string, { result: InsulinPredictionResult }>, string>>();
+  const result: InsulinPredictionResult = (route.params as any)?.result || {};
   const {
-    cgm_prev = [],
-    carbs = '',
-    insulinOnBoard = '',
-    targetBloodGlucose = '',
-    predictedDose = 0,
+    userId = '',
+    cgmPrev = [],
+    glucoseObjective = 0,
+    carbs = 0,
+    insulinOnBoard = 0,
+    sleepLevel = 0,
+    workLevel = 0,
+    activityLevel = 0,
+    recommendedDose = 0,
     applyDose = 0,
-    cgm_post = [],
-    datetime = '',
-  } = (route.params || {}) as PredictionResultParams;
+    cgmPost = [],
+    date = '',
+  } = result;
 
-  // Invertir glucosas para que el más antiguo esté a la izquierda
-  const glucosasPrev = [...cgm_prev].reverse();
-  const glucosasPost = [...cgm_post]; // ya están de más antiguo a más reciente
-  const glucosasCombinadas = [...glucosasPrev, ...glucosasPost];
-  const predictedIndex = glucosasPrev.length - 1;
-  const minY = Math.max(0, Math.min(...glucosasCombinadas) - 10);
-  const maxY = Math.max(...glucosasCombinadas) + 10;
+  // Use cgmPrev/cgmPost directly, always in the same order (oldest to newest)
+  const cgmPrevOrdered = Array.isArray(cgmPrev) ? [...cgmPrev].reverse() : [];
+  const cgmPostOrdered = Array.isArray(cgmPost) ? cgmPost : [];
+  // Detectar si hay datos posteriores (glucosa o dosis)
+  const hasPostData = cgmPostOrdered.length > 0 || (applyDose !== undefined && applyDose !== null && applyDose !== 0);
+
+  // Combinar CGM previos y posteriores para el gráfico
+  const cgmCombined = [...cgmPrevOrdered, ...cgmPostOrdered];
+  const predictedIndex = cgmPrevOrdered.length - 1;
+  const minY = cgmCombined.length > 0 ? Math.max(0, Math.min(...cgmCombined) - 10) : 0;
+  const maxY = cgmCombined.length > 0 ? Math.max(...cgmCombined) + 10 : 100;
 
   const [tooltip, setTooltip] = useState<{ index: number; x: number; y: number } | null>(null);
   const [showPostInputs, setShowPostInputs] = useState(false);
   const [cgmPostInputs, setCgmPostInputs] = useState<string[]>(['']);
   const [appliedDoseInput, setAppliedDoseInput] = useState('');
   const [postError, setPostError] = useState<string | null>(null);
+  const { token } = useAuth();
+  const [isSavingPost, setIsSavingPost] = useState(false);
+  const [isDeletingPost, setIsDeletingPost] = useState(false);
 
-  // Formatear fecha
-  const formattedDate = datetime ? format(new Date(datetime), "dd/MM/yyyy HH:mm") : '';
-
-  // Handlers para inputs de datos posteriores
+  // Handlers for post data inputs
   const handleCgmPostChange = (value: string, idx: number) => {
     if (!/^[0-9]{0,3}$/.test(value)) return;
     const arr = [...cgmPostInputs];
@@ -65,20 +67,55 @@ export default function PredictionResultPage() {
     setCgmPostInputs(arr.length === 0 ? [''] : arr);
   };
   const canUpdatePost = () => {
-    const glucosas = cgmPostInputs.filter(g => g !== '' && g !== '0');
-    return glucosas.length > 0 && appliedDoseInput !== '' && !isNaN(Number(appliedDoseInput));
+    const glucoses = cgmPostInputs.filter(g => g !== '' && g !== '0');
+    const hasGlucosa = glucoses.length > 0;
+    const hasDosis = appliedDoseInput !== '' && !isNaN(Number(appliedDoseInput.replace(',', '.')));
+    return (hasGlucosa || hasDosis);
   };
-  const handleSavePost = () => {
+  const handleSavePost = async () => {
     if (!canUpdatePost()) {
-      setPostError('Cargue al menos una glucosa y la dosis aplicada.');
+      setPostError('Cargue al menos una glucosa o la dosis aplicada.');
       return;
     }
     setPostError(null);
-    // Aquí normalmente guardarías los datos en backend o estado global
-    // Para demo, solo actualizamos el estado local
-    (route.params as any).cgm_post = cgmPostInputs.filter(g => g !== '').map(Number);
-    (route.params as any).applyDose = Number(appliedDoseInput);
-    setShowPostInputs(false);
+    setIsSavingPost(true);
+    try {
+      const updatedResult = {
+        ...result,
+        cgmPost: cgmPostInputs.filter(g => g !== '').map(Number),
+        applyDose: appliedDoseInput !== '' ? Number(appliedDoseInput.replace(',', '.')) : undefined,
+      };
+      await updateInsulinPredictionResult(token ?? '', updatedResult);
+      result.cgmPost = updatedResult.cgmPost;
+      result.applyDose = updatedResult.applyDose;
+      setShowPostInputs(false);
+    } catch (err) {
+      setPostError('Error guardando datos posteriores');
+    } finally {
+      setIsSavingPost(false);
+    }
+  };
+
+  const handleDeletePost = async () => {
+    setIsDeletingPost(true);
+    setPostError(null);
+    try {
+      const updatedResult = {
+        ...result,
+        cgmPost: [],
+        applyDose: undefined,
+      };
+      await updateInsulinPredictionResult(token ?? '', updatedResult);
+      result.cgmPost = [];
+      result.applyDose = undefined;
+      setCgmPostInputs(['']);
+      setAppliedDoseInput('');
+      setShowPostInputs(false);
+    } catch (err) {
+      setPostError('Error eliminando datos posteriores');
+    } finally {
+      setIsDeletingPost(false);
+    }
   };
 
   return (
@@ -89,13 +126,24 @@ export default function PredictionResultPage() {
         </TouchableOpacity>
         <Text style={styles.title}>Resultado de Predicción</Text>
       </View>
+      {date && (
+        <View style={{alignItems: 'flex-end', marginRight: 20, marginTop: 4, marginBottom: -8}}>
+          <Text style={{ color: '#6b7280', fontSize: 14 }}>
+            Fecha: {(() => {
+              try {
+                const zoned = toZonedTime(new Date(date), 'America/Argentina/Buenos_Aires');
+                return format(zoned, 'dd/MM/yyyy HH:mm');
+              } catch {
+                return '';
+              }
+            })()}
+          </Text>
+        </View>
+      )}
       <Card style={styles.card}>
-        {formattedDate && (
-          <Text style={{ color: '#6b7280', fontSize: 14, marginBottom: 4, alignSelf: 'flex-end' }}>Fecha: {formattedDate}</Text>
-        )}
-        <Text style={styles.sectionTitle}>Dosis de Insulina Predicha 💉</Text>
+        <Text style={styles.sectionTitle}>Dosis de Insulina Calculada 💉</Text>
         <View style={styles.doseRow}>
-          <Text style={styles.doseValue}>{predictedDose}</Text>
+          <Text style={styles.doseValue}>{recommendedDose}</Text>
           <Text style={styles.doseUnit}>unidades</Text>
         </View>
         <Text style={styles.sectionTitle}>Datos que utilizó:</Text>
@@ -104,7 +152,7 @@ export default function PredictionResultPage() {
             <Text style={styles.dataLabel}>🩸 Glucosa(s) (mg/dL):</Text>
           </View>
           <Text style={styles.glucoseNote}>De más antiguo a más reciente:</Text>
-          {glucosasPrev.map((g, idx) => (
+          {cgmPrevOrdered.map((g: number, idx: number) => (
             <View key={idx} style={styles.glucoseRow}>
               <View style={{ flex: 1 }} />
               <Text style={styles.glucoseValue}>{g} mg/dL</Text>
@@ -123,20 +171,51 @@ export default function PredictionResultPage() {
           <View style={styles.spacer} />
           <View style={styles.dataRow}>
             <Text style={styles.dataLabel}>🎯 Glucosa Objetivo:</Text>
-            <Text style={styles.dataValue}>{targetBloodGlucose} mg/dL</Text>
+            <Text style={styles.dataValue}>{glucoseObjective} mg/dL</Text>
+          </View>
+          <View style={styles.spacer} />
+          <View style={styles.dataRow}>
+            <Text style={styles.dataLabel}>😴 Nivel de sueño:</Text>
+            <Text style={styles.dataValue}>{sleepLevel}</Text>
+          </View>
+          <View style={styles.spacer} />
+          <View style={styles.dataRow}>
+            <Text style={styles.dataLabel}>💼 Nivel de trabajo:</Text>
+            <Text style={styles.dataValue}>{workLevel}</Text>
+          </View>
+          <View style={styles.spacer} />
+          <View style={styles.dataRow}>
+            <Text style={styles.dataLabel}>🏃‍♂️ Nivel de actividad:</Text>
+            <Text style={styles.dataValue}>{activityLevel}</Text>
           </View>
         </View>
         <Text style={{ color: '#4CAF50', fontSize: 14, marginBottom: 8, marginLeft: 2 }}>
           🤖 ¡Con cada dato posterior que agregues, el modelo irá aprendiendo y mejorando sus predicciones para vos! Cuantos más datos, más inteligente se vuelve tu asistente de insulina 🚀📈
         </Text>
         <TouchableOpacity
-          style={{ backgroundColor: showPostInputs ? '#388e3c' : '#4CAF50', borderRadius: 8, padding: 10, alignItems: 'center', marginBottom: 12 }}
+          style={{ backgroundColor: showPostInputs ? '#dc2626' : '#4CAF50', borderRadius: 8, padding: 10, alignItems: 'center', marginBottom: 12 }}
           onPress={() => setShowPostInputs(v => !v)}
+          disabled={isSavingPost || isDeletingPost}
         >
           <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 15 }}>
-            {showPostInputs ? 'Cancelar' : 'Agregar datos posteriores'}
+            {showPostInputs
+              ? 'Cancelar'
+              : hasPostData
+                ? 'Editar datos posteriores'
+                : 'Agregar datos posteriores'}
           </Text>
         </TouchableOpacity>
+        {hasPostData && !showPostInputs && (
+          <TouchableOpacity
+            style={{ backgroundColor: '#ef4444', borderRadius: 8, padding: 10, alignItems: 'center', marginBottom: 12 }}
+            onPress={handleDeletePost}
+            disabled={isDeletingPost || isSavingPost}
+          >
+            <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 15 }}>
+              {isDeletingPost ? 'Eliminando...' : 'Eliminar datos posteriores'}
+            </Text>
+          </TouchableOpacity>
+        )}
         {showPostInputs && (
           <View style={{ backgroundColor: '#f3f4f6', borderRadius: 8, padding: 12, marginBottom: 12 }}>
             <Text style={{ fontWeight: 'bold', marginBottom: 6 }}>Glucosa(s) posteriores (mg/dL)</Text>
@@ -167,11 +246,8 @@ export default function PredictionResultPage() {
                   <Text style={styles.inputAddonText}>mg/dL</Text>
                 </View>
                 {idx > 0 && (
-                  <TouchableOpacity onPress={() => {
-                    const arr = cgmPostInputs.filter((_, i) => i !== idx);
-                    setCgmPostInputs(arr.length === 0 ? [''] : arr);
-                  }} style={{ marginLeft: 8 }}>
-                    <Text style={{ color: '#ef4444', fontSize: 18 }}>✕</Text>
+                  <TouchableOpacity onPress={() => handleRemoveCgmPost(idx)} style={{ marginLeft: 8 }}>
+                    <Icon name="x-circle" size={20} color="#ef4444" />
                   </TouchableOpacity>
                 )}
               </View>
@@ -185,6 +261,7 @@ export default function PredictionResultPage() {
               style={[styles.input, { marginBottom: 8 }]}
               value={appliedDoseInput}
               onChangeText={v => {
+                // Permitir coma o punto como separador decimal
                 if (!/^\d+(,\d{0,2})?$|^\d+(\.\d{0,2})?$/.test(v) && v !== '') return;
                 setAppliedDoseInput(v);
               }}
@@ -194,42 +271,47 @@ export default function PredictionResultPage() {
             />
             {postError && <Text style={{ color: '#ef4444', fontSize: 12 }}>{postError}</Text>}
             <TouchableOpacity
-              style={{ backgroundColor: '#388e3c', borderRadius: 8, padding: 10, alignItems: 'center', marginTop: 4 }}
-              onPress={() => {
-                const glucosas = cgmPostInputs.filter(g => g !== '' && g !== '0');
-                if (glucosas.length === 0) {
-                  setPostError('Cargue al menos una glucosa válida.');
-                  return;
-                }
-                if (appliedDoseInput === '' || isNaN(Number(appliedDoseInput))) {
-                  setPostError('Ingrese una dosis válida.');
-                  return;
-                }
-                setPostError(null);
-                (route.params as any).cgm_post = glucosas.map(Number);
-                (route.params as any).applyDose = Number(appliedDoseInput);
-                setShowPostInputs(false);
-              }}
-              disabled={cgmPostInputs.filter(g => g !== '' && g !== '0').length === 0 || appliedDoseInput === '' || isNaN(Number(appliedDoseInput))}
+              style={{ backgroundColor: canUpdatePost() && !isSavingPost ? '#388e3c' : '#9CA3AF', borderRadius: 8, padding: 10, alignItems: 'center', marginTop: 4 }}
+              onPress={handleSavePost}
+              disabled={!canUpdatePost() || isSavingPost}
             >
-              <Text style={{ color: 'white', fontWeight: 'bold' }}>Guardar datos posteriores</Text>
+              {isSavingPost ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Icon name="loader" size={20} color="white" />
+                  <Text style={{ color: 'white', fontWeight: 'bold', marginLeft: 8 }}>Actualizando...</Text>
+                </View>
+              ) : (
+                <Text style={{ color: 'white', fontWeight: 'bold' }}>Guardar datos posteriores</Text>
+              )}
             </TouchableOpacity>
           </View>
         )}
-        {glucosasPost.length > 0 && (
+        {(cgmPostOrdered.length > 0 || (applyDose !== undefined && applyDose !== null && applyDose !== 0)) && (
           <View style={{ marginBottom: 12 }}>
             <Text style={styles.sectionTitle}>Datos posteriores:</Text>
-            <Text style={styles.glucoseNote}>De más antiguo a más reciente:</Text>
-            {glucosasPost.map((g, idx) => (
-              <View key={idx} style={styles.glucoseRow}>
-                <View style={{ flex: 1 }} />
-                <Text style={styles.glucoseValue}>{g} mg/dL</Text>
-              </View>
-            ))}
-            <View style={styles.dataRow}>
-              <Text style={styles.dataLabel}>💉 Dosis aplicada:</Text>
-              <Text style={styles.dataValue}>{applyDose} unidades</Text>
-            </View>
+            {cgmPostOrdered.length > 0 && (
+              <>
+                <View style={styles.dataRow}>
+                  <Text style={styles.dataLabel}>🩸 Glucosa(s) (mg/dL):</Text>
+                </View>
+                <Text style={styles.glucoseNote}>De más antiguo a más reciente:</Text>
+                {cgmPostOrdered.map((g: number, idx: number) => (
+                  <View key={idx} style={styles.glucoseRow}>
+                    <View style={{ flex: 1 }} />
+                    <Text style={styles.glucoseValue}>{g} mg/dL</Text>
+                  </View>
+                ))}
+              </>
+            )}
+            {applyDose !== undefined && applyDose !== null && applyDose !== 0 && !isNaN(Number(applyDose)) && (
+              <>
+                <View style={styles.spacer} />
+                <View style={styles.dataRow}>
+                  <Text style={styles.dataLabel}>💉 Dosis aplicada:</Text>
+                  <Text style={styles.dataValue}>{Number(applyDose)} unidades</Text>
+                </View>
+              </>
+            )}
           </View>
         )}
         <Text style={styles.sectionTitle}>Gráfico CGM</Text>
@@ -237,16 +319,16 @@ export default function PredictionResultPage() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <LineChart
               data={{
-                labels: glucosasCombinadas.map(() => ''),
+                labels: cgmCombined.map(() => ''),
                 datasets: [
                   {
-                    data: glucosasCombinadas,
+                    data: cgmCombined,
                     color: () => '#4CAF50',
                     strokeWidth: 2,
                   },
                 ],
               }}
-              width={Math.max(350, glucosasCombinadas.length * 40)}
+              width={Math.max(350, cgmCombined.length * 40)}
               height={220}
               yAxisSuffix=" mg/dL"
               formatYLabel={yValue => `${yValue}`}
@@ -268,17 +350,12 @@ export default function PredictionResultPage() {
                 },
               }}
               bezier
-              withDots
-              withShadow={false}
-              fromZero={minY === 0}
-              style={{ borderRadius: 8 }}
-              segments={glucosasCombinadas.length > 5 ? 5 : glucosasCombinadas.length}
-              getDotColor={(dataPoint, index) =>
+              getDotColor={(_dataPoint, index) =>
                 index === predictedIndex ? '#ff9800' : '#4CAF50'
               }
               renderDotContent={({ x, y, index }) => {
-                const isHigh = glucosasCombinadas[index] >= maxY - 10;
-                const chartWidth = Math.max(350, glucosasCombinadas.length * 40);
+                const isHigh = cgmCombined[index] >= maxY - 10;
+                const chartWidth = Math.max(350, cgmCombined.length * 40);
                 const tooltipWidth = 90;
                 let left = x - 40;
                 if (x + tooltipWidth > chartWidth) {
@@ -309,7 +386,7 @@ export default function PredictionResultPage() {
                         }}
                       >
                         <Text style={{ color: index === predictedIndex ? '#ff9800' : '#4CAF50', fontWeight: 'bold', fontSize: 13 }}>{`Glucosa #${index + 1}`}</Text>
-                        <Text style={{ color: '#111827', fontSize: 13 }}>{glucosasCombinadas[index]} mg/dL</Text>
+                        <Text style={{ color: '#111827', fontSize: 13 }}>{cgmCombined[index]} mg/dL</Text>
                       </View>
                     )}
                   </React.Fragment>

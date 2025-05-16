@@ -8,21 +8,31 @@ export interface InsulinDose {
   notes?: string;
 }
 
-export interface InsulinCalculation {
-  currentGlucose: number;
+export interface InsulinPredictionData {
+  userId: string;
+  date: string; // UTC ISO string
+  cgmPrev: number[];
+  glucoseObjective: number;
   carbs: number;
-  activity: string;
-  timeOfDay: string;
+  insulinOnBoard: number;
+  sleepLevel: number;
+  workLevel: number;
+  activityLevel: number;
 }
 
-export interface InsulinRecommendation {
-  total: number;
-  breakdown: {
-    correctionDose: number;
-    mealDose: number;
-    activityAdjustment: number;
-    timeAdjustment: number;
-  };
+export interface InsulinPredictionResult {
+  userId: string;
+  date: string; // UTC ISO string
+  cgmPrev: number[];
+  glucoseObjective: number;
+  carbs: number;
+  insulinOnBoard: number;
+  sleepLevel: number;
+  workLevel: number;
+  activityLevel: number;
+  recommendedDose: number;
+  applyDose?: number;
+  cgmPost: number[];
 }
 
 export interface InsulinSettings {
@@ -133,13 +143,14 @@ export const deleteInsulinDose = async (id: number, token: string): Promise<{ su
 };
 
 export const calculateInsulinDose = async (
-  calculation: InsulinCalculation,
+  calculation: InsulinPredictionData,
   token: string
-): Promise<InsulinRecommendation> => {
+): Promise<InsulinPredictionResult> => {
   console.log('Calculating insulin dose with data:', JSON.stringify(calculation, null, 2));
 
   try {
-    const response = await fetch(`${API_URL}/insulin/calculate`, {
+    //Commented for testing purposes
+    /*const response = await fetch(`${API_URL}/insulin/calculate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -149,11 +160,32 @@ export const calculateInsulinDose = async (
     });
 
     console.log('Calculate insulin dose response status:', response.status);
-    const data = await response.json();
+    const data = await response.json();*/
+    // Simulating a response for testing purposes
+    // add sleep of 5 secs
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    const response = {
+      ok: true
+    };
+
+    const data = {
+      userId: calculation.userId,
+      date: calculation.date, // string
+      cgmPrev: calculation.cgmPrev,
+      glucoseObjective: calculation.glucoseObjective,
+      carbs: calculation.carbs,
+      insulinOnBoard: calculation.insulinOnBoard,
+      sleepLevel: calculation.sleepLevel,
+      workLevel: calculation.workLevel,
+      activityLevel: calculation.activityLevel,
+      recommendedDose: 5, // Simulated recommended dose
+      cgmPost: [], // Simulated CGM post values
+    };
     console.log('Calculate insulin dose response data:', JSON.stringify(data, null, 2));
 
     if (!response.ok) {
-      throw new Error(data.message || 'Failed to calculate insulin dose');
+      //throw new Error(data.message || 'Failed to calculate insulin dose');
+      throw new Error('Failed to calculate insulin dose');
     }
 
     return data;
@@ -162,6 +194,61 @@ export const calculateInsulinDose = async (
     throw error;
   }
 };
+
+export const updateInsulinPredictionResult = async (
+  token: string,
+  prediction: InsulinPredictionResult,
+): Promise<InsulinPredictionResult> => {
+  console.log('Updating insulin dose with data:', JSON.stringify(prediction, null, 2)); 
+  
+  try {
+    //Commented for testing purposes
+    /*const response = await fetch(`${API_URL}/insulin/update`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(prediction),
+    });
+
+    console.log('Update insulin dose response status:', response.status);
+    const data = await response.json();*/
+    // Simulating a response for testing purposes
+    // add sleep of 5 secs
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    const response = {
+      ok: true
+    };
+
+    const data = {
+      userId: prediction.userId,
+      date: prediction.date,
+      cgmPrev: prediction.cgmPrev,
+      glucoseObjective: prediction.glucoseObjective,
+      carbs: prediction.carbs,
+      insulinOnBoard: prediction.insulinOnBoard,
+      sleepLevel: prediction.sleepLevel,
+      workLevel: prediction.workLevel,
+      activityLevel: prediction.activityLevel,
+      recommendedDose: prediction.recommendedDose, // Simulated recommended dose
+      applyDose: prediction.applyDose, // Simulated apply dose
+      cgmPost: prediction.cgmPost, // Simulated CGM post values
+    };
+    console.log('Update insulin dose response data:', JSON.stringify(data, null, 2));
+
+    if (!response.ok) {
+      //throw new Error(data.message || 'Failed to update insulin dose');
+      throw new Error('Failed to update insulin dose');
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error updating insulin dose:', error);
+    throw error;
+  }
+  }
+
 
 export const getInsulinPredictions = async (
   token: string,

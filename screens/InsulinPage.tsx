@@ -58,6 +58,9 @@ export default function InsulinPage() {
     }>;
   } | null>(null);
   const [glucoseExpanded, setGlucoseExpanded] = useState(true);
+  const [sleepQuality, setSleepQuality] = useState(''); // 1-10
+  const [workLevel, setWorkLevel] = useState(''); // 1-10
+  const [exerciseLevel, setExerciseLevel] = useState(''); // 1-10
 
   const MAX_GLUCOSE_ENTRIES = 24;
 
@@ -109,6 +112,10 @@ export default function InsulinPage() {
       carbs !== '' && isValidCarbs(carbs) &&
       insulinOnBoard !== '' && isValidInsulinOnBoard(insulinOnBoard) &&
       targetBloodGlucose && isValidTargetGlucose(targetBloodGlucose) &&
+      sleepQuality !== '' && workLevel !== '' && exerciseLevel !== '' &&
+      /^([1-9]|10)$/.test(sleepQuality) &&
+      /^([1-9]|10)$/.test(workLevel) &&
+      /^([1-9]|10)$/.test(exerciseLevel) &&
       !isLoading
     );
   };
@@ -118,25 +125,20 @@ export default function InsulinPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const cgm_prev = glucoseInputs.filter(g => g !== '').map(Number);
-      
-      // const result = await calculateInsulinDose({
-      //   currentGlucose: 1,
-      //   carbs: 1,
-      //   activity: "string",
-      //   timeOfDay: "string",
-      // }, token);
-      // Navegar a la pantalla de resultado y pasar los datos
-      (navigation as any).navigate('PredictionResultPage', {
-        cgm_prev,
-        carbs,
-        insulinOnBoard,
-        targetBloodGlucose,
-        predictedDose: 5, // Cambia esto por result.total cuando descomentes el endpoint
-        applyDose: 5.5, // Cambia esto por result.total cuando descomentes el endpoint
-        cgm_post: [],
-        datetime: new Date(new Date().getTime() - 3 * 60 * 60 * 1000).toISOString(), // UTC-3
-      });
+      const cgmPrev = glucoseInputs.filter(g => g !== '').map(Number);
+      const calculation = {
+        userId: token, // TODO: reemplazar con el ID del usuario
+        date: new Date().toISOString(),
+        cgmPrev,
+        glucoseObjective: Number(targetBloodGlucose),
+        carbs: Number(carbs.replace(',', '.')),
+        insulinOnBoard: Number(insulinOnBoard.replace(',', '.')),
+        sleepLevel: Number(sleepQuality),
+        workLevel: Number(workLevel),
+        activityLevel: Number(exerciseLevel),
+      };
+      const result = await calculateInsulinDose(calculation, token);
+      (navigation as any).navigate('PredictionResultPage', { result });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error calculando dosis');
     } finally {
@@ -219,6 +221,28 @@ export default function InsulinPage() {
 
               <View style={styles.formGroup}>
                 <View style={styles.labelContainer}>
+                  <Droplet size={16} color="#4CAF50" />
+                  <Text style={styles.label}>Glucosa Objetivo</Text>
+                </View>
+                <View style={styles.inputGroup}>
+                  <TextInput
+                    style={styles.input}
+                    value={targetBloodGlucose}
+                    onChangeText={setTargetBloodGlucose}
+                    keyboardType="numeric"
+                    placeholder="Glucosa objetivo (mg/dL)"
+                  />
+                  <View style={styles.inputAddon}>
+                    <Text style={styles.inputAddonText}>mg/dL</Text>
+                  </View>
+                </View>
+                {showTargetWarning && (
+                  <Text style={{ color: '#ef4444', fontSize: 12 }}>Debe ser un número entre 80 y 180 mg/dL.</Text>
+                )}
+              </View>
+
+              <View style={styles.formGroup}>
+                <View style={styles.labelContainer}>
                   <Icon name="coffee" size={16} color="#4CAF50" />
                   <Text style={styles.label}>Carbohidratos a Consumir</Text>
                 </View>
@@ -229,7 +253,6 @@ export default function InsulinPage() {
                     onChangeText={setCarbs}
                     keyboardType="numeric"
                     placeholder="Ingrese carbohidratos"
-                    editable={glucoseInputs.filter(g => g !== '').length > 0}
                   />
                   <View style={styles.inputAddon}>
                     <Text style={styles.inputAddonText}>gramos</Text>
@@ -252,7 +275,6 @@ export default function InsulinPage() {
                     onChangeText={setInsulinOnBoard}
                     keyboardType="numeric"
                     placeholder="Insulina activa (U)"
-                    editable={carbs !== ''}
                   />
                   <View style={styles.inputAddon}>
                     <Text style={styles.inputAddonText}>U</Text>
@@ -263,26 +285,62 @@ export default function InsulinPage() {
                 )}
               </View>
 
+              {/* CAMPOS DE SUEÑO, TRABAJO Y EJERCICIO AL FINAL */}
               <View style={styles.formGroup}>
                 <View style={styles.labelContainer}>
-                  <Droplet size={16} color="#4CAF50" />
-                  <Text style={styles.label}>Glucosa Objetivo</Text>
+                  <Icon name="moon" size={16} color="#4CAF50" />
+                  <Text style={styles.label}>¿Cómo dormiste? (1 = mal, 10 = excelente)</Text>
                 </View>
-                <View style={styles.inputGroup}>
-                  <TextInput
-                    style={styles.input}
-                    value={targetBloodGlucose}
-                    onChangeText={setTargetBloodGlucose}
-                    keyboardType="numeric"
-                    placeholder="Glucosa objetivo (mg/dL)"
-                    editable={insulinOnBoard !== ''}
-                  />
-                  <View style={styles.inputAddon}>
-                    <Text style={styles.inputAddonText}>mg/dL</Text>
-                  </View>
+                <TextInput
+                  style={styles.input}
+                  value={sleepQuality}
+                  onChangeText={v => {
+                    if (/^$|^([1-9]|10)$/.test(v)) setSleepQuality(v);
+                  }}
+                  keyboardType="numeric"
+                  placeholder="1-10"
+                  maxLength={2}
+                />
+                {sleepQuality && (Number(sleepQuality) < 1 || Number(sleepQuality) > 10) && (
+                  <Text style={{ color: '#ef4444', fontSize: 12 }}>Ingrese un valor entre 1 y 10.</Text>
+                )}
+              </View>
+              <View style={styles.formGroup}>
+                <View style={styles.labelContainer}>
+                  <Icon name="briefcase" size={16} color="#4CAF50" />
+                  <Text style={styles.label}>Nivel de trabajo (1 = poco, 10 = mucho)</Text>
                 </View>
-                {showTargetWarning && (
-                  <Text style={{ color: '#ef4444', fontSize: 12 }}>Debe ser un número entre 80 y 180 mg/dL.</Text>
+                <TextInput
+                  style={styles.input}
+                  value={workLevel}
+                  onChangeText={v => {
+                    if (/^$|^([1-9]|10)$/.test(v)) setWorkLevel(v);
+                  }}
+                  keyboardType="numeric"
+                  placeholder="1-10"
+                  maxLength={2}
+                />
+                {workLevel && (Number(workLevel) < 1 || Number(workLevel) > 10) && (
+                  <Text style={{ color: '#ef4444', fontSize: 12 }}>Ingrese un valor entre 1 y 10.</Text>
+                )}
+              </View>
+              <View style={styles.formGroup}>
+                <View style={styles.labelContainer}>
+                  <Icon name="activity" size={16} color="#4CAF50" />
+                  <Text style={styles.label}>Ejercicio realizado (1 = nada, 10 = muy intenso)</Text>
+                </View>
+                <TextInput
+                  style={styles.input}
+                  value={exerciseLevel}
+                  onChangeText={v => {
+                    if (/^$|^([1-9]|10)$/.test(v)) setExerciseLevel(v);
+                  }}
+                  keyboardType="numeric"
+                  placeholder="1-10"
+                  maxLength={2}
+                />
+                {exerciseLevel && (Number(exerciseLevel) < 1 || Number(exerciseLevel) > 10) && (
+                  <Text style={{ color: '#ef4444', fontSize: 12 }}>Ingrese un valor entre 1 y 10.</Text>
                 )}
               </View>
 
