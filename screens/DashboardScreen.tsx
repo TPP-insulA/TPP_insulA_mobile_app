@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, TextInput, Dimensions } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, TextInput, Dimensions, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Loader2, ArrowUp, ArrowDown, Check, Utensils, Syringe, Droplet, Plus, MessageCircle, Activity, Settings, X as CloseIcon, Pencil, AlertCircle } from 'lucide-react-native';
+import { Loader2, ArrowUp, ArrowDown, Check, Utensils, Syringe, Droplet, Plus, MessageCircle, Activity, X as CloseIcon, Pencil, AlertCircle } from 'lucide-react-native';
 import { Feather } from '@expo/vector-icons';
 import { format, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -13,6 +13,7 @@ import { useAuth } from '../hooks/use-auth';
 import { useToast } from '../hooks/use-toast';
 import { getGlucoseReadings, createGlucoseReading, getActivities } from '../lib/api/glucose';
 import type { GlucoseReading, ActivityItem } from '../lib/api/glucose';
+import { AppHeader } from '../components/app-header';
 
 // Define the navigation route types
 type RootStackParamList = {
@@ -222,30 +223,43 @@ export default function DashboardScreen() {
   };
   return (
     <View style={styles.container}>
+      <AppHeader
+        title=""
+        icon={
+          <Image
+            source={require('../assets/logo_blanco_png.png')}
+            style={{ width: 64, height: 64, resizeMode: 'contain', alignSelf: 'flex-start', marginLeft: 72}}
+          />
+        }
+        right={
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              backgroundColor: 'rgba(255,255,255,0.10)',
+              borderRadius: 24,
+              paddingVertical: 6,
+              paddingHorizontal: 14,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.25,
+              shadowRadius: 4,
+              elevation: 5,
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.25)'
+            }}
+            onPress={() => navigation.navigate('Profile')}
+          >
+            <Feather name="user" size={22} color="#fff" />
+            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16 }}>Perfil</Text>
+          </TouchableOpacity>
+        }
+      />
       {isLoading ? (
         <LoadingSpinner text="Cargando datos..." />
       ) : (
         <ScrollView contentContainerStyle={styles.scrollContainer}>
-          <View style={styles.header}>
-            <View style={styles.titleContainer}>
-              <TouchableOpacity 
-                style={styles.notificationsButton}
-                onPress={() => navigation.navigate('Notifications')}
-              >
-                <Feather name="bell" size={24} color="#4b5563" />
-              </TouchableOpacity>
-              <View style={styles.titleWrapper}>
-                <Activity width={24} height={24} color="#4CAF50" style={styles.titleIcon} />
-                <Text style={styles.title}>Indicadores</Text>
-              </View>
-              <TouchableOpacity 
-                style={styles.settingsButton}
-                onPress={() => navigation.navigate('Settings')}
-              >
-                <Settings width={24} height={24} color="#4b5563" />
-              </TouchableOpacity>
-            </View>
-          </View>
           <View style={styles.content}>
             <View style={styles.statusContainer}>
               <View style={styles.statusIndicator}>
@@ -624,57 +638,15 @@ const styles = StyleSheet.create({
   scrollContainer: {
     flexGrow: 1,
   },
-  header: {
-    width: '100%',
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-    alignItems: 'center',
-    paddingBottom: 12,
-    paddingTop: 44,
-    marginBottom: 20,
-  },
   content: {
     paddingHorizontal: 16,
-  },
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    position: 'relative',
-    paddingHorizontal: 16,
-  },
-  titleWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  titleIcon: {
-    marginRight: 4,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  notificationsButton: {
-    position: 'absolute',
-    left: 16,
-    zIndex: 1,
-    alignSelf: 'center',
-  },
-  settingsButton: {
-    position: 'absolute',
-    right: 16,
-    zIndex: 1,
-    alignSelf: 'center',
   },
   statusContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
+    marginTop: 16,
   },
   statusIndicator: {
     flexDirection: 'row',

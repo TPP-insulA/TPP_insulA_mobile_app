@@ -268,7 +268,7 @@ export function ChatInterface({
           <View style={styles.header}>
             <View style={styles.titleWithIcon}>
               <Bot size={24} color="#4CAF50" style={{ marginTop: 4 }} />
-              <Text style={styles.headerText}>Asistente de Salud</Text>
+              <Text style={styles.headerText}>DiaBot</Text>
             </View>
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
               <Feather name="minimize-2" size={18} color="#6b7280" />

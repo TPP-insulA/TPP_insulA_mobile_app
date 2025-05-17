@@ -16,6 +16,7 @@ import {
   getInsulinPredictions,
   InsulinDose
 } from '../lib/api/insulin';
+import { AppHeader } from '../components/app-header';
 
 interface Recommendation {
   total: number;
@@ -196,29 +197,13 @@ export default function InsulinPage() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <AppHeader
+        title="Insulina"
+        icon={<Droplet size={32} color="#fff" />}
+        onBack={() => navigation.goBack()}
+      />
       <ScrollView style={styles.scrollView}>
         <View style={styles.content}>
-          <View style={styles.header}>
-            <View style={styles.titleContainer}>
-              <TouchableOpacity 
-                style={styles.backButton}
-                onPress={() => navigation.goBack()}
-              >
-                <BackButton />
-              </TouchableOpacity>
-              <View style={styles.titleRow}>
-                <Droplet size={32} color="#4CAF50" />
-                <Text style={styles.title}>Insulina</Text>
-              </View>
-            </View>
-            <View style={styles.descriptionContainer}>
-              <Icon name="edit-3" size={16} color="#6b7280" />
-              <Text style={styles.description}>
-                Calculá y registrá tus dosis de insulina diarias
-              </Text>
-            </View>
-          </View>
-
           {/* Registro de Dosis Card */}
           <Card style={styles.card}>
             <View style={styles.cardHeader}>
