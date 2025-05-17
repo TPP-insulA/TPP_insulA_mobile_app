@@ -6,6 +6,7 @@ import { ThemeProvider, navigationTheme } from './components/theme-provider';
 import { useAuth } from './hooks/use-auth';
 import { View, ActivityIndicator } from 'react-native';
 import { useEffect } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import DashboardScreen from './screens/DashboardScreen';
 import LoginScreen from './screens/LoginScreen';
@@ -123,17 +124,19 @@ export default function App() {
   }, [initialize]);
 
   return (
-    <SafeAreaProvider>
-      <NavigationContainer theme={navigationTheme}>
-        <ThemeProvider>
-          {isLoading ? (
-            <LoadingScreen />
-          ) : (
-            isAuthenticated ? <AppStack /> : <AuthStack />
-          )}
-        </ThemeProvider>
-      </NavigationContainer>
-      <StatusBar style="auto" />
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <NavigationContainer theme={navigationTheme}>
+          <ThemeProvider>
+            {isLoading ? (
+              <LoadingScreen />
+            ) : (
+              isAuthenticated ? <AppStack /> : <AuthStack />
+            )}
+          </ThemeProvider>
+        </NavigationContainer>
+        <StatusBar style="auto" />
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

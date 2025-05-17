@@ -21,6 +21,7 @@ export interface InsulinPredictionData {
 }
 
 export interface InsulinPredictionResult {
+  id: string;
   userId: string;
   date: string; // UTC ISO string
   cgmPrev: number[];
@@ -116,11 +117,11 @@ export const createInsulinDose = async (
   }
 };
 
-export const deleteInsulinDose = async (id: number, token: string): Promise<{ success: boolean }> => {
+export const deleteInsulinPrediction = async (id: string, token: string): Promise<{ success: boolean }> => {
   console.log('Deleting insulin dose with id:', id);
 
   try {
-    const response = await fetch(`${API_URL}/insulin/doses/${id}`, {
+    /*const response = await fetch(`${API_URL}/insulin/doses/${id}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -134,7 +135,19 @@ export const deleteInsulinDose = async (id: number, token: string): Promise<{ su
     if (!response.ok) {
       throw new Error(data.message || 'Failed to delete insulin dose');
     }
-
+    */
+    // Simulating a response for testing purposes
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    const response = {
+      ok: true
+    };
+    const data = {
+      success: true,
+    };
+    console.log('Delete insulin dose response data:', JSON.stringify(data, null, 2));
+    if (!response.ok) {
+      throw new Error('Failed to delete insulin dose');
+    }
     return data;
   } catch (error) {
     console.error('Error deleting insulin dose:', error);
@@ -165,6 +178,7 @@ export const getPredictionHistory = async (token: string, id: string): Promise<I
     };
     const data = [
       {
+        id: "test_1",
         userId: id,
         date: "2025-05-16T00:04:16.268Z",
         cgmPrev: [100, 110, 120],
@@ -179,6 +193,7 @@ export const getPredictionHistory = async (token: string, id: string): Promise<I
         cgmPost: [90, 95, 100],
       },
       {
+        id: "test_2",
         userId: id,
         date: "2025-05-16T00:05:16.268Z",
         cgmPrev: [95, 100, 105],
@@ -193,6 +208,95 @@ export const getPredictionHistory = async (token: string, id: string): Promise<I
         cgmPost: [85, 90, 95],
       },
       {
+        id: "test_3",
+        userId: id,
+        date: "2025-05-18T00:06:16.268Z",
+        cgmPrev: [90, 95, 100],
+        glucoseObjective: 100,
+        carbs: 20,
+        insulinOnBoard: 3,
+        sleepLevel: 3,
+        workLevel: 2,
+        activityLevel: 1,
+        recommendedDose: 3,
+        cgmPost: [],
+      },
+      {
+        id: "test_4",
+        userId: id,
+        date: "2025-05-16T00:04:16.268Z",
+        cgmPrev: [100, 110, 120],
+        glucoseObjective: 100,
+        carbs: 30,
+        insulinOnBoard: 5,
+        sleepLevel: 1,
+        workLevel: 2,
+        activityLevel: 3,
+        recommendedDose: 5,
+        applyDose: 5,
+        cgmPost: [90, 95, 100],
+      },
+      {
+        id: "test_5",
+        userId: id,
+        date: "2025-05-16T00:05:16.268Z",
+        cgmPrev: [95, 100, 105],
+        glucoseObjective: 100,
+        carbs: 25,
+        insulinOnBoard: 4,
+        sleepLevel: 2,
+        workLevel: 3,
+        activityLevel: 2,
+        recommendedDose: 4,
+        applyDose: 4,
+        cgmPost: [85, 90, 95],
+      },
+      {
+        id: "test_6",
+        userId: id,
+        date: "2025-05-18T00:06:16.268Z",
+        cgmPrev: [90, 95, 100],
+        glucoseObjective: 100,
+        carbs: 20,
+        insulinOnBoard: 3,
+        sleepLevel: 3,
+        workLevel: 2,
+        activityLevel: 1,
+        recommendedDose: 3,
+        cgmPost: [],
+      },
+      {
+        id: "test_7",
+        userId: id,
+        date: "2025-05-16T00:04:16.268Z",
+        cgmPrev: [100, 110, 120],
+        glucoseObjective: 100,
+        carbs: 30,
+        insulinOnBoard: 5,
+        sleepLevel: 1,
+        workLevel: 2,
+        activityLevel: 3,
+        recommendedDose: 5,
+        applyDose: 5,
+        cgmPost: [90, 95, 100],
+      },
+      {
+        id: "test_8",
+        userId: id,
+        date: "2025-05-16T00:05:16.268Z",
+        cgmPrev: [95, 100, 105],
+        glucoseObjective: 100,
+        carbs: 25,
+        insulinOnBoard: 4,
+        sleepLevel: 2,
+        workLevel: 3,
+        activityLevel: 2,
+        recommendedDose: 4,
+        applyDose: 4,
+        cgmPost: [85, 90, 95],
+      },
+      {
+        id: "test_9",
         userId: id,
         date: "2025-05-18T00:06:16.268Z",
         cgmPrev: [90, 95, 100],
@@ -244,6 +348,7 @@ export const calculateInsulinDose = async (
     };
 
     const data = {
+      id: "test_1",
       userId: calculation.userId,
       date: calculation.date, // string
       cgmPrev: calculation.cgmPrev,
@@ -297,6 +402,7 @@ export const updateInsulinPredictionResult = async (
     };
 
     const data = {
+      id: prediction.id,
       userId: prediction.userId,
       date: prediction.date,
       cgmPrev: prediction.cgmPrev,

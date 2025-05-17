@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,22 +9,25 @@ import {
   RefreshControl,
   TextInput,
   Modal,
-  Pressable
+  Pressable,
+  Animated,
 } from 'react-native';
 import { GlucoseTrendsChart } from '../components/glucose-trends-chart';
 import DailyPatternChart from '../components/daily-pattern-chart';
 import { Footer } from '../components/footer';
 import { BackButton } from '../components/back-button';
 import { useNavigation } from '@react-navigation/native';
-import { Activity, Plus } from 'lucide-react-native';
+import { Activity, Plus, Trash2 } from 'lucide-react-native';
 import PlotSelectorModal from '../components/plot-selector-modal';
 import GlucoseWithMealsChart from '../components/glucose-with-meals-chart';
 import { LoadingSpinner } from '../components/loading-spinner';
 import { API_URL } from '../lib/api/auth';
 import { useAuth } from '../hooks/use-auth';
-import { getPredictionHistory } from '../lib/api/insulin';
+import { getPredictionHistory, deleteInsulinPrediction } from '../lib/api/insulin';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
+import { Swipeable } from 'react-native-gesture-handler';
+
 
 interface Event {
   id: number;
@@ -114,10 +117,18 @@ export default function HistoryPage() {
   const [predictionHistory, setPredictionHistory] = useState<any[]>([]);
   const [isLoadingPredictions, setIsLoadingPredictions] = useState(false);
   const [predictionError, setPredictionError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
+  const [predictionToDelete, setPredictionToDelete] = useState<string | null>(null);
 
   // Estado para filtros y orden
   const [sortBy, setSortBy] = useState<'fecha' | 'cgm' | 'dosis'>('fecha');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  // Estados para paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   // Filtros avanzados con operador
   const [filterModalVisible, setFilterModalVisible] = useState(false);
@@ -369,6 +380,11 @@ export default function HistoryPage() {
     }
   }, [plots, token, isAuthenticated]);
 
+  // Resetear a la primera página cuando cambian los filtros o el ordenamiento
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [appliedFilters, sortBy, sortDir]);
+
   const addPlot = (plot: Omit<Plot, 'id'>) => {
     setPlots([...plots, { ...plot, id: Date.now() }]);
   };
@@ -469,6 +485,48 @@ export default function HistoryPage() {
       if (vA === vB) return 0;
       return sortDir === 'asc' ? vA - vB : vB - vA;
     });
+
+  // Function to handle prediction deletion
+  const handleDeletePrediction = async (id: string) => {
+    if (!token || !isAuthenticated) return;
+    
+    setPredictionToDelete(id);
+    setShowDeleteConfirm(true);
+  };
+
+  // Function to confirm and process deletion
+  const confirmDeletePrediction = async () => {
+    if (!predictionToDelete || !token) return;
+    
+    setIsDeleting(predictionToDelete);
+    setDeleteError(null);
+    setShowDeleteConfirm(false);
+    
+    try {
+      await deleteInsulinPrediction(predictionToDelete, token);
+      // Remove the deleted item from state
+      setPredictionHistory(prev => prev.filter(p => p.id !== predictionToDelete));
+    } catch (error) {
+      console.error('Error deleting prediction:', error);
+      setDeleteError('Error al eliminar la predicción. Intenta de nuevo.');
+    } finally {
+      setIsDeleting(null);
+      setPredictionToDelete(null);
+    }
+  };
+
+  // Function to cancel deletion
+  const cancelDeletePrediction = () => {
+    setShowDeleteConfirm(false);
+    setPredictionToDelete(null);
+  };
+  
+  // Estado para swipe activo
+  const [openSwipeable, setOpenSwipeable] = useState(null);
+  const swipeableRefs = useRef<Record<string, any>>({});
+
+  const ROW_HEIGHT = 74; // Ajusta este valor según el alto real de la fila
+  const DELETE_WIDTH = 110; // Ancho fijo para el botón eliminar
 
   return (
     <SafeAreaView style={styles.container}>
@@ -624,60 +682,217 @@ export default function HistoryPage() {
             ) : filteredSortedHistoryAdvanced.length === 0 ? (
               <Text style={{ color: '#6b7280', textAlign: 'center', margin: 16, fontSize: 18, fontFamily:'System' }}>No hay predicciones registradas.</Text>
             ) : (
-              <View style={{alignItems:'center'}}>
-                <View style={[tableStyles.tableContainer, {alignSelf:'center', minWidth: 420, maxWidth: 600, marginLeft: 20, marginRight: 20, width: '100%'}]}>
-                  {/* Encabezado con orden */}
-                  <View style={tableStyles.headerRowSmall}>
-                    <TouchableOpacity style={tableStyles.thTouchSmall} onPress={() => {
+              <View style={cardStyles.predictionListContainer}>
+                {/* Botones de ordenamiento */}
+                <View style={cardStyles.sortHeader}>
+                  <TouchableOpacity 
+                    style={[
+                      cardStyles.sortButton,
+                      sortBy === 'fecha' && cardStyles.sortButtonActive
+                    ]}
+                    onPress={() => {
                       setSortBy('fecha');
                       setSortDir(sortBy === 'fecha' && sortDir === 'desc' ? 'asc' : 'desc');
-                    }}>
-                      <Text style={tableStyles.thSmall}>
+                    }}
+                  >
+                    <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                      <Text style={[
+                        cardStyles.sortButtonText,
+                        sortBy === 'fecha' && cardStyles.sortButtonTextActive
+                      ]}>
                         Fecha {sortBy === 'fecha' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
                       </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={tableStyles.thTouchSmall} onPress={() => {
+                    </View>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={[
+                      cardStyles.sortButton,
+                      sortBy === 'cgm' && cardStyles.sortButtonActive
+                    ]}
+                    onPress={() => {
                       setSortBy('cgm');
                       setSortDir(sortBy === 'cgm' && sortDir === 'desc' ? 'asc' : 'desc');
-                    }}>
-                      <Text style={tableStyles.thSmall}>
-                        Ult.{"\n"}CGM {sortBy === 'cgm' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                    }}
+                  >
+                    <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                      <Text style={[
+                        cardStyles.sortButtonText,
+                        sortBy === 'cgm' && cardStyles.sortButtonTextActive
+                      ]}>
+                        CGM {sortBy === 'cgm' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
                       </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={tableStyles.thTouchSmall} onPress={() => {
+                    </View>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={[
+                      cardStyles.sortButton,
+                      sortBy === 'dosis' && cardStyles.sortButtonActive
+                    ]}
+                    onPress={() => {
                       setSortBy('dosis');
                       setSortDir(sortBy === 'dosis' && sortDir === 'desc' ? 'asc' : 'desc');
-                    }}>
-                      <Text style={tableStyles.thSmall}>
-                        Dosis{"\n"}calculada {sortBy === 'dosis' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                    }}
+                  >
+                    <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                      <Text style={[
+                        cardStyles.sortButtonText,
+                        sortBy === 'dosis' && cardStyles.sortButtonTextActive
+                      ]}>
+                        Dosis {sortBy === 'dosis' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
                       </Text>
-                    </TouchableOpacity>
-                  </View>
-                  {/* Filas */}
-                  {filteredSortedHistoryAdvanced.map((pred, idx) => {
-                    const fecha = pred.date ? format(toZonedTime(new Date(pred.date), 'America/Argentina/Buenos_Aires'), 'dd/MM HH:mm') : '-';
-                    const cgmPrev = Array.isArray(pred.cgmPrev) && pred.cgmPrev.length > 0 ? pred.cgmPrev[0] : '-';
-                    return (
-                      <TouchableOpacity
-                        key={idx}
-                        activeOpacity={0.7}
-                        style={[
-                          tableStyles.rowSmall,
-                          idx % 2 === 0 ? tableStyles.rowEvenSmall : tableStyles.rowOddSmall,
-                        ]}
-                        onPress={() => (navigation as any).navigate('PredictionResultPage', { result: pred })}
-                      >
-                        <Text style={tableStyles.tdSmall}>{fecha}</Text>
-                        <Text style={tableStyles.tdSmall}>{cgmPrev}</Text>
-                        <Text style={tableStyles.tdSmall}>{pred.recommendedDose}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
+                    </View>
+                  </TouchableOpacity>
                 </View>
+                
+                {/* Lista de tarjetas de predicción */}
+                {filteredSortedHistoryAdvanced
+                  .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                  .map((pred, idx) => {
+                  // Formatear fecha como dd/MM y hora como HH:mm
+                  const fecha = pred.date 
+                    ? format(toZonedTime(new Date(pred.date), 'America/Argentina/Buenos_Aires'), 'dd/MM') 
+                    : '-';
+                  const hora = pred.date 
+                    ? format(toZonedTime(new Date(pred.date), 'America/Argentina/Buenos_Aires'), 'HH:mm') 
+                    : '';
+                  const cgmPrev = Array.isArray(pred.cgmPrev) && pred.cgmPrev.length > 0 ? pred.cgmPrev[0] : '-';
+                  
+                  // Emoji para la dosis
+                  let dosisEmoji = '💉';
+                  if (pred.recommendedDose > 8) dosisEmoji = '💉💉';
+
+                  // Render right action for swipe con animación
+                  const renderRightActions = (_progress: unknown, dragX: Animated.AnimatedInterpolation<number>) => {
+                    const scale = dragX.interpolate({
+                      inputRange: [-DELETE_WIDTH, 0],
+                      outputRange: [1, 0.8],
+                      extrapolate: 'clamp',
+                    });
+                    return (
+                      <Animated.View style={[swipeStyles.animatedDeleteAction, { transform: [{ scale }], width: DELETE_WIDTH, height: ROW_HEIGHT }]}> 
+                        <TouchableOpacity
+                          style={[swipeStyles.deleteAction, { width: DELETE_WIDTH, height: ROW_HEIGHT }]}
+                          onPress={() => handleDeletePrediction(pred.id)}
+                          accessibilityLabel="Eliminar registro"
+                          accessibilityRole="button"
+                          activeOpacity={0.85}
+                        >
+                          <Trash2 size={22} color="#fff" style={{ marginRight: 8 }} />
+                          <Text style={swipeStyles.deleteActionText}>Eliminar</Text>
+                        </TouchableOpacity>
+                      </Animated.View>
+                    );
+                  };
+
+                  // Mostrar spinner de loading si se está eliminando esta predicción
+                  if (isDeleting === pred.id) {
+                    return (
+                      <View key={idx} style={{ position: 'relative', height: ROW_HEIGHT, marginBottom: 10, justifyContent: 'center', alignItems: 'center' }}>
+                        <LoadingSpinner text="Eliminando..." size="small" />
+                      </View>
+                    );
+                  }
+
+                  return (
+                    <View key={idx} style={{ position: 'relative', height: ROW_HEIGHT, marginBottom: 10 }}>
+                      {/* Esquinita roja */}
+                      <View style={[swipeStyles.cornerIndicator, { height: 18, width: 18, top: 0, right: 0 }]} />
+                      <Swipeable
+                        ref={ref => { if (ref) swipeableRefs.current[pred.id] = ref; else delete swipeableRefs.current[pred.id]; }}
+                        renderRightActions={renderRightActions}
+                        overshootRight={false}
+                        onSwipeableOpen={() => {
+                          Object.keys(swipeableRefs.current).forEach(id => {
+                            if (id !== pred.id && swipeableRefs.current[id]) {
+                              swipeableRefs.current[id].close();
+                            }
+                          });
+                          setOpenSwipeable(pred.id);
+                        }}
+                        onSwipeableClose={() => {
+                          if (openSwipeable === pred.id) setOpenSwipeable(null);
+                        }}
+                      >
+                        <TouchableOpacity
+                          activeOpacity={0.7}
+                          style={[
+                            cardStyles.predictionCard,
+                            { paddingRight: 0, height: ROW_HEIGHT, minHeight: ROW_HEIGHT, justifyContent: 'center' },
+                          ]}
+                          onPress={() => (navigation as any).navigate('PredictionResultPage', { result: pred })}
+                        >
+                          {/* Fila de títulos alineados */}
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 }}>
+                            <View style={[cardStyles.dataColumn]}>
+                              <Text style={cardStyles.dataLabel}>📅 Fecha</Text>
+                            </View>
+                            <View style={[cardStyles.dataColumn]}>
+                              <Text style={cardStyles.dataLabel}>🩸 Último CGM</Text>
+                            </View>
+                            <View style={[cardStyles.dataColumn]}>
+                              <Text style={cardStyles.dataLabel}>{dosisEmoji} Dosis calculada</Text>
+                            </View>
+                          </View>
+                          {/* Fila de valores alineados */}
+                          <View style={cardStyles.predictionContent}>
+                            <View style={cardStyles.dataColumn}>
+                              <Text style={[cardStyles.dataValue]}>{fecha} {hora}</Text>
+                            </View>
+                            <View style={cardStyles.dataColumn}>
+                              <Text style={cardStyles.dataValue}>{cgmPrev} mg/dL</Text>
+                            </View>
+                            <View style={cardStyles.dataColumn}>
+                              <Text style={cardStyles.dataValue}>{pred.recommendedDose} U</Text>
+                            </View>
+                          </View>
+                        </TouchableOpacity>
+                      </Swipeable>
+                    </View>
+                  );
+                })}
+                
+                {/* Controles de paginación */}
+                {filteredSortedHistoryAdvanced.length > 0 && (
+                  <View style={cardStyles.paginationContainer}>
+                    <Text style={cardStyles.paginationInfo}>
+                      Página {currentPage} de {Math.ceil(filteredSortedHistoryAdvanced.length / itemsPerPage)}
+                    </Text>
+                    <View style={cardStyles.paginationControls}>
+                      <TouchableOpacity 
+                        style={[
+                          cardStyles.paginationButton,
+                          currentPage === 1 && cardStyles.paginationButtonDisabled
+                        ]}
+                        onPress={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        <Text style={[
+                          cardStyles.paginationButtonText,
+                          currentPage === 1 && cardStyles.paginationButtonTextDisabled
+                        ]}>Anterior</Text>
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity 
+                        style={[
+                          cardStyles.paginationButton,
+                          currentPage >= Math.ceil(filteredSortedHistoryAdvanced.length / itemsPerPage) && cardStyles.paginationButtonDisabled
+                        ]}
+                        onPress={() => setCurrentPage(prev => Math.min(Math.ceil(filteredSortedHistoryAdvanced.length / itemsPerPage), prev + 1))}
+                        disabled={currentPage >= Math.ceil(filteredSortedHistoryAdvanced.length / itemsPerPage)}
+                      >
+                        <Text style={[
+                          cardStyles.paginationButtonText,
+                          currentPage >= Math.ceil(filteredSortedHistoryAdvanced.length / itemsPerPage) && cardStyles.paginationButtonTextDisabled
+                        ]}>Siguiente</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
               </View>
             )}
-          </View>
-
+          </View >
         </View>
       </ScrollView>
       <Footer />
@@ -686,6 +901,38 @@ export default function HistoryPage() {
         onClose={() => setModalVisible(false)}
         onAddPlot={addPlot}
       />
+      
+      {/* Confirmation Modal */}
+      <Modal
+        visible={showDeleteConfirm}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={cancelDeletePrediction}
+      >
+        <View style={deleteStyles.modalOverlay}>
+          <View style={deleteStyles.modalContent}>
+            <Text style={deleteStyles.modalTitle}>Confirmar eliminación</Text>
+            <Text style={deleteStyles.modalText}>
+              ¿Estás seguro que deseas eliminar este registro?{'\n'}
+              Esta acción no se puede deshacer.
+            </Text>
+            <View style={deleteStyles.buttonContainer}>
+              <TouchableOpacity 
+                style={[deleteStyles.button, deleteStyles.cancelButton]}
+                onPress={cancelDeletePrediction}
+              >
+                <Text style={deleteStyles.cancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[deleteStyles.button, deleteStyles.deleteButton]}
+                onPress={confirmDeletePrediction}
+              >
+                <Text style={deleteStyles.deleteButtonText}>Eliminar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -925,8 +1172,66 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#111827',
   },
+  endSpacer: {
+    height: 0, // Reducido a 0 para eliminar espacio adicional
+    marginTop: 0,
+    marginBottom: 0, // Sin margen inferior
+  },
+  // Estilos para el modal de eliminación
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '80%',
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 24,
+    elevation: 4,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    textAlign: 'center',
+    color: '#333',
+  },
+  modalText: {
+    fontSize: 16,
+    marginBottom: 24,
+    textAlign: 'center',
+    color: '#555',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  button: {
+    flex: 1,
+    borderRadius: 8,
+    paddingVertical: 12,
+    marginHorizontal: 4,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#e0e0e0',
+  },
+  deleteButton: {
+    backgroundColor: '#ef4444',
+  },
+  cancelButtonText: {
+    color: '#333',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  deleteButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
 });
-
 
 // Tipar funciones de filtro
 function filterOpBtnStyle(selected: string, op: string) {
@@ -954,3 +1259,268 @@ function filterOpTextStyle(selected: string, op: string) {
 // Tipos para filtros
 const filterKeys = ['fecha', 'cgm', 'dosis'] as const;
 type FilterKey = typeof filterKeys[number];
+
+// Nuevos estilos para las cards de predicciones
+const cardStyles = StyleSheet.create({
+  predictionCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    marginBottom: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  predictionCardEven: {
+    backgroundColor: '#f9fbe7',
+  },
+  predictionCardOdd: {
+    backgroundColor: '#e0f7fa',
+  },
+  predictionContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  dataColumn: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  dataLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginBottom: 4,
+    fontFamily: 'System',
+  },
+  dataValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    fontFamily: 'System',
+  },
+  dateValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    fontFamily: 'System',
+    paddingVertical: 2,
+  },
+  timeValue: {
+    fontSize: 14,
+    color: '#6b7280',
+    fontFamily: 'System',
+  },
+  predictionListContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  sortHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    paddingHorizontal: 4,
+    marginTop: 12,
+  },
+  sortButton: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    backgroundColor: '#e8f5e9',
+    margin: 2,
+    borderRadius: 8,
+  },
+  sortButtonActive: {
+    backgroundColor: '#4CAF50',
+  },
+  sortButtonText: {
+    fontSize: 14,
+    color: '#4b5563',
+    fontFamily: 'System',
+    fontWeight: '500',
+  },
+  sortButtonTextActive: {
+    color: 'white',
+  },
+  sortIcon: {
+    marginLeft: 4,
+  },
+  paginationContainer: {
+    marginTop: 12,
+    marginBottom: 4,
+    alignItems: 'center',
+  },
+  paginationInfo: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginBottom: 6,
+    fontFamily: 'System',
+  },
+  paginationControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  paginationButton: {
+    backgroundColor: '#4CAF50',
+    borderRadius: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  paginationButtonDisabled: {
+    backgroundColor: '#e0e0e0',
+  },
+  paginationButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
+    fontFamily: 'System',
+  },
+  paginationButtonTextDisabled: {
+    color: '#a0a0a0',
+  },
+  totalPredictions: {
+    fontSize: 16,
+    color: '#333',
+    marginTop: 8,
+    marginBottom: 16,
+    fontFamily: 'System',
+  },
+  totalPredictionsSmall: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginTop: 4,
+    marginBottom: 4,
+    textAlign: 'right',
+    fontFamily: 'System',
+    fontWeight: '400',
+  },
+  deleteButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: '#ef4444',
+    borderRadius: 8,
+    padding: 8,
+  },
+  actionButton: {
+    position: 'absolute',
+    bottom: 8,
+    left: 12,  // Cambiado de right a left
+    padding: 6,
+    borderRadius: 4,
+  },
+  deleteText: {
+    color: '#ef4444',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  deleteButtonRow: {
+    marginTop: 10,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    paddingLeft: 6,
+  },
+});
+
+// Estilos para swipe action
+const swipeStyles = StyleSheet.create({
+  deleteAction: {
+    backgroundColor: '#ef4444',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderTopRightRadius: 12,
+    borderBottomRightRadius: 12,
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 2, height: 0 },
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  deleteActionText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 17,
+    letterSpacing: 0.5,
+  },
+  animatedDeleteAction: {
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    borderTopRightRadius: 12,
+    borderBottomRightRadius: 12,
+    overflow: 'hidden',
+  },
+  cornerIndicator: {
+    position: 'absolute',
+    backgroundColor: '#ef4444',
+    borderTopRightRadius: 12,
+    borderBottomLeftRadius: 18,
+    zIndex: 2,
+  },
+});
+
+// Estilos para el modal de eliminación
+const deleteStyles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '80%',
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 24,
+    elevation: 4,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    textAlign: 'center',
+    color: '#333',
+  },
+  modalText: {
+    fontSize: 16,
+    marginBottom: 24,
+    textAlign: 'center',
+    color: '#555',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  button: {
+    flex: 1,
+    borderRadius: 8,
+    paddingVertical: 12,
+    marginHorizontal: 4,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#e0e0e0',
+  },
+  deleteButton: {
+    backgroundColor: '#ef4444',
+  },
+  cancelButtonText: {
+    color: '#333',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  deleteButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+});

@@ -17,6 +17,7 @@ export default function PredictionResultPage() {
   const route = useRoute<RouteProp<Record<string, { result: InsulinPredictionResult }>, string>>();
   const result: InsulinPredictionResult = (route.params as any)?.result || {};
   const {
+    id = '',
     userId = '',
     cgmPrev = [],
     glucoseObjective = 0,
