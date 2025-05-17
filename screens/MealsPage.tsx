@@ -12,6 +12,7 @@ import { getMeals, createMeal, deleteMeal, updateMeal, Meal, CreateMealInput, Fo
 import { useToast } from '../hooks/use-toast';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { AppHeader } from '../components/app-header';
 
 export default function MealsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -164,23 +165,12 @@ export default function MealsPage() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <AppHeader
+        title="Comidas"
+        icon={<Utensils width={32} height={32} color="#fff" />}
+        onBack={() => navigation.goBack()}
+      />
       <ScrollView style={styles.scrollView}>
-        <View style={styles.header}>
-          <View style={styles.titleContainer}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => navigation.goBack()}
-            >
-              <BackButton />
-            </TouchableOpacity>
-            <Utensils width={32} height={32} color="#4CAF50" />
-            <Text style={styles.title}>Comidas</Text>
-          </View>
-          <Text style={styles.description}>
-            Acá podés ver tu historial de comidas
-          </Text>
-        </View>
-
         <TouchableOpacity
           style={[styles.addButtonTop, { alignSelf: 'center', width: 'auto', marginHorizontal: 16 }]}
           onPress={() => setIsFormOpen(true)}
@@ -322,43 +312,6 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-  },
-  header: {
-    width: '100%',
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    gap: 8,
-    paddingTop: 20,
-  },
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 4,
-    position: 'relative',
-    width: '100%',
-    justifyContent: 'center',
-    paddingVertical: 4,
-    marginTop: 30,
-  },
-  backButton: {
-    position: 'absolute',
-    left: 0,
-    zIndex: 1,
-    alignSelf: 'center',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  description: {
-    fontSize: 16,
-    color: '#6b7280',
   },
   content: {
     padding: 16,

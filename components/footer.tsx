@@ -10,7 +10,7 @@ type RootStackParamList = {
   Meals: undefined;
   History: undefined;
   Insulin: undefined;
-  Profile: undefined;
+  Notifications: undefined;
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -51,10 +51,11 @@ export function Footer() {
         </View>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.tab} onPress={() => navigation.navigate('Profile')}>
+      {/* Botón de Notificaciones */}
+      <TouchableOpacity style={styles.tab} onPress={() => navigation.navigate('Notifications')}>
         <View style={styles.tabContent}>
-          <Icon name="user" size={20} color={isActive('Profile') ? '#4CAF50' : '#666'} />
-          <Text style={[styles.label, isActive('Profile') && styles.activeLabel]}>Perfil</Text>
+          <Icon name="bell" size={20} color={isActive('Notifications') ? '#4CAF50' : '#666'} />
+          <Text style={[styles.label, isActive('Notifications') && styles.activeLabel]}>Notificaciones</Text>
         </View>
       </TouchableOpacity>
     </View>

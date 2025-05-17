@@ -4,6 +4,7 @@ import { ChevronRight, Bell, Shield, Smartphone, HelpCircle, Settings, Fingerpri
 import { BackButton } from '../components/back-button';
 import { useNavigation } from '@react-navigation/native';
 import { useBiometrics } from '../hooks/use-biometrics';
+import { AppHeader } from '../components/app-header';
 
 export default function SettingsPage() {
   const navigation = useNavigation();
@@ -76,19 +77,12 @@ export default function SettingsPage() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <AppHeader
+        title="Configuración"
+        icon={<Settings width={28} height={28} color="#fff" />}
+        onBack={() => navigation.goBack()}
+      />
       <ScrollView>
-        <View style={styles.header}>
-          <View style={styles.titleContainer}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => navigation.goBack()}
-            >
-              <BackButton />
-            </TouchableOpacity>
-            <Settings width={32} height={32} color="#4CAF50" />
-            <Text style={styles.title}>Configuración</Text>
-          </View>
-        </View>
         <View style={styles.content}>
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Preferencias</Text>
@@ -201,32 +195,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f4f4f5',
-  },
-  header: {
-    width: '100%',
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    paddingTop: 20,
-  },
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 4,
-    position: 'relative',
-    width: '100%',
-    justifyContent: 'center',
-    paddingVertical: 4,
-    marginTop: 30,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111827',
   },
   content: {
     padding: 16,

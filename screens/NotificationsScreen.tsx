@@ -11,6 +11,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { Bell } from 'lucide-react-native';
 import { BackButton } from '../components/back-button';
+import { AppHeader } from '../components/app-header';
 
 // Placeholder notification data
 const MOCK_NOTIFICATIONS: Notification[] = [
@@ -82,19 +83,11 @@ export default function NotificationsScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
-                <View style={styles.titleContainer}>
-                    <TouchableOpacity
-                        style={styles.backButton}
-                        onPress={() => navigation.goBack()}
-                    >
-                        <BackButton />
-                    </TouchableOpacity>
-                    <Bell size={28} color="#4CAF50" />
-                    <Text style={styles.title}>Notificaciones</Text>
-                </View>
-            </View>
-
+            <AppHeader
+                title="Notificaciones"
+                icon={<Bell size={28} color="#fff" />}
+                onBack={() => navigation.goBack()}
+            />
             <FlatList
                 data={MOCK_NOTIFICATIONS}
                 renderItem={renderNotification}
@@ -110,34 +103,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#f4f4f5',
-    },
-    header: {
-        width: '100%',
-        backgroundColor: 'white',
-        borderBottomWidth: 1,
-        borderBottomColor: '#e5e7eb',
-        paddingTop: 40,
-    },
-    titleContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        marginBottom: 16,
-        position: 'relative',
-        width: '100%',
-        justifyContent: 'center',
-        paddingVertical: 8,
-    },
-    backButton: {
-        position: 'absolute',
-        left: 16,
-        zIndex: 1,
-    },
-    title: {
-        fontSize: 20,
-        fontWeight: '700',
-        color: '#111827',
-        marginLeft: 8,
     },
     notificationsList: {
         padding: 16,
