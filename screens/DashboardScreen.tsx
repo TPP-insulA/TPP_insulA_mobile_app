@@ -228,11 +228,29 @@ export default function DashboardScreen() {
         icon={
           <Image
             source={require('../assets/logo_blanco_png.png')}
-            style={{ width: 64, height: 64, resizeMode: 'contain', alignSelf: 'flex-start', marginLeft: 42}}
+            style={{ width: 64, height: 64, resizeMode: 'contain', alignSelf: 'flex-start', marginLeft: 72}}
           />
         }
         right={
-          <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }} onPress={() => navigation.navigate('Profile')}>
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              backgroundColor: 'rgba(255,255,255,0.10)',
+              borderRadius: 24,
+              paddingVertical: 6,
+              paddingHorizontal: 14,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.25,
+              shadowRadius: 4,
+              elevation: 5,
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.25)'
+            }}
+            onPress={() => navigation.navigate('Profile')}
+          >
             <Feather name="user" size={22} color="#fff" />
             <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16 }}>Perfil</Text>
           </TouchableOpacity>

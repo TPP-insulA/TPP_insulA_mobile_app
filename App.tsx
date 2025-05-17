@@ -131,7 +131,7 @@ export default function App() {
           )}
         </ThemeProvider>
       </NavigationContainer>
-      <RNStatusBar barStyle="light-content" backgroundColor="#256029" />
+      <RNStatusBar barStyle="light-content" backgroundColor="#2e7d32" />
     </SafeAreaProvider>
   );
 }
