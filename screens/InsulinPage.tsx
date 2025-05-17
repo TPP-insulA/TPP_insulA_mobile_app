@@ -8,14 +8,9 @@ import { BackButton } from '../components/back-button';
 import { Footer } from '../components/footer';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../hooks/use-auth';
-import { calculateInsulinDose, getInsulinPredictions } from '../lib/api/insulin';
 import { 
-  getInsulinDoses, 
-  createInsulinDose, 
-  deleteInsulinDose, 
   calculateInsulinDose,
   getInsulinPredictions,
-  InsulinDose
 } from '../lib/api/insulin';
 import { AppHeader } from '../components/app-header';
 
@@ -164,27 +159,6 @@ export default function InsulinPage() {
       />
       <ScrollView style={styles.scrollView}>
         <View style={styles.content}>
-          <View style={styles.header}>
-            <View style={styles.titleContainer}>
-              <TouchableOpacity 
-                style={styles.backButton}
-                onPress={() => navigation.goBack()}
-              >
-                <BackButton />
-              </TouchableOpacity>
-              <View style={styles.titleRow}>
-                <Droplet size={32} color="#4CAF50" />
-                <Text style={styles.title}>Insulina</Text>
-              </View>
-            </View>
-            <View style={styles.descriptionContainer}>
-              <Icon name="edit-3" size={16} color="#6b7280" />
-              <Text style={styles.description}>
-                Calculá tu dosis de insulina con la calculadora inteligente
-              </Text>
-            </View>
-          </View>
-
           <Card style={styles.card}>
             <View style={styles.cardHeader}>
               <View style={styles.cardTitleContainer}>

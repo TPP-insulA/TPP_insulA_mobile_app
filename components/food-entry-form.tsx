@@ -665,7 +665,8 @@ export function FoodEntryForm({ onSubmit, onCancel, initialData }: FoodEntryForm
             onPress={handleSubmit(onFormSubmit)}
           >
             <Text style={tw`text-center text-white font-medium`}>
-              {initialData ? 'Actualizar' : 'Guardar'}            </Text>
+              {initialData ? 'Actualizar' : 'Guardar'}            
+            </Text>
           </TouchableOpacity>
         </View>
       </View>

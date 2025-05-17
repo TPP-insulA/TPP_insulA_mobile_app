@@ -15,7 +15,6 @@ import {
 import { GlucoseTrendsChart } from '../components/glucose-trends-chart';
 import DailyPatternChart from '../components/daily-pattern-chart';
 import { Footer } from '../components/footer';
-import { BackButton } from '../components/back-button';
 import { useNavigation } from '@react-navigation/native';
 import { Activity, Plus, Trash2 } from 'lucide-react-native';
 import PlotSelectorModal from '../components/plot-selector-modal';
@@ -106,7 +105,6 @@ export default function HistoryPage() {
   const [isLoading, setIsLoading] = useState<{ [key: number]: boolean }>({});
   const [errors, setErrors] = useState<ApiError[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [plotData, setPlotData] = useState<{
     [key: number]: {
       glucose?: GlucoseData[];
@@ -353,16 +351,6 @@ export default function HistoryPage() {
     }
   };
 
-  const onRefresh = async () => {
-    setIsRefreshing(true);
-    await Promise.all([
-      ...plots.map(plot => fetchData(plot)),
-      fetchEvents(),
-      fetchPredictionHistoryData()
-    ]);
-    setIsRefreshing(false);
-  };
-
   useEffect(() => {
     if (token && isAuthenticated) {
       fetchEvents();
@@ -535,15 +523,7 @@ export default function HistoryPage() {
         icon={<Activity width={32} height={32} color="#fff" />}
         onBack={() => navigation.goBack()}
       />
-      <ScrollView 
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={onRefresh}
-            colors={['#4CAF50']}
-          />
-        }
-      >
+      <ScrollView>
         <View style={styles.content}>
           <TouchableOpacity
             style={styles.addButton}
@@ -1016,7 +996,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
-    paddingBottom: 80, // Space for footer
+    paddingBottom: 0,
   },
   addButton: {
     flexDirection: 'row',
