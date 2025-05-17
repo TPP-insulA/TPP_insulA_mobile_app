@@ -6,6 +6,7 @@ import { ThemeProvider, navigationTheme } from './components/theme-provider';
 import { useAuth } from './hooks/use-auth';
 import { View, ActivityIndicator } from 'react-native';
 import { useEffect } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import DashboardScreen from './screens/DashboardScreen';
 import LoginScreen from './screens/LoginScreen';
@@ -18,6 +19,7 @@ import ForgotPasswordPage from './screens/ForgotPasswordPage';
 import EditProfileScreen from './screens/EditProfileScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
 import SettingsPage from './screens/SettingsPage';
+import PredictionResultPage from './screens/PredictionResultPage';
 import { BackButton } from './components/back-button';
 
 const Stack = createNativeStackNavigator();
@@ -100,6 +102,7 @@ function AppStack() {
           headerShown: false
         }}
       />
+      <Stack.Screen name="PredictionResultPage" component={PredictionResultPage} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 }
@@ -121,17 +124,19 @@ export default function App() {
   }, [initialize]);
 
   return (
-    <SafeAreaProvider>
-      <NavigationContainer theme={navigationTheme}>
-        <ThemeProvider>
-          {isLoading ? (
-            <LoadingScreen />
-          ) : (
-            isAuthenticated ? <AppStack /> : <AuthStack />
-          )}
-        </ThemeProvider>
-      </NavigationContainer>
-      <RNStatusBar barStyle="light-content" backgroundColor="#2e7d32" />
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <NavigationContainer theme={navigationTheme}>
+          <ThemeProvider>
+            {isLoading ? (
+              <LoadingScreen />
+            ) : (
+              isAuthenticated ? <AppStack /> : <AuthStack />
+            )}
+          </ThemeProvider>
+        </NavigationContainer>
+        <RNStatusBar barStyle="light-content" backgroundColor="#2e7d32" />
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

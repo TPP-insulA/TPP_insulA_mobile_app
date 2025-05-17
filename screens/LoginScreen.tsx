@@ -137,8 +137,8 @@ export default function LoginScreen() {
   };
 
   const handleDemoLogin = () => {
-    setEmail("demo@example.com");
-    setPassword("demo123");
+    setEmail("fran@gmail.com");
+    setPassword("Franfran");
   };
 
   return (

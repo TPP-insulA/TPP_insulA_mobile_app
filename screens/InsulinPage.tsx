@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TextInput } from 'react-native';
-import { Calculator, Droplet, Activity, Clock, TrendingUp, TrendingDown, CheckCircle, AlertTriangle, XCircle, Zap, Calendar } from 'lucide-react-native';
+import { Calculator, Droplet, Zap, TrendingUp, TrendingDown } from 'lucide-react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import { format } from 'date-fns';
 import { Card } from '../components/ui/card';
@@ -8,6 +8,7 @@ import { BackButton } from '../components/back-button';
 import { Footer } from '../components/footer';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../hooks/use-auth';
+import { calculateInsulinDose, getInsulinPredictions } from '../lib/api/insulin';
 import { 
   getInsulinDoses, 
   createInsulinDose, 
@@ -37,45 +38,16 @@ interface Prediction {
   accuracy: 'Accurate' | 'Slightly low' | 'Low';
 }
 
-const activityOptions = [
-  'Ninguna',
-  'Ligera (30 min caminata)',
-  'Moderada (30 min trote)',
-  'Intensa (1hr ejercicio)'
-];
-
-const timeOptions = [
-  'Mañana (6:00-11:00)',
-  'Tarde (11:00-17:00)',
-  'Noche (17:00-22:00)',
-  'Madrugada (22:00-6:00)'
-];
-
-type InsulinType = 'rapid' | 'long';
-
 export default function InsulinPage() {
   const navigation = useNavigation();
   const { token } = useAuth();
-  const [currentGlucose, setCurrentGlucose] = useState('142');
-  const [carbs, setCarbs] = useState('45');
-  const [activity, setActivity] = useState(activityOptions[0]);
-  const [timeOfDay, setTimeOfDay] = useState(timeOptions[1]);
+  const [glucoseInputs, setGlucoseInputs] = useState<string[]>(['']);
+  const [carbs, setCarbs] = useState('');
+  const [insulinOnBoard, setInsulinOnBoard] = useState('');
+  const [targetBloodGlucose, setTargetBloodGlucose] = useState('');
   const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
-  const [insulinDoses, setInsulinDoses] = useState<InsulinDose[]>([]);
-  const [showDoseModal, setShowDoseModal] = useState(false);
-  const [newDose, setNewDose] = useState<{
-    units: string;
-    type: InsulinType;
-    notes: string;
-  }>({
-    units: '',
-    type: 'rapid',
-    notes: ''
-  });
-
   const [predictions, setPredictions] = useState<{
     accuracy: {
       percentage: number;
@@ -94,104 +66,92 @@ export default function InsulinPage() {
       accuracy: 'Accurate' | 'Slightly low' | 'Low';
     }>;
   } | null>(null);
+  const [glucoseExpanded, setGlucoseExpanded] = useState(true);
+  const [sleepQuality, setSleepQuality] = useState(''); // 1-10
+  const [workLevel, setWorkLevel] = useState(''); // 1-10
+  const [exerciseLevel, setExerciseLevel] = useState(''); // 1-10
 
-  // Load insulin doses
+  const MAX_GLUCOSE_ENTRIES = 24;
+
   useEffect(() => {
-    const loadData = async () => {
+    const loadPredictions = async () => {
       try {
         if (!token) return;
-        
-        const [dosesResponse, predictionsResponse] = await Promise.all([
-          getInsulinDoses(token, { limit: 10 }),
-          getInsulinPredictions(token, 10)
-        ]);
-
-        setInsulinDoses(dosesResponse.doses);
+        const predictionsResponse = await getInsulinPredictions(token, 10);
         setPredictions(predictionsResponse);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error loading data');
+        setError(err instanceof Error ? err.message : 'Error loading predictions');
       }
     };
-
-    loadData();
+    loadPredictions();
   }, [token]);
 
+  const handleGlucoseChange = (value: string, idx: number) => {
+    if (!/^\d{0,3}$/.test(value)) return;
+    if (value === '0') return;
+    const arr = [...glucoseInputs];
+    arr[idx] = value;
+    if (value && idx === glucoseInputs.length - 1 && arr.length < MAX_GLUCOSE_ENTRIES) {
+      arr.push('');
+    }
+    setGlucoseInputs(arr.slice(0, MAX_GLUCOSE_ENTRIES));
+  };
+
+  const handleRemoveGlucose = (idx: number) => {
+    const arr = glucoseInputs.filter((_, i) => i !== idx);
+    setGlucoseInputs(arr.length === 0 ? [''] : arr);
+  };
+
+  const isValidCarbs = (val: string) => /^\d+(,\d{0,2})?$|^\d+(\.\d{0,2})?$/.test(val);
+  const isValidInsulinOnBoard = (val: string) => /^\d+(,\d{0,2})?$|^\d+(\.\d{0,2})?$/.test(val);
+
+  const isValidTargetGlucose = (val: string) => {
+    if (!/^\d{0,3}$/.test(val)) return false;
+    if (!val) return false;
+    const n = Number(val);
+    return n >= 80 && n <= 180;
+  };
+  const showTargetWarning = targetBloodGlucose && (!/^\d{0,3}$/.test(targetBloodGlucose) || Number(targetBloodGlucose) < 80 || Number(targetBloodGlucose) > 180);
+
+  const canCalculate = () => {
+    const glucosas = glucoseInputs.filter(g => g !== '' && g !== '0');
+    return (
+      glucosas.length > 0 &&
+      glucosas.length <= MAX_GLUCOSE_ENTRIES &&
+      carbs !== '' && isValidCarbs(carbs) &&
+      insulinOnBoard !== '' && isValidInsulinOnBoard(insulinOnBoard) &&
+      targetBloodGlucose && isValidTargetGlucose(targetBloodGlucose) &&
+      sleepQuality !== '' && workLevel !== '' && exerciseLevel !== '' &&
+      /^([1-9]|10)$/.test(sleepQuality) &&
+      /^([1-9]|10)$/.test(workLevel) &&
+      /^([1-9]|10)$/.test(exerciseLevel) &&
+      !isLoading
+    );
+  };
+
   const handleCalculate = async () => {
-    if (!currentGlucose || !carbs || !token) return;
-    
+    if (!canCalculate() || !token) return;
     setIsLoading(true);
     setError(null);
-    
     try {
-      const result = await calculateInsulinDose({
-        currentGlucose: Number(currentGlucose),
-        carbs: Number(carbs),
-        activity,
-        timeOfDay
-      }, token);
-
-      setRecommendation({
-        total: result.total,
-        breakdown: result.breakdown
-      });
+      const cgmPrev = glucoseInputs.filter(g => g !== '').map(Number);
+      const calculation = {
+        userId: token, // TODO: reemplazar con el ID del usuario
+        date: new Date().toISOString(),
+        cgmPrev,
+        glucoseObjective: Number(targetBloodGlucose),
+        carbs: Number(carbs.replace(',', '.')),
+        insulinOnBoard: Number(insulinOnBoard.replace(',', '.')),
+        sleepLevel: Number(sleepQuality),
+        workLevel: Number(workLevel),
+        activityLevel: Number(exerciseLevel),
+      };
+      const result = await calculateInsulinDose(calculation, token);
+      (navigation as any).navigate('PredictionResultPage', { result });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error calculating dose');
+      setError(err instanceof Error ? err.message : 'Error calculando dosis');
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleAddDose = () => {
-    setShowDoseModal(true);
-  };
-
-  const handleSaveDose = async () => {
-    if (!newDose.units || !token) return;
-    
-    try {
-      const dose = await createInsulinDose({
-        units: Number(newDose.units),
-        type: newDose.type,
-        timestamp: new Date(),
-        notes: newDose.notes || undefined
-      }, token);
-
-      setInsulinDoses(prev => [dose, ...prev]);
-      setShowDoseModal(false);
-      setNewDose({ units: '', type: 'rapid', notes: '' });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error saving dose');
-    }
-  };
-
-  const handleDeleteDose = async (id: number) => {
-    if (!token) return;
-    
-    try {
-      await deleteInsulinDose(id, token);
-      setInsulinDoses(prev => prev.filter(dose => dose.id !== id));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error deleting dose');
-    }
-  };
-
-  const handleLogDose = async () => {
-    if (!recommendation || !token) return;
-    
-    try {
-      const dose = await createInsulinDose({
-        units: recommendation.total,
-        type: 'rapid',
-        timestamp: new Date(),
-        notes: `Calculated dose - ${carbs}g carbs, ${currentGlucose} mg/dL`
-      }, token);
-
-      setInsulinDoses(prev => [dose, ...prev]);
-      setRecommendation(null);
-      setCurrentGlucose('');
-      setCarbs('');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error logging dose');
     }
   };
 
@@ -204,71 +164,27 @@ export default function InsulinPage() {
       />
       <ScrollView style={styles.scrollView}>
         <View style={styles.content}>
-          {/* Registro de Dosis Card */}
-          <Card style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View style={styles.cardHeaderContent}>
-                <View style={styles.cardTitleContainer}>
-                  <Calendar size={24} color="#4CAF50" />
-                  <Text style={styles.cardTitle}>Registro de Dosis</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.addButton}
-                  onPress={handleAddDose}
-                >
-                  <Icon name="plus" size={20} color="#4CAF50" />
-                </TouchableOpacity>
+          <View style={styles.header}>
+            <View style={styles.titleContainer}>
+              <TouchableOpacity 
+                style={styles.backButton}
+                onPress={() => navigation.goBack()}
+              >
+                <BackButton />
+              </TouchableOpacity>
+              <View style={styles.titleRow}>
+                <Droplet size={32} color="#4CAF50" />
+                <Text style={styles.title}>Insulina</Text>
               </View>
             </View>
-            <View style={styles.cardContent}>
-              {insulinDoses.length === 0 ? (
-                <View style={styles.emptyState}>
-                  <Droplet size={24} color="#9ca3af" />
-                  <Text style={styles.emptyStateText}>No hay dosis registradas 📋</Text>
-                  <Text style={styles.emptyStateSubtext}>Toca el botón + para agregar una dosis ➕</Text>
-                </View>
-              ) : (
-                <View style={styles.dosesList}>
-                  {insulinDoses.map((dose) => (
-                    <View key={dose.id} style={styles.doseItem}>
-                      <View style={styles.doseInfo}>
-                        <View style={styles.doseHeader}>
-                          <View style={styles.doseBadge}>
-                            {dose.type === 'rapid' ? (
-                              <Zap size={12} color="#3b82f6" />
-                            ) : (
-                              <Clock size={12} color="#8b5cf6" />
-                            )}
-                            <Text style={[
-                              styles.doseBadgeText,
-                              { color: dose.type === 'rapid' ? '#3b82f6' : '#8b5cf6' }
-                            ]}>
-                              {dose.type === 'rapid' ? 'Rápida' : 'Lenta'}
-                            </Text>
-                          </View>
-                          <TouchableOpacity
-                            onPress={() => handleDeleteDose(dose.id)}
-                            style={styles.deleteButton}
-                          >
-                            <Icon name="trash-2" size={16} color="#ef4444" />
-                          </TouchableOpacity>
-                        </View>
-                        <Text style={styles.doseUnits}>💉 {dose.units} unidades</Text>
-                        <Text style={styles.doseTime}>
-                          📅 {format(dose.timestamp, 'HH:mm - dd/MM/yyyy')}
-                        </Text>
-                        {dose.notes && (
-                          <Text style={styles.doseNotes}>📝 {dose.notes}</Text>
-                        )}
-                      </View>
-                    </View>
-                  ))}
-                </View>
-              )}
+            <View style={styles.descriptionContainer}>
+              <Icon name="edit-3" size={16} color="#6b7280" />
+              <Text style={styles.description}>
+                Calculá tu dosis de insulina con la calculadora inteligente
+              </Text>
             </View>
-          </Card>
+          </View>
 
-          {/* Calculator Card */}
           <Card style={styles.card}>
             <View style={styles.cardHeader}>
               <View style={styles.cardTitleContainer}>
@@ -277,23 +193,66 @@ export default function InsulinPage() {
               </View>
             </View>
             <View style={styles.cardContent}>
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}
+                onPress={() => setGlucoseExpanded(exp => !exp)}
+              >
+                <Droplet size={16} color="#4CAF50" />
+                <Text style={[styles.label, { flex: 1 }]}>Glucosa (mg/dL)</Text>
+                <Icon name={glucoseExpanded ? 'chevron-up' : 'chevron-down'} size={20} color="#4CAF50" />
+              </TouchableOpacity>
+              <Text style={{ color: '#6b7280', fontSize: 12, marginBottom: 8 }}>
+                Las mediciones se cargan de más reciente a más antigua. Solo se permiten mediciones de las últimas 2 horas (mg/dL). Máximo 24 mediciones.
+              </Text>
+              {glucoseExpanded && (
+                <View>
+                  {glucoseInputs.map((value, idx) => (
+                    <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                      <TextInput
+                        style={[styles.input, { flex: 1 }]}
+                        value={value}
+                        onChangeText={v => handleGlucoseChange(v, idx)}
+                        keyboardType="numeric"
+                        placeholder={`Glucosa #${idx + 1}`}
+                        maxLength={3}
+                        editable={idx < MAX_GLUCOSE_ENTRIES}
+                      />
+                      <View style={styles.inputAddon}>
+                        <Text style={styles.inputAddonText}>mg/dL</Text>
+                      </View>
+                      {idx > 0 && (
+                        <TouchableOpacity onPress={() => handleRemoveGlucose(idx)} style={{ marginLeft: 8 }}>
+                          <Icon name="x-circle" size={20} color="#ef4444" />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  ))}
+                  {glucoseInputs.length === MAX_GLUCOSE_ENTRIES && glucoseInputs[MAX_GLUCOSE_ENTRIES-1] !== '' && (
+                    <Text style={{ color: '#ef4444', fontSize: 12 }}>Máximo 24 mediciones alcanzado.</Text>
+                  )}
+                </View>
+              )}
+
               <View style={styles.formGroup}>
                 <View style={styles.labelContainer}>
                   <Droplet size={16} color="#4CAF50" />
-                  <Text style={styles.label}>Nivel de Glucosa Actual</Text>
+                  <Text style={styles.label}>Glucosa Objetivo</Text>
                 </View>
                 <View style={styles.inputGroup}>
                   <TextInput
                     style={styles.input}
-                    value={currentGlucose}
-                    onChangeText={setCurrentGlucose}
+                    value={targetBloodGlucose}
+                    onChangeText={setTargetBloodGlucose}
                     keyboardType="numeric"
-                    placeholder="Ingrese lectura de glucosa"
+                    placeholder="Glucosa objetivo (mg/dL)"
                   />
                   <View style={styles.inputAddon}>
                     <Text style={styles.inputAddonText}>mg/dL</Text>
                   </View>
                 </View>
+                {showTargetWarning && (
+                  <Text style={{ color: '#ef4444', fontSize: 12 }}>Debe ser un número entre 80 y 180 mg/dL.</Text>
+                )}
               </View>
 
               <View style={styles.formGroup}>
@@ -313,54 +272,110 @@ export default function InsulinPage() {
                     <Text style={styles.inputAddonText}>gramos</Text>
                   </View>
                 </View>
+                {carbs && !isValidCarbs(carbs) && (
+                  <Text style={{ color: '#ef4444', fontSize: 12 }}>Ingrese un número válido (hasta 2 decimales).</Text>
+                )}
               </View>
 
               <View style={styles.formGroup}>
                 <View style={styles.labelContainer}>
-                  <Activity size={16} color="#4CAF50" />
-                  <Text style={styles.label}>Actividad Física Planificada</Text>
+                  <Zap size={16} color="#4CAF50" />
+                  <Text style={styles.label}>Insulin On Board</Text>
                 </View>
-                <TouchableOpacity 
-                  style={styles.select}
-                  onPress={() => {/* Implementar selector */}}
-                >
-                  <Text style={styles.selectText}>{activity}</Text>
-                  <Icon name="chevron-down" size={20} color="#6b7280" />
-                </TouchableOpacity>
+                <View style={styles.inputGroup}>
+                  <TextInput
+                    style={styles.input}
+                    value={insulinOnBoard}
+                    onChangeText={setInsulinOnBoard}
+                    keyboardType="numeric"
+                    placeholder="Insulina activa (U)"
+                  />
+                  <View style={styles.inputAddon}>
+                    <Text style={styles.inputAddonText}>U</Text>
+                  </View>
+                </View>
+                {insulinOnBoard && !isValidInsulinOnBoard(insulinOnBoard) && (
+                  <Text style={{ color: '#ef4444', fontSize: 12 }}>Ingrese un número válido (hasta 2 decimales).</Text>
+                )}
               </View>
 
+              {/* CAMPOS DE SUEÑO, TRABAJO Y EJERCICIO AL FINAL */}
               <View style={styles.formGroup}>
                 <View style={styles.labelContainer}>
-                  <Clock size={16} color="#4CAF50" />
-                  <Text style={styles.label}>Hora del Día</Text>
+                  <Icon name="moon" size={16} color="#4CAF50" />
+                  <Text style={styles.label}>¿Cómo dormiste? (1 = mal, 10 = excelente)</Text>
                 </View>
-                <TouchableOpacity 
-                  style={styles.select}
-                  onPress={() => {/* Implementar selector */}}
-                >
-                  <Text style={styles.selectText}>{timeOfDay}</Text>
-                  <Icon name="chevron-down" size={20} color="#6b7280" />
-                </TouchableOpacity>
+                <TextInput
+                  style={styles.input}
+                  value={sleepQuality}
+                  onChangeText={v => {
+                    if (/^$|^([1-9]|10)$/.test(v)) setSleepQuality(v);
+                  }}
+                  keyboardType="numeric"
+                  placeholder="1-10"
+                  maxLength={2}
+                />
+                {sleepQuality && (Number(sleepQuality) < 1 || Number(sleepQuality) > 10) && (
+                  <Text style={{ color: '#ef4444', fontSize: 12 }}>Ingrese un valor entre 1 y 10.</Text>
+                )}
+              </View>
+              <View style={styles.formGroup}>
+                <View style={styles.labelContainer}>
+                  <Icon name="briefcase" size={16} color="#4CAF50" />
+                  <Text style={styles.label}>Nivel de trabajo (1 = poco, 10 = mucho)</Text>
+                </View>
+                <TextInput
+                  style={styles.input}
+                  value={workLevel}
+                  onChangeText={v => {
+                    if (/^$|^([1-9]|10)$/.test(v)) setWorkLevel(v);
+                  }}
+                  keyboardType="numeric"
+                  placeholder="1-10"
+                  maxLength={2}
+                />
+                {workLevel && (Number(workLevel) < 1 || Number(workLevel) > 10) && (
+                  <Text style={{ color: '#ef4444', fontSize: 12 }}>Ingrese un valor entre 1 y 10.</Text>
+                )}
+              </View>
+              <View style={styles.formGroup}>
+                <View style={styles.labelContainer}>
+                  <Icon name="activity" size={16} color="#4CAF50" />
+                  <Text style={styles.label}>Ejercicio realizado (1 = nada, 10 = muy intenso)</Text>
+                </View>
+                <TextInput
+                  style={styles.input}
+                  value={exerciseLevel}
+                  onChangeText={v => {
+                    if (/^$|^([1-9]|10)$/.test(v)) setExerciseLevel(v);
+                  }}
+                  keyboardType="numeric"
+                  placeholder="1-10"
+                  maxLength={2}
+                />
+                {exerciseLevel && (Number(exerciseLevel) < 1 || Number(exerciseLevel) > 10) && (
+                  <Text style={{ color: '#ef4444', fontSize: 12 }}>Ingrese un valor entre 1 y 10.</Text>
+                )}
               </View>
 
               <TouchableOpacity
-                style={[styles.button, styles.primaryButton]}
+                style={[styles.button, styles.primaryButton, !canCalculate() && styles.buttonDisabled]}
                 onPress={handleCalculate}
-                disabled={isLoading || !currentGlucose || !carbs}
+                disabled={!canCalculate()}
               >
                 {isLoading ? (
-                  <View>
-                    <Icon name="loader" size={20} color="white" />
-                  </View>
+                  <Icon name="loader" size={20} color="white" />
                 ) : (
                   <Calculator size={20} color="white" />
                 )}
                 <Text style={styles.buttonText}>Calcular Dosis de Insulina</Text>
               </TouchableOpacity>
+              {error && (
+                <Text style={{ color: '#ef4444', marginTop: 8 }}>{error}</Text>
+              )}
             </View>
           </Card>
 
-          {/* Recommendation Card */}
           {recommendation && (
             <Card style={styles.card}>
               <View style={styles.cardContent}>
@@ -375,11 +390,10 @@ export default function InsulinPage() {
                       <Text style={styles.recommendationUnit}>unidades 💉</Text>
                     </View>
                     <Text style={styles.recommendationSubtext}>
-                      Basado en tu glucosa actual y la comida planificada 📊
+                      Basado en tus datos ingresados 📊
                     </Text>
                   </View>
                 </View>
-
                 <View style={styles.breakdownSection}>
                   <Text style={styles.breakdownTitle}>Cómo se calculó: 🔍</Text>
                   <View style={styles.breakdownList}>
@@ -405,20 +419,10 @@ export default function InsulinPage() {
                     </View>
                   </View>
                 </View>
-
-                <TouchableOpacity
-                  style={[styles.button, styles.outlineButton]}
-                  onPress={handleLogDose}
-                  disabled={isLoading}
-                >
-                  <CheckCircle size={20} color="#4CAF50" />
-                  <Text style={styles.outlineButtonText}>Registrar Esta Dosis ✅</Text>
-                </TouchableOpacity>
               </View>
             </Card>
           )}
 
-          {/* Prediction Performance Card */}
           <Card style={styles.card}>
             <View style={styles.cardHeader}>
               <View style={styles.cardTitleContainer}>
@@ -446,15 +450,12 @@ export default function InsulinPage() {
                   </View>
                 </View>
               </View>
-
               <Text style={styles.performanceDescription}>
                 🤖 El modelo está aprendiendo continuamente de tus respuestas glucémicas y mejorando sus predicciones.
                 La precisión reciente ha {predictions?.accuracy.trend.direction === 'up' ? 'aumentado ⬆️ ' : 'disminuido ⬇️ '} 
                  a medida que el modelo se adapta a tus patrones.
               </Text>
-
               <Text style={styles.sectionTitle}>Predicciones Recientes 🔮</Text>
-
               <View style={styles.predictionsList}>
                 {predictions?.predictions.map((prediction) => (
                   <View key={prediction.id} style={styles.predictionItem}>
@@ -485,109 +486,6 @@ export default function InsulinPage() {
           </Card>
         </View>
       </ScrollView>
-
-      {/* Modal para agregar dosis */}
-      {showDoseModal && (
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Nueva Dosis de Insulina</Text>
-              <TouchableOpacity 
-                onPress={() => setShowDoseModal(false)}
-                style={styles.closeButton}
-              >
-                <Icon name="x" size={24} color="#6b7280" />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.modalForm}>
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Unidades</Text>
-                <View style={styles.inputGroup}>
-                  <TextInput
-                    style={styles.input}
-                    value={newDose.units}
-                    onChangeText={(value) => setNewDose(prev => ({ ...prev, units: value }))}
-                    keyboardType="numeric"
-                    placeholder="Ingrese unidades"
-                  />
-                  <View style={styles.inputAddon}>
-                    <Text style={styles.inputAddonText}>U</Text>
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Tipo de Insulina</Text>
-                <View style={styles.typeSelector}>
-                  <TouchableOpacity
-                    style={[
-                      styles.typeOption,
-                      newDose.type === 'rapid' && styles.typeOptionSelected,
-                      newDose.type === 'rapid' && styles['typeOptionSelected-rapid'],
-                      newDose.type !== 'rapid' && styles['typeOption-rapid']
-                    ]}
-                    onPress={() => setNewDose(prev => ({ ...prev, type: 'rapid' }))}
-                  >
-                    <Icon 
-                      name="zap" 
-                      size={16} 
-                      color={newDose.type === 'rapid' ? '#ffffff' : '#3b82f6'} 
-                    />
-                    <Text style={[
-                      styles.typeOptionText,
-                      newDose.type === 'rapid' && styles.typeOptionTextSelected
-                    ]}>Rápida</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.typeOption,
-                      newDose.type === 'long' && styles.typeOptionSelected,
-                      newDose.type === 'long' && styles['typeOptionSelected-long'],
-                      newDose.type !== 'long' && styles['typeOption-long']
-                    ]}
-                    onPress={() => setNewDose(prev => ({ ...prev, type: 'long' }))}
-                  >
-                    <Icon 
-                      name="clock" 
-                      size={16} 
-                      color={newDose.type === 'long' ? '#ffffff' : '#8b5cf6'} 
-                    />
-                    <Text style={[
-                      styles.typeOptionText,
-                      newDose.type === 'long' && styles.typeOptionTextSelected
-                    ]}>Lenta</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Notas (opcional)</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  value={newDose.notes}
-                  onChangeText={(value) => setNewDose(prev => ({ ...prev, notes: value }))}
-                  placeholder="Agregar notas o comentarios"
-                  multiline
-                  numberOfLines={4}
-                  textAlignVertical="top"
-                  textBreakStrategy="simple"
-                />
-              </View>
-
-              <TouchableOpacity
-                style={[styles.button, styles.primaryButton, !newDose.units && styles.buttonDisabled]}
-                onPress={handleSaveDose}
-                disabled={!newDose.units}
-              >
-                <Icon name="check" size={20} color="white" />
-                <Text style={styles.buttonText}>Guardar Dosis</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      )}
-
       <Footer />
     </SafeAreaView>
   );
@@ -613,7 +511,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16,
     paddingTop: 20,
-
   },
   titleContainer: {
     flexDirection: 'row',
@@ -631,9 +528,6 @@ const styles = StyleSheet.create({
     left: 0,
     zIndex: 1,
     alignSelf: 'center',
-  },
-  titleSection: {
-    alignItems: 'center',
   },
   titleRow: {
     flexDirection: 'row',
@@ -667,11 +561,6 @@ const styles = StyleSheet.create({
   },
   cardHeader: {
     marginBottom: 16,
-  },
-  cardHeaderContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
   },
   cardTitleContainer: {
     flexDirection: 'row',
@@ -722,20 +611,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6b7280',
   },
-  select: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    padding: 12,
-    backgroundColor: 'white',
-  },
-  selectText: {
-    fontSize: 16,
-    color: '#111827',
-  },
   button: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -746,6 +621,9 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     backgroundColor: '#4CAF50',
+  },
+  buttonDisabled: {
+    backgroundColor: '#9CA3AF',
   },
   buttonText: {
     color: 'white',
@@ -822,14 +700,6 @@ const styles = StyleSheet.create({
   totalValue: {
     fontWeight: '600',
   },
-  outlineButton: {
-    borderWidth: 1,
-    borderColor: '#4CAF50',
-    backgroundColor: 'white',
-  },
-  outlineButtonText: {
-    color: '#4CAF50',
-  },
   performanceHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -861,12 +731,6 @@ const styles = StyleSheet.create({
   performanceBadgeText: {
     fontSize: 12,
     color: '#6b7280',
-  },
-  miniChart: {
-    width: 50,
-    height: 50,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 8,
   },
   performanceDescription: {
     fontSize: 14,
@@ -914,181 +778,5 @@ const styles = StyleSheet.create({
   },
   accuracyBad: {
     color: '#ef4444',
-  },
-  linkButton: {
-    backgroundColor: 'transparent',
-  },
-  linkButtonText: {
-    color: '#4CAF50',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  addButton: {
-    padding: 8,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 8,
-  },
-  emptyState: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  emptyStateText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#6b7280',
-  },
-  emptyStateSubtext: {
-    fontSize: 14,
-    color: '#9ca3af',
-  },
-  dosesList: {
-    gap: 16,
-  },
-  doseItem: {
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
-    padding: 16,
-  },
-  doseInfo: {
-    gap: 8,
-  },
-  doseHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  doseBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 16,
-    backgroundColor: '#f3f4f6',
-  },
-  doseBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  deleteButton: {
-    padding: 8,
-    borderRadius: 20,
-  },
-  doseUnits: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  doseTime: {
-    fontSize: 14,
-    color: '#6b7280',
-  },
-  doseNotes: {
-    fontSize: 14,
-    color: '#111827',
-    backgroundColor: '#f9fafb',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 8,
-    lineHeight: 20,
-  },
-  modalOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-  },
-  modalContent: {
-    width: '90%',
-    maxWidth: 400,
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    gap: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  closeButton: {
-    padding: 8,
-    borderRadius: 20,
-  },
-  modalForm: {
-    gap: 20,
-  },
-  typeSelector: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  typeOption: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
-    gap: 8,
-    backgroundColor: 'white',
-  },
-  typeOptionSelected: {
-    borderColor: 'transparent',
-    backgroundColor: '#3b82f6', // For rapid insulin
-  },
-  'typeOption-rapid': {
-    borderColor: '#3b82f6',
-  },
-  'typeOption-long': {
-    borderColor: '#8b5cf6',
-  },
-  'typeOptionSelected-rapid': {
-    backgroundColor: '#3b82f6',
-  },
-  'typeOptionSelected-long': {
-    backgroundColor: '#8b5cf6',
-  },
-  typeOptionText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  typeOptionTextSelected: {
-    color: '#ffffff',
-  },
-  textArea: {
-    minHeight: 100,
-    height: 'auto',
-    maxHeight: 200,
-    paddingTop: 12,
-    paddingBottom: 12,
-    fontSize: 16,
-    textAlignVertical: 'top',
-    backgroundColor: '#ffffff',
-  },
-  buttonDisabled: {
-    opacity: 0.5,
   },
 });
