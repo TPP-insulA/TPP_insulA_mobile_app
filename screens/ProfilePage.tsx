@@ -8,6 +8,7 @@ import { NavigationProp } from '@react-navigation/native';
 import { useAuth } from '../hooks/use-auth';
 import { getUserProfile, updateProfileImage, ProfileResponse, API_URL } from '../lib/api/auth';
 import { LoadingSpinner } from '../components/loading-spinner';
+import Feather from 'react-native-vector-icons/Feather';
 
 type RootStackParamList = {
   Login: undefined;
@@ -84,8 +85,37 @@ export default function ProfilePage() {    const [profileImage, setProfileImage]
                 <LoadingSpinner color="#4CAF50" text="Cargando perfil..." />
             </SafeAreaView>
         );
-    }    return (
+    }
+    return (
         <SafeAreaView style={styles.container}>
+            {/* Botón Volver arriba a la izquierda */}
+            <View style={{ position: 'absolute', top: 14, left: 10, zIndex: 10 }}>
+                <TouchableOpacity
+                    style={[
+                        {
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 4,
+                            backgroundColor: '#2e7d32',
+                            borderRadius: 18,
+                            paddingVertical: 4,
+                            paddingHorizontal: 10,
+                            shadowColor: '#000',
+                            shadowOffset: { width: 0, height: 1 },
+                            shadowOpacity: 0.18,
+                            shadowRadius: 2,
+                            elevation: 3,
+                            borderWidth: 1.5,
+                            borderColor: '#fff',
+                        },
+                    ]}
+                    onPress={() => navigation.goBack()}
+                    activeOpacity={0.85}
+                >
+                    <Feather name="arrow-left" size={16} color="#fff" style={{ marginRight: 4 }} />
+                    <Text style={{ color: '#fff', fontWeight: '600', fontSize: 15, letterSpacing: 0.1 }}>Volver</Text>
+                </TouchableOpacity>
+            </View>
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 <View style={styles.content}>
                     <View style={styles.profileSection}>

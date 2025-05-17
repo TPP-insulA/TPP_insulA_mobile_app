@@ -27,7 +27,7 @@ import { getPredictionHistory, deleteInsulinPrediction } from '../lib/api/insuli
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { Swipeable } from 'react-native-gesture-handler';
-
+import { AppHeader } from '../components/app-header';
 
 interface Event {
   id: number;
@@ -530,6 +530,11 @@ export default function HistoryPage() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <AppHeader
+        title="Historial"
+        icon={<Activity width={32} height={32} color="#fff" />}
+        onBack={() => navigation.goBack()}
+      />
       <ScrollView 
         refreshControl={
           <RefreshControl
@@ -539,20 +544,6 @@ export default function HistoryPage() {
           />
         }
       >
-        <View style={styles.header}>
-          <View style={styles.titleContainer}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => navigation.goBack()}
-            >
-              <BackButton />
-            </TouchableOpacity>
-            <Activity width={32} height={32} color="#4CAF50" />
-            <Text style={styles.title}>Historial</Text>
-          </View>
-          <Text style={styles.subtitle}>Registros y tendencias de glucosa</Text>
-        </View>
-
         <View style={styles.content}>
           <TouchableOpacity
             style={styles.addButton}
@@ -1022,43 +1013,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f4f4f5', // --background-light
-  },
-  header: {
-    width: '100%',
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-    alignItems: 'center',
-    paddingBottom: 12,
-    paddingTop: 20,
-
-  },
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 4,
-    position: 'relative',
-    width: '100%',
-    justifyContent: 'center',
-    paddingVertical: 4,
-    marginTop: 30,
-  },
-  backButton: {
-    position: 'absolute',
-    left: 16,
-    zIndex: 1,
-    alignSelf: 'center',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333333', // --text-primary
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#6b7280', // --text-secondary
-    marginBottom: 16,
   },
   content: {
     padding: 16,

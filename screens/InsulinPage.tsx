@@ -9,6 +9,15 @@ import { Footer } from '../components/footer';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../hooks/use-auth';
 import { calculateInsulinDose, getInsulinPredictions } from '../lib/api/insulin';
+import { 
+  getInsulinDoses, 
+  createInsulinDose, 
+  deleteInsulinDose, 
+  calculateInsulinDose,
+  getInsulinPredictions,
+  InsulinDose
+} from '../lib/api/insulin';
+import { AppHeader } from '../components/app-header';
 
 interface Recommendation {
   total: number;
@@ -148,6 +157,11 @@ export default function InsulinPage() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <AppHeader
+        title="Insulina"
+        icon={<Droplet size={32} color="#fff" />}
+        onBack={() => navigation.goBack()}
+      />
       <ScrollView style={styles.scrollView}>
         <View style={styles.content}>
           <View style={styles.header}>

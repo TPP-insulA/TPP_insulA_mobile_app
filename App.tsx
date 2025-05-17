@@ -1,6 +1,6 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { StatusBar } from 'expo-status-bar';
+import { StatusBar as RNStatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, navigationTheme } from './components/theme-provider';
 import { useAuth } from './hooks/use-auth';
@@ -135,7 +135,7 @@ export default function App() {
             )}
           </ThemeProvider>
         </NavigationContainer>
-        <StatusBar style="auto" />
+        <RNStatusBar barStyle="light-content" backgroundColor="#2e7d32" />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

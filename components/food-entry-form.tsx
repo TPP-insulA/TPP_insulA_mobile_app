@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Image as RNImage, ScrollView, StatusBar, Platform, SafeAreaView } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, Image as RNImage, ScrollView, Platform, SafeAreaView } from "react-native";
 import * as Form from "react-hook-form";
 import * as ImagePicker from 'expo-image-picker';
 import { Camera, Image as GalleryIcon, Plus, Trash2, UtensilsCrossed, ScrollText, Scale, Banana, Cookie, GanttChart, CalendarClock, Pizza, Brain, ArrowLeft } from 'lucide-react-native';
@@ -352,7 +352,8 @@ export function FoodEntryForm({ onSubmit, onCancel, initialData }: FoodEntryForm
         variant: 'destructive',
       });
     }
-  };  return (    
+  };
+  return (
     <SafeAreaView style={tw`flex-1 bg-white`}>
       {/* Fixed Header */}
       <View style={[
@@ -416,7 +417,7 @@ export function FoodEntryForm({ onSubmit, onCancel, initialData }: FoodEntryForm
                 onPress={takePhoto}
               >
                 <Camera size={24} color="#6b7280" />
-                <Text style={tw`ml-2 text-gray-600`}>Tomar foto</Text>
+                <Text style={tw`ml-2 text-gray-600`}>Cámara</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={tw`flex-1 flex-row items-center justify-center bg-gray-100 py-4 rounded-lg`}

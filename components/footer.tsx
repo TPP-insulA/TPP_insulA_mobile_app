@@ -10,7 +10,7 @@ type RootStackParamList = {
   Meals: undefined;
   History: undefined;
   Insulin: undefined;
-  Profile: undefined;
+  Notifications: undefined;
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -18,45 +18,42 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 export function Footer() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute();
-
   const isActive = (path: string) => route.name === path;
+
+  const tabs = [
+    { name: 'Dashboard', icon: 'home', label: 'Inicio' },
+    { name: 'Meals', icon: 'coffee', label: 'Comidas' },
+    { name: 'History', icon: 'calendar', label: 'Historial' },
+    { name: 'Insulin', icon: 'activity', label: 'Insulina' },
+    { name: 'Notifications', icon: 'bell', label: 'Avisos' },
+  ];
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={styles.tab} onPress={() => navigation.navigate('Dashboard')}>
-        <View style={styles.tabContent}>
-          <Icon name="home" size={20} color={isActive('Dashboard') ? '#4CAF50' : '#666'} />
-          <Text style={[styles.label, isActive('Dashboard') && styles.activeLabel]}>Inicio</Text>
-        </View>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.tab} onPress={() => navigation.navigate('Meals')}>
-        <View style={styles.tabContent}>
-          <Icon name="coffee" size={20} color={isActive('Meals') ? '#4CAF50' : '#666'} />
-          <Text style={[styles.label, isActive('Meals') && styles.activeLabel]}>Comidas</Text>
-        </View>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.tab} onPress={() => navigation.navigate('History')}>
-        <View style={styles.tabContent}>
-          <Icon name="calendar" size={20} color={isActive('History') ? '#4CAF50' : '#666'} />
-          <Text style={[styles.label, isActive('History') && styles.activeLabel]}>Historial</Text>
-        </View>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.tab} onPress={() => navigation.navigate('Insulin')}>
-        <View style={styles.tabContent}>
-          <Calculator size={20} color={isActive('Insulin') ? '#4CAF50' : '#666'} />
-          <Text style={[styles.label, isActive('Insulin') && styles.activeLabel]}>Insulina</Text>
-        </View>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.tab} onPress={() => navigation.navigate('Profile')}>
-        <View style={styles.tabContent}>
-          <Icon name="user" size={20} color={isActive('Profile') ? '#4CAF50' : '#666'} />
-          <Text style={[styles.label, isActive('Profile') && styles.activeLabel]}>Perfil</Text>
-        </View>
-      </TouchableOpacity>
+      {tabs.map((tab, idx) => {
+        const active = isActive(tab.name);
+        return (
+          <TouchableOpacity
+            key={tab.name}
+            style={[
+              styles.tab,
+              active && styles.activeTab
+            ]}
+            onPress={() => navigation.navigate(tab.name as any)}
+            activeOpacity={0.85}
+          >
+            <View style={styles.tabContent}>
+              <Icon
+                name={tab.icon}
+                size={active ? 28 : 22}
+                color={active ? '#43a047' : '#222'} // Verde más claro para icono activo
+              />
+              <Text style={[styles.label, active && styles.activeLabel]}>{tab.label}</Text>
+              {active && <View style={styles.activeIndicator} />}
+            </View>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 }
@@ -64,28 +61,57 @@ export function Footer() {
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-    paddingBottom: 8,
-    paddingHorizontal: 10,
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: 5, // altura más baja
+    backgroundColor: '#fff', // Fondo blanco
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    elevation: 18, // Más elevación
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 }, // Sombra más marcada arriba
+    shadowOpacity: 0.22, // Más opacidad
+    shadowRadius: 12, // Más difusa
   },
   tab: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 6,
+    paddingVertical: 4, // menos padding
+    borderRadius: 14,
+    marginHorizontal: 2,
+    minWidth: 60,
+  },
+  activeTab: {
+    backgroundColor: 'rgba(67,160,71,0.13)', // Verde más claro para fondo activo
   },
   tabContent: {
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
   },
   label: {
-    marginTop: 2,
+    marginTop: 1,
     fontSize: 11,
-    color: '#666',
+    color: '#222', // Texto negro para tabs inactivas
+    fontWeight: '400',
+    letterSpacing: 0.1,
   },
   activeLabel: {
-    color: '#4CAF50',
+    color: '#43a047', // Verde más claro para texto activo
+    fontWeight: '700',
+    fontSize: 12,
+    textShadowColor: 'rgba(67,160,71,0.08)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
+  },
+  activeIndicator: {
+    position: 'absolute',
+    top: 0,
+    left: '25%',
+    right: '25%',
+    height: 2,
+    borderRadius: 2,
+    backgroundColor: '#43a047', // Indicador verde más claro
   },
 });
