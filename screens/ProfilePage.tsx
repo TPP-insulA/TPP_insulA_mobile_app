@@ -89,30 +89,31 @@ export default function ProfilePage() {    const [profileImage, setProfileImage]
     return (
         <SafeAreaView style={styles.container}>
             {/* Botón Volver arriba a la izquierda */}
-            <View style={{ position: 'absolute', top: 18, left: 16, zIndex: 10 }}>
+            <View style={{ position: 'absolute', top: 14, left: 10, zIndex: 10 }}>
                 <TouchableOpacity
                     style={[
                         {
                             flexDirection: 'row',
                             alignItems: 'center',
-                            gap: 6,
-                            backgroundColor: '#2e7d32', // Verde oscuro para contraste
-                            borderRadius: 24,
-                            paddingVertical: 6,
-                            paddingHorizontal: 14,
+                            gap: 4,
+                            backgroundColor: '#2e7d32',
+                            borderRadius: 18,
+                            paddingVertical: 4,
+                            paddingHorizontal: 10,
                             shadowColor: '#000',
-                            shadowOffset: { width: 0, height: 2 },
-                            shadowOpacity: 0.25,
-                            shadowRadius: 4,
-                            elevation: 5,
-                            borderWidth: 2,
-                            borderColor: '#fff', // Borde blanco bien definido
+                            shadowOffset: { width: 0, height: 1 },
+                            shadowOpacity: 0.18,
+                            shadowRadius: 2,
+                            elevation: 3,
+                            borderWidth: 1.5,
+                            borderColor: '#fff',
                         },
                     ]}
                     onPress={() => navigation.goBack()}
+                    activeOpacity={0.85}
                 >
-                    <Feather name="arrow-left" size={18} color="#fff" style={{ marginRight: 6 }} />
-                    <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16 }}>Volver</Text>
+                    <Feather name="arrow-left" size={16} color="#fff" style={{ marginRight: 4 }} />
+                    <Text style={{ color: '#fff', fontWeight: '600', fontSize: 15, letterSpacing: 0.1 }}>Volver</Text>
                 </TouchableOpacity>
             </View>
             <ScrollView contentContainerStyle={styles.scrollContent}>

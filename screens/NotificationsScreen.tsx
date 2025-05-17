@@ -12,6 +12,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Bell } from 'lucide-react-native';
 import { BackButton } from '../components/back-button';
 import { AppHeader } from '../components/app-header';
+import { Footer } from '../components/footer';
 
 // Placeholder notification data
 const MOCK_NOTIFICATIONS: Notification[] = [
@@ -92,9 +93,10 @@ export default function NotificationsScreen() {
                 data={MOCK_NOTIFICATIONS}
                 renderItem={renderNotification}
                 keyExtractor={item => item.id}
-                contentContainerStyle={styles.notificationsList}
+                contentContainerStyle={{ padding: 16, paddingBottom: 80 }}
                 ItemSeparatorComponent={() => <View style={styles.separator} />}
             />
+            <Footer />
         </SafeAreaView>
     );
 }
