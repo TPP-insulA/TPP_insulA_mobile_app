@@ -12,21 +12,17 @@ import {
   Pressable,
   Animated,
 } from 'react-native';
-import { GlucoseTrendsChart } from '../components/glucose-trends-chart';
-import DailyPatternChart from '../components/daily-pattern-chart';
 import { Footer } from '../components/footer';
 import { useNavigation } from '@react-navigation/native';
-import { Activity, Plus, Trash2 } from 'lucide-react-native';
-import PlotSelectorModal from '../components/plot-selector-modal';
-import GlucoseWithMealsChart from '../components/glucose-with-meals-chart';
+import { Activity, Trash2, Plus } from 'lucide-react-native';
 import { LoadingSpinner } from '../components/loading-spinner';
-import { API_URL } from '../lib/api/auth';
 import { useAuth } from '../hooks/use-auth';
 import { getPredictionHistory, deleteInsulinPrediction } from '../lib/api/insulin';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { Swipeable } from 'react-native-gesture-handler';
 import { AppHeader } from '../components/app-header';
+import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
 
 interface Event {
   id: number;
@@ -100,18 +96,6 @@ const mockDailyPatternData = [
 export default function HistoryPage() {
   const navigation = useNavigation();
   const { token, isAuthenticated, user } = useAuth();
-  const [plots, setPlots] = useState<Plot[]>([]);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [isLoading, setIsLoading] = useState<{ [key: number]: boolean }>({});
-  const [errors, setErrors] = useState<ApiError[]>([]);
-  const [events, setEvents] = useState<Event[]>([]);
-  const [plotData, setPlotData] = useState<{
-    [key: number]: {
-      glucose?: GlucoseData[];
-      meals?: any[];
-      stats?: any;
-    };
-  }>({});
   const [predictionHistory, setPredictionHistory] = useState<any[]>([]);
   const [isLoadingPredictions, setIsLoadingPredictions] = useState(false);
   const [predictionError, setPredictionError] = useState<string | null>(null);
@@ -167,172 +151,50 @@ export default function HistoryPage() {
     return normalized;
   };
   
-  const fetchData = async (plot: Plot) => {
-    if (!token || !isAuthenticated) return;
-    
-    setIsLoading(prev => ({ ...prev, [plot.id]: true }));
-    setErrors(prev => prev.filter(e => e.plotId !== plot.id));
-    
-    try {
-      const headers = { 'Authorization': `Bearer ${token}` };
-      const timeRange = plot.timeRange;
-
-      switch (plot.type) {
-        case 'glucose': {
-          const response = await fetch(`${API_URL}/glucose?range=${timeRange}`, { headers });
-          if (!response.ok) throw new Error('Failed to fetch glucose data');
-          const data = await response.json();
-          // Transform to required format
-          const transformedData = data.map((reading: any) => ({
-            time: new Date(reading.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            glucose: reading.value
-          }));
-          setPlotData(prev => ({
-            ...prev,
-            [plot.id]: { ...prev[plot.id], glucose: transformedData }
-          }));
-          break;
-        }
-        case 'glucose_meals': {
-          const [glucoseRes, mealsRes] = await Promise.all([
-            fetch(`${API_URL}/glucose?range=${timeRange}`, { headers }),
-            fetch(`${API_URL}/meals?range=${timeRange}`, { headers })
-          ]);
-          if (!glucoseRes.ok || !mealsRes.ok) throw new Error('Failed to fetch glucose or meals data');
-          const [glucoseData, mealsData] = await Promise.all([
-            glucoseRes.json(),
-            mealsRes.json()
-          ]);
-          const transformedGlucose = glucoseData.map((reading: any) => ({
-            time: new Date(reading.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            glucose: reading.value
-          }));
-          setPlotData(prev => ({
-            ...prev,
-            [plot.id]: { 
-              glucose: transformedGlucose,
-              meals: mealsData
-            }
-          }));
-          break;
-        }
-        case 'daily_pattern': {
-          const response = await fetch(`${API_URL}/glucose/stats?range=${timeRange}`, { headers });
-          if (!response.ok) throw new Error('Failed to fetch glucose stats');
-          const data = await response.json();
-          setPlotData(prev => ({
-            ...prev,
-            [plot.id]: { stats: data }
-          }));
-          break;
-        }
+  // --- Estadísticas ---
+  const stats = React.useMemo(() => {
+    if (!predictionHistory || predictionHistory.length === 0) return null;
+    const count = predictionHistory.length;
+    let sumCGM = 0, sumCarbs = 0, sumSleep = 0, sumWork = 0, sumActivity = 0, sumRecDose = 0, sumApplyDose = 0, countApply = 0;
+    let sumRecDoseWithApply = 0, sumApplyDoseWithApply = 0, countWithApply = 0;
+    let sumApplyVsRecPercent = 0, countApplyVsRecPercent = 0;
+    predictionHistory.forEach(pred => {
+      if (Array.isArray(pred.cgmPrev) && pred.cgmPrev.length > 0) sumCGM += Number(pred.cgmPrev[0] || 0);
+      else sumCGM += 0;
+      sumCarbs += Number(pred.carbs || 0);
+      sumSleep += Number(pred.sleepLevel || 0);
+      sumWork += Number(pred.workLevel || 0);
+      sumActivity += Number(pred.activityLevel || 0);
+      sumRecDose += Number(pred.recommendedDose || 0);
+      if (typeof pred.applyDose === 'number' && typeof pred.recommendedDose === 'number' && pred.recommendedDose !== 0) {
+        sumApplyDose += pred.applyDose;
+        countApply++;
+        sumRecDoseWithApply += Number(pred.recommendedDose || 0);
+        sumApplyDoseWithApply += pred.applyDose;
+        countWithApply++;
+        // Calcular variación porcentual absoluta
+        const percentDiff = Math.abs((pred.applyDose - pred.recommendedDose) / pred.recommendedDose) * 100;
+        sumApplyVsRecPercent += percentDiff;
+        countApplyVsRecPercent++;
       }
-    } catch (error) {
-      setErrors(prev => [...prev, { 
-        plotId: plot.id, 
-        message: error instanceof Error ? error.message : 'Error al cargar datos' 
-      }]);
-    } finally {
-      setIsLoading(prev => ({ ...prev, [plot.id]: false }));
-    }
-  };
+    });
+    return {
+      avgCGM: sumCGM / count,
+      avgCarbs: sumCarbs / count,
+      avgSleep: sumSleep / count,
+      avgWork: sumWork / count,
+      avgActivity: sumActivity / count,
+      avgRecDose: sumRecDose / count,
+      avgApplyDose: countApply > 0 ? sumApplyDose / countApply : null,
+      avgRecDoseWithApply: countWithApply > 0 ? sumRecDoseWithApply / countWithApply : null,
+      avgApplyDoseWithApply: countWithApply > 0 ? sumApplyDoseWithApply / countApply : null,
+      avgApplyVsRecPercent: countApplyVsRecPercent > 0 ? sumApplyVsRecPercent / countApplyVsRecPercent : null,
+      count,
+      countWithApply,
+    };
+  }, [predictionHistory]);
 
-  const fetchEvents = async () => {
-    if (!token || !isAuthenticated) return;
-
-    try {
-      const headers = { 'Authorization': `Bearer ${token}` };
-      
-      // Make API calls and handle each response individually
-      let allEvents = [];
-      
-      try {
-        const glucoseRes = await fetch(`${API_URL}/glucose?range=24h&limit=10`, { headers });
-        if (glucoseRes.ok) {
-          const glucose = await glucoseRes.json();
-          if (Array.isArray(glucose)) {
-            allEvents.push(...glucose.map((g: any) => ({
-              id: g.id,
-              timestamp: new Date(g.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              description: 'Lectura de glucosa',
-              type: 'glucose',
-              value: g.value
-            })));
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching glucose events:', error);
-      }
-
-      try {
-        const mealsRes = await fetch(`${API_URL}/meals?range=24h&limit=10`, { headers });
-        if (mealsRes.ok) {
-          const meals = await mealsRes.json();
-          if (Array.isArray(meals)) {
-            allEvents.push(...meals.map((m: any) => ({
-              id: m.id,
-              timestamp: new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              description: m.description || 'Comida',
-              type: 'meal',
-              carbs: m.carbs,
-              items: m.items || []
-            })));
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching meal events:', error);
-      }
-
-      try {
-        const insulinRes = await fetch(`${API_URL}/insulin?range=24h&limit=10`, { headers });
-        if (insulinRes.ok) {
-          const insulin = await insulinRes.json();
-          if (Array.isArray(insulin)) {
-            allEvents.push(...insulin.map((i: any) => ({
-              id: i.id,
-              timestamp: new Date(i.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              description: 'Dosis de insulina',
-              type: 'insulin',
-              units: i.units
-            })));
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching insulin events:', error);
-      }
-
-      try {
-        const activitiesRes = await fetch(`${API_URL}/activities?range=24h&limit=10`, { headers });
-        if (activitiesRes.ok) {
-          const activities = await activitiesRes.json();
-          if (Array.isArray(activities)) {
-            allEvents.push(...activities.map((a: any) => ({
-              id: a.id,
-              timestamp: new Date(a.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              description: a.description || 'Actividad física',
-              type: 'activity',
-              duration: a.duration
-            })));
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching activity events:', error);
-      }
-
-      // Sort all events by timestamp and take the latest 10
-      if (allEvents.length > 0) {
-        allEvents.sort((a, b) => 
-          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-        );
-        setEvents(allEvents.slice(0, 10));
-      }
-    } catch (error) {
-      console.error('Error in fetchEvents:', error);
-      // Set empty events array to avoid undefined errors
-      setEvents([]);
-    }
-  };
-
+  // --- Fetch de historial de predicciones ---
   const fetchPredictionHistoryData = async () => {
     if (!token || !user?.id) return;
     setIsLoadingPredictions(true);
@@ -353,78 +215,16 @@ export default function HistoryPage() {
 
   useEffect(() => {
     if (token && isAuthenticated) {
-      fetchEvents();
       fetchPredictionHistoryData();
     }
   }, [token, isAuthenticated]);
-
-  useEffect(() => {
-    if (token && isAuthenticated) {
-      plots.forEach(plot => {
-        if (!plotData[plot.id]) {
-          fetchData(plot);
-        }
-      });
-    }
-  }, [plots, token, isAuthenticated]);
 
   // Resetear a la primera página cuando cambian los filtros o el ordenamiento
   useEffect(() => {
     setCurrentPage(1);
   }, [appliedFilters, sortBy, sortDir]);
 
-  const addPlot = (plot: Omit<Plot, 'id'>) => {
-    setPlots([...plots, { ...plot, id: Date.now() }]);
-  };
-
-  const removePlot = (id: number) => {
-    setPlots(plots.filter((plot) => plot.id !== id));
-  };
-
-  const renderPlot = (plot: Plot) => {
-    if (isLoading[plot.id]) {
-      return <LoadingSpinner text="Cargando datos..." />;
-    }
-
-    const error = errors.find(e => e.plotId === plot.id);
-    if (error) {
-      return (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error.message}</Text>
-        </View>
-      );
-    }
-
-    const data = plotData[plot.id];
-    if (!data) return null;
-
-    switch (plot.type) {
-      case 'glucose':
-        return (
-          <GlucoseTrendsChart
-            data={data.glucose || []}
-            timeRange={plot.timeRange}
-          />
-        );
-      case 'daily_pattern':
-        return <DailyPatternChart data={data.stats || []} />;
-      case 'glucose_meals':
-        return (
-          <GlucoseWithMealsChart 
-            data={data.glucose || []}
-            meals={Array.isArray(data.meals) ? data.meals : []}
-            timeRange={plot.timeRange}
-          />
-        );
-      default:
-        return null;
-    }
-  };
-
-  // Filtrado y ordenado
-  // El método filteredSortedHistory ya no se usa, solo usamos el avanzado
-  
-  // Aplica los filtros avanzados
+  // Filtrado y ordenado avanzado
   const filteredSortedHistoryAdvanced = predictionHistory
     .filter(pred => {
       // Fecha
@@ -525,41 +325,13 @@ export default function HistoryPage() {
       />
       <ScrollView>
         <View style={styles.content}>
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => setModalVisible(true)}
-          >
-            <Plus size={20} color="#ffffff" />
-            <Text style={styles.addButtonText}>Agregar Gráfico</Text>
-          </TouchableOpacity>
-
-          {plots.length === 0 ? (
-            <View style={styles.emptyState}>
-                <Text style={styles.emptyStateText}>
-                No hay gráficos agregados aún. Toca "Agregar Gráfico" para comenzar.
-                </Text>
+          {/* HISTORIAL DE PREDICCIONES - ahora primero y fuera del Card */}
+          <View style={{ marginBottom: 24 }}>
+            <View>
+              <Text style={{ textAlign: 'center', fontSize: 20, fontWeight: 'bold', marginBottom: 8, color: '#222', fontFamily: 'System' }}>Historial de Predicciones</Text>
             </View>
-          ) : (
-            plots.map((plot) => (
-              <View key={plot.id} style={styles.card}>
-                <TouchableOpacity
-                  style={styles.removeButton}
-                  onPress={() => removePlot(plot.id)}
-                >
-                  <Text style={styles.removeButtonText}>✕</Text>
-                </TouchableOpacity>
-                <Text style={styles.plotTitle}>{plot.label}</Text>
-                {renderPlot(plot)}
-              </View>
-            ))
-          )}
-
-          {/* Tabla de predicciones */}
-          <View style={[styles.card, {padding: 0, overflow: 'hidden'}]}>
-            <View style={{flexDirection:'row', alignItems:'center', justifyContent:'space-between', marginTop: 20, marginBottom: 0, marginHorizontal: 20}}>
-              <Text style={[styles.sectionTitle, styles.fontTitle, {fontSize: 22}]}>Historial de Predicciones</Text>
-            </View>
-            <TouchableOpacity style={[styles.filterButtonSmall, {marginLeft: 20}]} onPress={()=>setFilterModalVisible(true)}>
+            {/* Filtros y tabla de historial, mover aquí el contenido de la sección historial */}
+            <TouchableOpacity style={[styles.filterButtonSmall, {marginLeft: 0}]} onPress={()=>setFilterModalVisible(true)}>
               <Plus size={16} color="#fff" style={{marginRight: 4}} />
               <Text style={styles.filterButtonTextSmall}>Agregar filtros</Text>
             </TouchableOpacity>
@@ -675,7 +447,6 @@ export default function HistoryPage() {
                       </Text>
                     </View>
                   </TouchableOpacity>
-                  
                   <TouchableOpacity 
                     style={[
                       cardStyles.sortButton,
@@ -695,7 +466,6 @@ export default function HistoryPage() {
                       </Text>
                     </View>
                   </TouchableOpacity>
-                  
                   <TouchableOpacity 
                     style={[
                       cardStyles.sortButton,
@@ -716,7 +486,6 @@ export default function HistoryPage() {
                     </View>
                   </TouchableOpacity>
                 </View>
-                
                 {/* Lista de tarjetas de predicción */}
                 {filteredSortedHistoryAdvanced
                   .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
@@ -821,57 +590,109 @@ export default function HistoryPage() {
                         </TouchableOpacity>
                       </Swipeable>
                     </View>
-                  );
-                })}
-                
-                {/* Controles de paginación */}
-                {filteredSortedHistoryAdvanced.length > 0 && (
-                  <View style={cardStyles.paginationContainer}>
-                    <Text style={cardStyles.paginationInfo}>
-                      Página {currentPage} de {Math.ceil(filteredSortedHistoryAdvanced.length / itemsPerPage)}
-                    </Text>
-                    <View style={cardStyles.paginationControls}>
-                      <TouchableOpacity 
-                        style={[
-                          cardStyles.paginationButton,
-                          currentPage === 1 && cardStyles.paginationButtonDisabled
-                        ]}
-                        onPress={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                        disabled={currentPage === 1}
-                      >
-                        <Text style={[
-                          cardStyles.paginationButtonText,
-                          currentPage === 1 && cardStyles.paginationButtonTextDisabled
-                        ]}>Anterior</Text>
-                      </TouchableOpacity>
-                      
-                      <TouchableOpacity 
-                        style={[
-                          cardStyles.paginationButton,
-                          currentPage >= Math.ceil(filteredSortedHistoryAdvanced.length / itemsPerPage) && cardStyles.paginationButtonDisabled
-                        ]}
-                        onPress={() => setCurrentPage(prev => Math.min(Math.ceil(filteredSortedHistoryAdvanced.length / itemsPerPage), prev + 1))}
-                        disabled={currentPage >= Math.ceil(filteredSortedHistoryAdvanced.length / itemsPerPage)}
-                      >
-                        <Text style={[
-                          cardStyles.paginationButtonText,
-                          currentPage >= Math.ceil(filteredSortedHistoryAdvanced.length / itemsPerPage) && cardStyles.paginationButtonTextDisabled
-                        ]}>Siguiente</Text>
-                      </TouchableOpacity>
+);
+                  })}
+                  
+                  {/* Controles de paginación */}
+                  {filteredSortedHistoryAdvanced.length > 0 && (
+                    <View style={cardStyles.paginationContainer}>
+                      <Text style={cardStyles.paginationInfo}>
+                        Página {currentPage} de {Math.ceil(filteredSortedHistoryAdvanced.length / itemsPerPage)}
+                      </Text>
+                      <View style={cardStyles.paginationControls}>
+                        <TouchableOpacity 
+                          style={[
+                            cardStyles.paginationButton,
+                            currentPage === 1 && cardStyles.paginationButtonDisabled
+                          ]}
+                          onPress={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                        >
+                          <Text style={[
+                            cardStyles.paginationButtonText,
+                            currentPage === 1 && cardStyles.paginationButtonTextDisabled
+                          ]}>Anterior</Text>
+                        </TouchableOpacity>
+                        
+                        <TouchableOpacity 
+                          style={[
+                            cardStyles.paginationButton,
+                            currentPage >= Math.ceil(filteredSortedHistoryAdvanced.length / itemsPerPage) && cardStyles.paginationButtonDisabled
+                          ]}
+                          onPress={() => setCurrentPage(prev => Math.min(Math.ceil(filteredSortedHistoryAdvanced.length / itemsPerPage), prev + 1))}
+                          disabled={currentPage >= Math.ceil(filteredSortedHistoryAdvanced.length / itemsPerPage)}
+                        >
+                          <Text style={[
+                            cardStyles.paginationButtonText,
+                            currentPage >= Math.ceil(filteredSortedHistoryAdvanced.length / itemsPerPage) && cardStyles.paginationButtonTextDisabled
+                          ]}>Siguiente</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                  </View>
-                )}
-              </View>
+                  )}
+                </View>
             )}
-          </View >
+          </View>
+
+          {/* DASHBOARD DE ESTADÍSTICAS */}
+          <Card style={{ marginBottom: 24 }}>
+            <CardHeader>
+              <CardTitle style={{ textAlign: 'center' }}>Estadísticas de tus predicciones</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {stats ? (
+                <View style={dashboardStyles.statsGrid}>
+                  {/* Glucosa promedio al aplicar dosis */}
+                  <View style={dashboardStyles.statBox}>
+                    <Text style={dashboardStyles.statLabel}>Glucosa promedio al aplicar dosis</Text>
+                    <Text style={dashboardStyles.statValue}>{stats.avgCGM.toFixed(1)} mg/dL</Text>
+                  </View>
+                  {/* Dosis aplicada vs recomendada (variación %) */}
+                  <View style={dashboardStyles.statBox}>
+                    <Text style={dashboardStyles.statLabel}>Dosis aplicada vs recomendada (variación %)</Text>
+                    <Text style={dashboardStyles.statValue}>
+                      {stats.avgApplyVsRecPercent !== null ? stats.avgApplyVsRecPercent.toFixed(1) + ' %' : '-'}
+                    </Text>
+                  </View>
+                  {/* Dosis recomendada promedio */}
+                  <View style={dashboardStyles.statBox}>
+                    <Text style={dashboardStyles.statLabel}>Dosis recomendada promedio</Text>
+                    <Text style={dashboardStyles.statValue}>{stats.avgRecDose.toFixed(2)} U</Text>
+                  </View>
+                  {/* Dosis aplicada promedio */}
+                  <View style={dashboardStyles.statBox}>
+                    <Text style={dashboardStyles.statLabel}>Dosis aplicada promedio</Text>
+                    <Text style={dashboardStyles.statValue}>{stats.avgApplyDose !== null ? stats.avgApplyDose.toFixed(2) + ' U' : '-'}</Text>
+                  </View>
+                  {/* Nivel de sueño promedio */}
+                  <View style={dashboardStyles.statBox}>
+                    <Text style={dashboardStyles.statLabel}>Nivel de sueño promedio</Text>
+                    <Text style={dashboardStyles.statValue}>{stats.avgSleep.toFixed(2)}</Text>
+                  </View>
+                  {/* Carbohidratos promedio */}
+                  <View style={dashboardStyles.statBox}>
+                    <Text style={dashboardStyles.statLabel}>Carbohidratos promedio</Text>
+                    <Text style={dashboardStyles.statValue}>{stats.avgCarbs.toFixed(1)} g</Text>
+                  </View>
+                  {/* Nivel de actividad promedio */}
+                  <View style={dashboardStyles.statBox}>
+                    <Text style={dashboardStyles.statLabel}>Nivel de actividad promedio</Text>
+                    <Text style={dashboardStyles.statValue}>{stats.avgActivity.toFixed(2)}</Text>
+                  </View>
+                  {/* Nivel de trabajo promedio */}
+                  <View style={dashboardStyles.statBox}>
+                    <Text style={dashboardStyles.statLabel}>Nivel de trabajo promedio</Text>
+                    <Text style={dashboardStyles.statValue}>{stats.avgWork.toFixed(2)}</Text>
+                  </View>
+                </View>
+              ) : (
+                <Text style={dashboardStyles.noStatsText}>No hay datos suficientes para mostrar estadísticas.</Text>
+              )}
+            </CardContent>
+          </Card>
         </View>
       </ScrollView>
       <Footer />
-      <PlotSelectorModal
-        visible={modalVisible}
-        onClose={() => setModalVisible(false)}
-        onAddPlot={addPlot}
-      />
       
       {/* Confirmation Modal */}
       <Modal
@@ -1456,5 +1277,68 @@ const deleteStyles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+});
+
+// Estilos para el dashboard de estadísticas
+const dashboardStyles = StyleSheet.create({
+  dashboardCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  dashboardTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#222',
+    marginBottom: 18,
+    textAlign: 'center',
+    fontFamily: 'System',
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  statBox: {
+    width: '48%',
+    backgroundColor: '#f4f4f5',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  statLabel: {
+    fontSize: 14,
+    color: '#4b5563',
+    marginBottom: 4,
+    textAlign: 'center',
+    fontFamily: 'System',
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#111827',
+    textAlign: 'center',
+    fontFamily: 'System',
+  },
+  noStatsText: {
+    color: '#6b7280',
+    fontSize: 16,
+    textAlign: 'center',
+    fontFamily: 'System',
+    marginVertical: 12,
   },
 });

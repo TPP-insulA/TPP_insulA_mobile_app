@@ -291,7 +291,7 @@ export const getPredictionHistory = async (token: string, id: string): Promise<I
         sleepLevel: 2,
         workLevel: 3,
         activityLevel: 2,
-        recommendedDose: 4,
+        recommendedDose: 5,
         applyDose: 4,
         cgmPost: [85, 90, 95],
       },
