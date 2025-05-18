@@ -172,7 +172,7 @@ export const getPredictionHistory = async (token: string, id: string): Promise<I
     const data = await response.json();*/
     // Simulating a response for testing purposes
     // add sleep of 5 secs
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    await new Promise(resolve => setTimeout(resolve, 1000));
     const response = {
       ok: true
     };

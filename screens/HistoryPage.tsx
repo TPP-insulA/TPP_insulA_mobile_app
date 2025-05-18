@@ -123,7 +123,7 @@ function HistoryTab(props: any) {
             style={[
               styles.filterButtonSmall,
               {
-                alignSelf: 'center', // Centrado horizontal
+                alignSelf: 'center',
                 marginLeft: 0,
                 shadowColor: '#388e3c',
                 shadowOffset: { width: 0, height: 2 },
@@ -146,14 +146,14 @@ function HistoryTab(props: any) {
                 <Text style={{fontSize:15, color:'#00796b', fontFamily:'System'}}>
                   {`${key==='fecha'?'Fecha':key==='cgm'?'CGM':'Dosis'} ${f.op} ${String(f.value)}`}
                 </Text>
-                <Pressable onPress={()=>{
+                <TouchableOpacity onPress={()=>{
                   const newFilters = {...props.appliedFilters};
                   newFilters[key as FilterKey] = {...newFilters[key as FilterKey], value: ''};
                   props.setAppliedFilters(newFilters);
                   props.setFilters(newFilters);
                 }}>
                   <Text style={{marginLeft:6, color:'#ef4444', fontWeight:'bold'}}>×</Text>
-                </Pressable>
+                </TouchableOpacity>
               </View>
             ) : null)}
           </View>
@@ -182,9 +182,15 @@ function HistoryTab(props: any) {
               {/* CGM */}
               <Text style={{fontSize:16, fontWeight:'600', marginTop:16}}>Último CGM</Text>
               <View style={{flexDirection:'row', alignItems:'center', gap:8}}>
-                <TouchableOpacity style={[filterOpBtnStyle(props.filters.cgm.op,'='), {marginRight:4}]} onPress={()=>props.setFilters((prev: any) => ({...prev, cgm:{...prev.cgm, op:'='}}))}><Text style={filterOpTextStyle(props.filters.cgm.op,'=')}>=</Text></TouchableOpacity>
-                <TouchableOpacity style={filterOpBtnStyle(props.filters.cgm.op,'>')} onPress={()=>props.setFilters((prev: any) => ({...prev, cgm:{...prev, op:'>'}}))}><Text style={filterOpTextStyle(props.filters.cgm.op,'>')}>{'>'}</Text></TouchableOpacity>
-                <TouchableOpacity style={filterOpBtnStyle(props.filters.cgm.op,'<')} onPress={()=>props.setFilters((prev: any) => ({...prev, cgm:{...prev, op:'<'}}))}><Text style={filterOpTextStyle(props.filters.cgm.op,'<')}>{'<'}</Text></TouchableOpacity>
+                <TouchableOpacity style={[filterOpBtnStyle(props.filters.cgm.op,'='), {marginRight:4}]} onPress={()=>props.setFilters((prev: any) => ({...prev, cgm:{...prev.cgm, op:'='}}))}>
+                  <Text style={filterOpTextStyle(props.filters.cgm.op,'=')}>=</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={filterOpBtnStyle(props.filters.cgm.op,'>')} onPress={()=>props.setFilters((prev: any) => ({...prev, cgm:{...prev, op:'>'}}))}>
+                  <Text style={filterOpTextStyle(props.filters.cgm.op,'>')}>{'>'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={filterOpBtnStyle(props.filters.cgm.op,'<')} onPress={()=>props.setFilters((prev: any) => ({...prev, cgm:{...prev, op:'<'}}))}>
+                  <Text style={filterOpTextStyle(props.filters.cgm.op,'<')}>{'<'}</Text>
+                </TouchableOpacity>
                 <TextInput
                   style={[tableStyles.filterInput, {flex:1, marginLeft:8}]}
                   placeholder="Valor"
@@ -200,9 +206,15 @@ function HistoryTab(props: any) {
               {/* Dosis */}
               <Text style={{fontSize:16, fontWeight:'600', marginTop:16}}>Dosis calculada</Text>
               <View style={{flexDirection:'row', alignItems:'center', gap:8}}>
-                <TouchableOpacity style={[filterOpBtnStyle(props.filters.dosis.op,'='), {marginRight:4}]} onPress={()=>props.setFilters((prev: any) => ({...prev, dosis:{...prev.dosis, op:'='}}))}><Text style={filterOpTextStyle(props.filters.dosis.op,'=')}>=</Text></TouchableOpacity>
-                <TouchableOpacity style={filterOpBtnStyle(props.filters.dosis.op,'>')} onPress={()=>props.setFilters((prev: any) => ({...prev, dosis:{...prev.dosis, op:'>'}}))}><Text style={filterOpTextStyle(props.filters.dosis.op,'>')}>{'>'}</Text></TouchableOpacity>
-                <TouchableOpacity style={filterOpBtnStyle(props.filters.dosis.op,'<')} onPress={()=>props.setFilters((prev: any) => ({...prev, dosis:{...prev.dosis, op:'<'}}))}><Text style={filterOpTextStyle(props.filters.dosis.op,'<')}>{'<'}</Text></TouchableOpacity>
+                <TouchableOpacity style={[filterOpBtnStyle(props.filters.dosis.op,'='), {marginRight:4}]} onPress={()=>props.setFilters((prev: any) => ({...prev, dosis:{...prev.dosis, op:'='}}))}>
+                  <Text style={filterOpTextStyle(props.filters.dosis.op,'=')}>=</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={filterOpBtnStyle(props.filters.dosis.op,'>')} onPress={()=>props.setFilters((prev: any) => ({...prev, dosis:{...prev.dosis, op:'>'}}))}>
+                  <Text style={filterOpTextStyle(props.filters.dosis.op,'>')}>{'>'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={filterOpBtnStyle(props.filters.dosis.op,'<')} onPress={()=>props.setFilters((prev: any) => ({...prev, dosis:{...prev.dosis, op:'<'}}))}>
+                  <Text style={filterOpTextStyle(props.filters.dosis.op,'<')}>{'<'}</Text>
+                </TouchableOpacity>
                 <TextInput
                   style={[tableStyles.filterInput, {flex:1, marginLeft:8}]}
                   placeholder="Valor"
@@ -239,7 +251,6 @@ function HistoryTab(props: any) {
                   { key: 'cgm', label: 'CGM', Icon: Droplet },
                   { key: 'dosis', label: 'Dosis', Icon: Syringe },
                 ].map(option => {
-                  // All props-dependent logic is now inside the map callback
                   const isActive = props.sortBy === option.key;
                   const filterActive = !!props.appliedFilters[option.key]?.value;
                   const animatedScale = animatedScales.current[option.key as SortKey];
@@ -263,10 +274,8 @@ function HistoryTab(props: any) {
                         onPress={handlePress}
                         activeOpacity={0.85}
                       >
-                        {/* Icono temático con círculo si hay filtro activo */}
                         <View style={{ marginRight: 6, position: 'relative', justifyContent: 'center', alignItems: 'center' }}>
                           <option.Icon size={18} color={isActive ? '#fff' : '#4b5563'} />
-                          {/* Punto verde si hay filtro activo */}
                           {filterActive && (
                             <View style={cardStyles.filterDot} />
                           )}
@@ -277,7 +286,6 @@ function HistoryTab(props: any) {
                         ]}>
                           {option.label}
                         </Text>
-                        {/* Flecha de ordenamiento solo en el activo */}
                         {isActive && (
                           <Text style={{ marginLeft: 4, color: '#fff', fontSize: 15, fontWeight: 'bold' }}>
                             {props.sortDir === 'asc' ? '▲' : '▼'}
@@ -473,47 +481,47 @@ function HistoryTab(props: any) {
                       </TouchableOpacity>
                     </Swipeable>
                   </View>
-);
-                })}
-                
-                {/* Controles de paginación */}
-                {props.filteredSortedHistoryAdvanced.length > 0 && (
-                  <View style={cardStyles.paginationContainer}>
-                    <Text style={cardStyles.paginationInfo}>
-                      Página {props.currentPage} de {Math.ceil(props.filteredSortedHistoryAdvanced.length / props.itemsPerPage)}
-                    </Text>
-                    <View style={cardStyles.paginationControls}>
-                      <TouchableOpacity 
-                        style={[
-                          cardStyles.paginationButton,
-                          props.currentPage === 1 && cardStyles.paginationButtonDisabled
-                        ]}
-                        onPress={() => props.setCurrentPage((prev: number) => Math.max(1, prev - 1))}
-                        disabled={props.currentPage === 1}
-                      >
-                        <Text style={[
-                          cardStyles.paginationButtonText,
-                          props.currentPage === 1 && cardStyles.paginationButtonTextDisabled
-                        ]}>Anterior</Text>
-                      </TouchableOpacity>
-                      
-                      <TouchableOpacity 
-                        style={[
-                          cardStyles.paginationButton,
-                          props.currentPage >= Math.ceil(props.filteredSortedHistoryAdvanced.length / props.itemsPerPage) && cardStyles.paginationButtonDisabled
-                        ]}
-                        onPress={() => props.setCurrentPage((prev: number) => Math.min(Math.ceil(props.filteredSortedHistoryAdvanced.length / props.itemsPerPage), prev + 1))}
-                        disabled={props.currentPage >= Math.ceil(props.filteredSortedHistoryAdvanced.length / props.itemsPerPage)}
-                      >
-                        <Text style={[
-                          cardStyles.paginationButtonText,
-                          props.currentPage >= Math.ceil(props.filteredSortedHistoryAdvanced.length / props.itemsPerPage) && cardStyles.paginationButtonTextDisabled
-                        ]}>Siguiente</Text>
-                      </TouchableOpacity>
-                    </View>
+                );
+              })}
+              
+              {/* Controles de paginación */}
+              {props.filteredSortedHistoryAdvanced.length > 0 && (
+                <View style={cardStyles.paginationContainer}>
+                  <Text style={cardStyles.paginationInfo}>
+                    Página {props.currentPage} de {Math.ceil(props.filteredSortedHistoryAdvanced.length / props.itemsPerPage)}
+                  </Text>
+                  <View style={cardStyles.paginationControls}>
+                    <TouchableOpacity 
+                      style={[
+                        cardStyles.paginationButton,
+                        props.currentPage === 1 && cardStyles.paginationButtonDisabled
+                      ]}
+                      onPress={() => props.setCurrentPage((prev: number) => Math.max(1, prev - 1))}
+                      disabled={props.currentPage === 1}
+                    >
+                      <Text style={[
+                        cardStyles.paginationButtonText,
+                        props.currentPage === 1 && cardStyles.paginationButtonTextDisabled
+                      ]}>Anterior</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                      style={[
+                        cardStyles.paginationButton,
+                        props.currentPage >= Math.ceil(props.filteredSortedHistoryAdvanced.length / props.itemsPerPage) && cardStyles.paginationButtonDisabled
+                      ]}
+                      onPress={() => props.setCurrentPage((prev: number) => Math.min(Math.ceil(props.filteredSortedHistoryAdvanced.length / props.itemsPerPage), prev + 1))}
+                      disabled={props.currentPage >= Math.ceil(props.filteredSortedHistoryAdvanced.length / props.itemsPerPage)}
+                    >
+                      <Text style={[
+                        cardStyles.paginationButtonText,
+                        props.currentPage >= Math.ceil(props.filteredSortedHistoryAdvanced.length / props.itemsPerPage) && cardStyles.paginationButtonTextDisabled
+                      ]}>Siguiente</Text>
+                    </TouchableOpacity>
                   </View>
-                )}
-              </View>
+                </View>
+              )}
+            </View>
           )}
         </View>
       </View>
