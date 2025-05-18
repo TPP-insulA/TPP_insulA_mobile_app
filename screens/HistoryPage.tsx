@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Footer } from '../components/footer';
 import { useNavigation } from '@react-navigation/native';
-import { Activity, Trash2, Plus, Calendar, Droplet, Syringe, Percent, Moon, UtensilsCrossed, Briefcase } from 'lucide-react-native';
+import { Activity, Trash2, Plus, Calendar, Droplet, Syringe, Percent, Moon, UtensilsCrossed, Briefcase, Info, ChevronRight, ChevronDown } from 'lucide-react-native';
 import { LoadingSpinner } from '../components/loading-spinner';
 import { useAuth } from '../hooks/use-auth';
 import { getPredictionHistory, deleteInsulinPrediction } from '../lib/api/insulin';
@@ -25,6 +25,7 @@ import { AppHeader } from '../components/app-header';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import LinearGradient from 'react-native-linear-gradient';
+import { ChatInterface } from '../components/chat-interface';
 
 interface Event {
   id: number;
@@ -554,12 +555,14 @@ function StatsTab(props: any) {
     avgActivity: <Activity color="#00bcd4" size={22} />,
     avgWork: <Briefcase color="#607d8b" size={22} />,
   };
+
   // Inicializar animaciones de flip
   Object.keys(statIcons).forEach(key => {
     if (!flipAnimations.current[key]) {
       flipAnimations.current[key] = new Animated.Value(0);
     }
   });
+
   // Manejar flip
   const handleFlip = (key: string) => {
     if (flippedStat === key) {
@@ -584,6 +587,15 @@ function StatsTab(props: any) {
       }).start();
     }
   };
+
+  const handleAskAI = (statKey: string) => {
+    const stat = statList.find(s => s.key === statKey);
+    if (stat) {
+      setInitialMessage(`¿Podrías explicarme más sobre mi ${stat.label.toLowerCase()} (${stat.value}) y cómo interpretarlo?`);
+      setIsChatOpen(true);
+    }
+  };
+
   const statList = [
     {
       key: 'avgCGM',
@@ -634,10 +646,68 @@ function StatsTab(props: any) {
       color: '#607d8b',
     },
   ];
+
+  const [isInfoExpanded, setIsInfoExpanded] = useState(false);
+  const animatedHeight = useRef(new Animated.Value(0)).current;
+
+  const toggleInfo = () => {
+    setIsInfoExpanded(!isInfoExpanded);
+    Animated.timing(animatedHeight, {
+      toValue: isInfoExpanded ? 0 : 1,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  // Estado para la carta girada
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [initialMessage, setInitialMessage] = useState('');
+  const { token } = useAuth();
+
   return (
     <ScrollView>
       <View style={styles.content}>
-        <Card style={{ marginBottom: 24, backgroundColor: '#fff', borderRadius: 18, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 6, elevation: 2 }}>
+        {/* Combined Info Button and Content */}
+        <Card style={styles.infoCard}>
+          <TouchableOpacity 
+            style={styles.infoButtonContent} 
+            onPress={toggleInfo}
+            activeOpacity={0.7}
+          >
+            <View style={styles.infoHeader}>
+              <Info size={20} color="#4CAF50" />
+              <Text style={styles.infoButtonText}>Información sobre estadísticas</Text>
+            </View>
+            <Animated.View style={{
+              transform: [{
+                rotate: animatedHeight.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['0deg', '180deg']
+                })
+              }]
+            }}>
+              <ChevronDown size={20} color="#4CAF50" />
+            </Animated.View>
+          </TouchableOpacity>
+
+          <Animated.View style={[
+            styles.infoContent,
+            {
+              maxHeight: animatedHeight.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, 200]
+              }),
+              opacity: animatedHeight
+            }
+          ]}>
+            <View style={styles.infoDivider} />
+            <Text style={styles.infoDescription}>
+              Aquí podés ver un resumen de tus datos más importantes. Tocá cualquier tarjeta para ver más detalles o consultá con nuestro asistente AI para obtener análisis personalizados.
+            </Text>
+          </Animated.View>
+        </Card>
+
+        <Card style={styles.statsCard}>
           <CardContent>
             {props.stats ? (
               <View style={dashboardStyles.statsGridNewSmall}>
@@ -695,13 +765,22 @@ function StatsTab(props: any) {
                           >
                             <Text style={dashboardStyles.statLabelNewSmall}>{stat.label}</Text>
                             <Text style={dashboardStyles.statDescSmall}>{statDetails[stat.key]}</Text>
-                            <TouchableOpacity
-                              style={dashboardStyles.flipBackBtn}
-                              onPress={() => handleFlip(stat.key)}
-                              activeOpacity={0.8}
-                            >
-                              <Text style={dashboardStyles.flipBackText}>Volver</Text>
-                            </TouchableOpacity>
+                            <View style={styles.statActions}>
+                              <TouchableOpacity
+                                style={styles.flipBackBtn}
+                                onPress={() => handleFlip(stat.key)}
+                                activeOpacity={0.8}
+                              >
+                                <Text style={styles.flipBackText}>Volver</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                style={styles.askAIButton}
+                                onPress={() => handleAskAI(stat.key)}
+                                activeOpacity={0.8}
+                              >
+                                <Text style={styles.askAIText}>Consultar AI</Text>
+                              </TouchableOpacity>
+                            </View>
                           </Animated.View>
                         </View>
                       </TouchableOpacity>
@@ -715,6 +794,12 @@ function StatsTab(props: any) {
           </CardContent>
         </Card>
       </View>
+      <ChatInterface 
+        isOpen={isChatOpen} 
+        onClose={() => setIsChatOpen(false)} 
+        token={token}
+        initialMessage={initialMessage}
+      />
     </ScrollView>
   );
 }
@@ -1031,7 +1116,7 @@ export default function HistoryPage() {
               <StatsTab
                 stats={stats}
                 dashboardStyles={dashboardStyles}
-                // ...any other needed props
+                navigation={navigation}
               />
             )}
           </Tab.Screen>
@@ -1331,6 +1416,94 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
   },
+  infoCard: {
+    backgroundColor: '#e8f5e9',
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 1,
+    overflow: 'hidden',
+  },
+  infoButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+  },
+  infoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  infoButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1b5e20',
+    marginLeft: 8,
+    fontFamily: 'System',
+  },
+  infoContent: {
+    overflow: 'hidden',
+  },
+  infoDivider: {
+    height: 1,
+    backgroundColor: 'rgba(76, 175, 80, 0.2)',
+    marginHorizontal: 12,
+  },
+  infoDescription: {
+    fontSize: 14,
+    color: '#111827',
+    lineHeight: 20,
+    fontFamily: 'System',
+    padding: 12,
+  },
+  statsCard: {
+    marginHorizontal: 16,
+    marginBottom: 24,
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  statActions: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  flipBackBtn: {
+    backgroundColor: '#4CAF50',
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 16,
+    width: '80%',
+  },
+  flipBackText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  askAIButton: {
+    backgroundColor: '#2196F3',
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 16,
+    width: '80%',
+  },
+  askAIText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 13,
+    textAlign: 'center',
+  },
 });
 
 // Tipar funciones de filtro
@@ -1535,7 +1708,7 @@ const cardStyles = StyleSheet.create({
     marginBottom: 2,
     fontFamily: 'System',
     textAlign: 'center',
-    fontWeight: '500',
+    fontWeight: '700',
   },
   predictionContent: {
     flexDirection: 'row',
@@ -1856,7 +2029,7 @@ const dashboardStyles = StyleSheet.create({
     marginBottom: 1,
     textAlign: 'center',
     fontFamily: 'System',
-    fontWeight: '500',
+    fontWeight: '700',
   },
   statValueNewSmall: {
     fontSize: 15,

@@ -65,10 +65,12 @@ export function ChatInterface({
   isOpen,
   onClose,
   token,
+  initialMessage,
 }: {
   isOpen: boolean;
   onClose: () => void;
   token: string | null;
+  initialMessage?: string;
 }) {
   const [messages, setMessages] = useState<MessageType[]>([{
     id: 'welcome',
@@ -81,6 +83,14 @@ export function ChatInterface({
   const [isLoading, setIsLoading] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const [isValidToken, setIsValidToken] = useState(true);
+
+  // Handle initial message when chat opens
+  useEffect(() => {
+    if (isOpen && initialMessage) {
+      sendMessage(initialMessage);
+    }
+  }, [isOpen, initialMessage]);
+
   // Validate token on mount and when token changes
   useEffect(() => {
     const validateToken = async () => {
@@ -122,7 +132,9 @@ export function ChatInterface({
 
   useEffect(() => {
     scrollViewRef.current?.scrollToEnd({ animated: true });
-  }, [messages]);  const sendMessage = async (text: string) => {
+  }, [messages]);
+
+  const sendMessage = async (text: string) => {
     if (!token || !isValidToken) {
       console.error('[Chat] No valid token available for API calls');
       setMessages(prev => {
