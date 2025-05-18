@@ -23,6 +23,7 @@ import { toZonedTime } from 'date-fns-tz';
 import { Swipeable } from 'react-native-gesture-handler';
 import { AppHeader } from '../components/app-header';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
+import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 
 interface Event {
   id: number;
@@ -92,6 +93,397 @@ const mockDailyPatternData = [
   { id: 'evening-2', value: 115, timestamp: 'evening' },
   { id: 'night-2', value: 135, timestamp: 'night' },
 ];
+
+// --- Tab Components ---
+function HistoryTab(props: any) {
+  // All state and logic related to prediction history, filters, sorting, pagination, swipe-to-delete, etc.
+  // Use props for any values/functions needed from parent (HistoryPage)
+  // ...existing code for prediction history section, including ScrollView, filters, modals, etc...
+  // Only the content inside the first section (before the statistics dashboard)
+  // Replace the ScrollView and View wrapping the history section with just the content
+  // ...
+  return (
+    <ScrollView>
+      <View style={styles.content}>
+        {/* HISTORIAL DE PREDICCIONES - ahora primero y fuera del Card */}
+        <View style={{ marginBottom: 24 }}>
+          {/* Filtros y tabla de historial, mover aquí el contenido de la sección historial */}
+          <TouchableOpacity style={[styles.filterButtonSmall, {marginLeft: 0}]} onPress={()=>props.setFilterModalVisible(true)}>
+            <Plus size={16} color="#fff" style={{marginRight: 4}} />
+            <Text style={styles.filterButtonTextSmall}>Agregar filtros</Text>
+          </TouchableOpacity>
+          {/* Filtros activos */}
+          <View style={{flexDirection:'row', flexWrap:'wrap', gap:8, marginLeft:20, marginBottom:8}}>
+            {Object.entries(props.appliedFilters).map(([key, f]: [string, any]) => f.value ? (
+              <View key={key} style={{flexDirection:'row', alignItems:'center', backgroundColor:'#e0f2f1', borderRadius:16, paddingHorizontal:10, paddingVertical:4, marginRight:8, marginBottom:4}}>
+                <Text style={{fontSize:15, color:'#00796b', fontFamily:'System'}}>{key==='fecha'?'Fecha':key==='cgm'?'CGM':'Dosis'} {f.op} {f.value}</Text>
+                <Pressable onPress={()=>{
+                  const newFilters = {...props.appliedFilters};
+                  newFilters[key as FilterKey] = {...newFilters[key as FilterKey], value: ''};
+                  props.setAppliedFilters(newFilters);
+                  props.setFilters(newFilters);
+                }}>
+                  <Text style={{marginLeft:6, color:'#ef4444', fontWeight:'bold'}}>×</Text>
+                </Pressable>
+              </View>
+            ) : null)}
+          </View>
+          {/* Modal de filtros */}
+          <Modal
+            visible={props.filterModalVisible}
+            animationType="slide"
+            transparent
+            onRequestClose={()=>props.setFilterModalVisible(false)}
+          >
+            <Pressable style={{flex:1, backgroundColor:'rgba(0,0,0,0.3)'}} onPress={()=>props.setFilterModalVisible(false)} />
+            <View style={{position:'absolute', bottom:0, left:0, right:0, backgroundColor:'#fff', borderTopLeftRadius:24, borderTopRightRadius:24, padding:24}}>
+              <Text style={{fontSize:22, fontWeight:'bold', marginBottom:16, textAlign:'center'}}>Filtrar predicciones</Text>
+              {/* Fecha */}
+              <Text style={{fontSize:16, fontWeight:'600', marginTop:8}}>Fecha (dd/MM)</Text>
+              <View style={{flexDirection:'row', alignItems:'center', gap:8}}>
+                <TextInput
+                  style={[tableStyles.filterInput, {flex:1}]}
+                  placeholder="Ej: 16/05"
+                  value={props.filters.fecha.value}
+                  onChangeText={v=>props.setFilters((prev: any) => ({...prev, fecha:{...prev.fecha, value:v}}))}
+                  placeholderTextColor="#bdbdbd"
+                />
+              </View>
+              
+              {/* CGM */}
+              <Text style={{fontSize:16, fontWeight:'600', marginTop:16}}>Último CGM</Text>
+              <View style={{flexDirection:'row', alignItems:'center', gap:8}}>
+                <TouchableOpacity style={[filterOpBtnStyle(props.filters.cgm.op,'='), {marginRight:4}]} onPress={()=>props.setFilters((prev: any) => ({...prev, cgm:{...prev.cgm, op:'='}}))}><Text style={filterOpTextStyle(props.filters.cgm.op,'=')}>=</Text></TouchableOpacity>
+                <TouchableOpacity style={filterOpBtnStyle(props.filters.cgm.op,'>')} onPress={()=>props.setFilters((prev: any) => ({...prev, cgm:{...prev.cgm, op:'>'}}))}><Text style={filterOpTextStyle(props.filters.cgm.op,'>')}>{'>'}</Text></TouchableOpacity>
+                <TouchableOpacity style={filterOpBtnStyle(props.filters.cgm.op,'<')} onPress={()=>props.setFilters((prev: any) => ({...prev, cgm:{...prev.cgm, op:'<'}}))}><Text style={filterOpTextStyle(props.filters.cgm.op,'<')}>{'<'}</Text></TouchableOpacity>
+                <TextInput
+                  style={[tableStyles.filterInput, {flex:1, marginLeft:8}]}
+                  placeholder="Valor"
+                  value={props.filters.cgm.value}
+                  onChangeText={v=>{
+                    const validatedValue = props.validateNumericInput(v);
+                    props.setFilters((prev: any) => ({...prev, cgm:{...prev.cgm, value:validatedValue}}));
+                  }}
+                  keyboardType="numeric"
+                  placeholderTextColor="#bdbdbd"
+                />
+              </View>
+              {/* Dosis */}
+              <Text style={{fontSize:16, fontWeight:'600', marginTop:16}}>Dosis calculada</Text>
+              <View style={{flexDirection:'row', alignItems:'center', gap:8}}>
+                <TouchableOpacity style={[filterOpBtnStyle(props.filters.dosis.op,'='), {marginRight:4}]} onPress={()=>props.setFilters((prev: any) => ({...prev, dosis:{...prev.dosis, op:'='}}))}><Text style={filterOpTextStyle(props.filters.dosis.op,'=')}>=</Text></TouchableOpacity>
+                <TouchableOpacity style={filterOpBtnStyle(props.filters.dosis.op,'>')} onPress={()=>props.setFilters((prev: any) => ({...prev, dosis:{...prev.dosis, op:'>'}}))}><Text style={filterOpTextStyle(props.filters.dosis.op,'>')}>{'>'}</Text></TouchableOpacity>
+                <TouchableOpacity style={filterOpBtnStyle(props.filters.dosis.op,'<')} onPress={()=>props.setFilters((prev: any) => ({...prev, dosis:{...prev.dosis, op:'<'}}))}><Text style={filterOpTextStyle(props.filters.dosis.op,'<')}>{'<'}</Text></TouchableOpacity>
+                <TextInput
+                  style={[tableStyles.filterInput, {flex:1, marginLeft:8}]}
+                  placeholder="Valor"
+                  value={props.filters.dosis.value}
+                  onChangeText={v=>{
+                    const validatedValue = props.validateNumericInput(v);
+                    props.setFilters((prev: any) => ({...prev, dosis:{...prev.dosis, value:validatedValue}}));
+                  }}
+                  keyboardType="numeric"
+                  placeholderTextColor="#bdbdbd"
+                />
+              </View>
+              <TouchableOpacity style={{backgroundColor:'#4CAF50', borderRadius:8, padding:14, marginTop:24}} onPress={()=>{
+                props.setAppliedFilters(props.filters);
+                props.setFilterModalVisible(false);
+              }}>
+                <Text style={{color:'#fff', fontWeight:'bold', fontSize:18, textAlign:'center'}}>Aplicar filtros</Text>
+              </TouchableOpacity>
+            </View>
+          </Modal>
+          {/* ...resto de la tabla... */}
+          {props.isLoadingPredictions ? (
+            <LoadingSpinner text="Cargando historial..." />
+          ) : props.predictionError ? (
+            <Text style={{ color: '#ef4444', textAlign: 'center', margin: 16, fontSize: 18, fontFamily:'System' }}>{props.predictionError}</Text>
+          ) : props.filteredSortedHistoryAdvanced.length === 0 ? (
+            <Text style={{ color: '#6b7280', textAlign: 'center', margin: 16, fontSize: 18, fontFamily:'System' }}>No hay predicciones registradas.</Text>
+          ) : (
+            <View style={cardStyles.predictionListContainer}>
+              {/* Botones de ordenamiento */}
+              <View style={cardStyles.sortHeader}>
+                <TouchableOpacity 
+                  style={[
+                    cardStyles.sortButton,
+                    props.sortBy === 'fecha' && cardStyles.sortButtonActive
+                  ]}
+                  onPress={() => {
+                    props.setSortBy('fecha');
+                    props.setSortDir(props.sortBy === 'fecha' && props.sortDir === 'desc' ? 'asc' : 'desc');
+                  }}
+                >
+                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                    <Text style={[
+                      cardStyles.sortButtonText,
+                      props.sortBy === 'fecha' && cardStyles.sortButtonTextActive
+                    ]}>
+                      Fecha 
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[
+                    cardStyles.sortButton,
+                    props.sortBy === 'cgm' && cardStyles.sortButtonActive
+                  ]}
+                  onPress={() => {
+                    props.setSortBy('cgm');
+                    props.setSortDir(props.sortBy === 'cgm' && props.sortDir === 'desc' ? 'asc' : 'desc');
+                  }}
+                >
+                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                    <Text style={[
+                      cardStyles.sortButtonText,
+                      props.sortBy === 'cgm' && cardStyles.sortButtonTextActive
+                    ]}>
+                      CGM 
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[
+                    cardStyles.sortButton,
+                    props.sortBy === 'dosis' && cardStyles.sortButtonActive
+                  ]}
+                  onPress={() => {
+                    props.setSortBy('dosis');
+                    props.setSortDir(props.sortBy === 'dosis' && props.sortDir === 'desc' ? 'asc' : 'desc');
+                  }}
+                >
+                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                    <Text style={[
+                      cardStyles.sortButtonText,
+                      props.sortBy === 'dosis' && cardStyles.sortButtonTextActive
+                    ]}>
+                      Dosis 
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+              {/* Lista de tarjetas de predicción */}
+              {props.filteredSortedHistoryAdvanced
+                .slice((props.currentPage - 1) * props.itemsPerPage, props.currentPage * props.itemsPerPage)
+                .map((pred: any, idx: number) => {
+                // Formatear fecha como dd/MM y hora como HH:mm
+                const fecha = pred.date 
+                  ? format(toZonedTime(new Date(pred.date), 'America/Argentina/Buenos_Aires'), 'dd/MM') 
+                  : '-';
+                const hora = pred.date 
+                  ? format(toZonedTime(new Date(pred.date), 'America/Argentina/Buenos_Aires'), 'HH:mm') 
+                  : '';
+                const cgmPrev = Array.isArray(pred.cgmPrev) && pred.cgmPrev.length > 0 ? pred.cgmPrev[0] : '-';
+                
+                // Emoji para la dosis
+                let dosisEmoji = '💉';
+                if (pred.recommendedDose > 8) dosisEmoji = '💉💉';
+
+                // Render right action for swipe con animación
+                const renderRightActions = (_progress: unknown, dragX: Animated.AnimatedInterpolation<number>) => {
+                  const scale = dragX.interpolate({
+                    inputRange: [-props.DELETE_WIDTH, 0],
+                    outputRange: [1, 0.8],
+                    extrapolate: 'clamp',
+                  });
+                  return (
+                    <Animated.View style={[swipeStyles.animatedDeleteAction, { transform: [{ scale }], width: props.DELETE_WIDTH, height: props.ROW_HEIGHT }]}> 
+                      <TouchableOpacity
+                        style={[swipeStyles.deleteAction, { width: props.DELETE_WIDTH, height: props.ROW_HEIGHT }]}
+                        onPress={() => props.handleDeletePrediction(pred.id)}
+                        accessibilityLabel="Eliminar registro"
+                        accessibilityRole="button"
+                        activeOpacity={0.85}
+                      >
+                        <Trash2 size={22} color="#fff" style={{ marginRight: 8 }} />
+                        <Text style={swipeStyles.deleteActionText}>Eliminar</Text>
+                      </TouchableOpacity>
+                    </Animated.View>
+                  );
+                };
+
+                // Mostrar spinner de loading si se está eliminando esta predicción
+                if (props.isDeleting === pred.id) {
+                  return (
+                    <View key={idx} style={{ position: 'relative', height: props.ROW_HEIGHT, marginBottom: 10, justifyContent: 'center', alignItems: 'center' }}>
+                      <LoadingSpinner text="Eliminando..." size="small" />
+                    </View>
+                  );
+                }
+
+                return (
+                  <View key={idx} style={{ position: 'relative', height: props.ROW_HEIGHT, marginBottom: 10 }}>
+                    {/* Esquinita roja */}
+                    <View style={[swipeStyles.cornerIndicator, { height: 18, width: 18, top: 0, right: 0 }]} />
+                    <Swipeable
+                      ref={ref => { if (ref) props.swipeableRefs.current[pred.id] = ref; else delete props.swipeableRefs.current[pred.id]; }}
+                      renderRightActions={renderRightActions}
+                      overshootRight={false}
+                      onSwipeableOpen={() => {
+                        Object.keys(props.swipeableRefs.current).forEach((id: string) => {
+                          if (id !== pred.id && props.swipeableRefs.current[id]) {
+                            props.swipeableRefs.current[id].close();
+                          }
+                        });
+                        props.setOpenSwipeable(pred.id);
+                      }}
+                      onSwipeableClose={() => {
+                        if (props.openSwipeable === pred.id) props.setOpenSwipeable(null);
+                      }}
+                    >
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        style={[
+                          cardStyles.predictionCard,
+                          { paddingRight: 0, height: props.ROW_HEIGHT, minHeight: props.ROW_HEIGHT, justifyContent: 'center' },
+                        ]}
+                        onPress={() => (props.navigation as any).navigate('PredictionResultPage', { result: pred })}
+                      >
+                        {/* Fila de títulos alineados */}
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 }}>
+                          <View style={[cardStyles.dataColumn]}>
+                            <Text style={cardStyles.dataLabel}>📅 Fecha</Text>
+                          </View>
+                          <View style={[cardStyles.dataColumn]}>
+                            <Text style={cardStyles.dataLabel}>🩸 Último CGM</Text>
+                          </View>
+                          <View style={[cardStyles.dataColumn]}>
+                            <Text style={cardStyles.dataLabel}>{dosisEmoji} Dosis calculada</Text>
+                          </View>
+                        </View>
+                        {/* Fila de valores alineados */}
+                        <View style={cardStyles.predictionContent}>
+                          <View style={cardStyles.dataColumn}>
+                            <Text style={[cardStyles.dataValue]}>{fecha} {hora}</Text>
+                          </View>
+                          <View style={cardStyles.dataColumn}>
+                            <Text style={cardStyles.dataValue}>{cgmPrev} mg/dL</Text>
+                          </View>
+                          <View style={cardStyles.dataColumn}>
+                            <Text style={cardStyles.dataValue}>{pred.recommendedDose} U</Text>
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    </Swipeable>
+                  </View>
+);
+                })}
+                
+                {/* Controles de paginación */}
+                {props.filteredSortedHistoryAdvanced.length > 0 && (
+                  <View style={cardStyles.paginationContainer}>
+                    <Text style={cardStyles.paginationInfo}>
+                      Página {props.currentPage} de {Math.ceil(props.filteredSortedHistoryAdvanced.length / props.itemsPerPage)}
+                    </Text>
+                    <View style={cardStyles.paginationControls}>
+                      <TouchableOpacity 
+                        style={[
+                          cardStyles.paginationButton,
+                          props.currentPage === 1 && cardStyles.paginationButtonDisabled
+                        ]}
+                        onPress={() => props.setCurrentPage((prev: number) => Math.max(1, prev - 1))}
+                        disabled={props.currentPage === 1}
+                      >
+                        <Text style={[
+                          cardStyles.paginationButtonText,
+                          props.currentPage === 1 && cardStyles.paginationButtonTextDisabled
+                        ]}>Anterior</Text>
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity 
+                        style={[
+                          cardStyles.paginationButton,
+                          props.currentPage >= Math.ceil(props.filteredSortedHistoryAdvanced.length / props.itemsPerPage) && cardStyles.paginationButtonDisabled
+                        ]}
+                        onPress={() => props.setCurrentPage((prev: number) => Math.min(Math.ceil(props.filteredSortedHistoryAdvanced.length / props.itemsPerPage), prev + 1))}
+                        disabled={props.currentPage >= Math.ceil(props.filteredSortedHistoryAdvanced.length / props.itemsPerPage)}
+                      >
+                        <Text style={[
+                          cardStyles.paginationButtonText,
+                          props.currentPage >= Math.ceil(props.filteredSortedHistoryAdvanced.length / props.itemsPerPage) && cardStyles.paginationButtonTextDisabled
+                        ]}>Siguiente</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+              </View>
+          )}
+        </View>
+      </View>
+    </ScrollView>
+  );
+}
+
+function StatsTab(props: any) {
+  // All state and logic related to statistics dashboard
+  // Use props for any values/functions needed from parent (HistoryPage)
+  // ...existing code for statistics dashboard section...
+  return (
+    <ScrollView>
+      <View style={styles.content}>
+        {/* DASHBOARD DE ESTADÍSTICAS - all original code for this section */}
+        <Card style={{ marginBottom: 24 }}>
+          <CardHeader>
+            <CardTitle style={{ textAlign: 'center' }}>Estadísticas de tus predicciones</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {props.stats ? (
+              <View style={dashboardStyles.statsGrid}>
+                {/* Glucosa promedio al aplicar dosis */}
+                <View style={dashboardStyles.statBox}>
+                  <Text style={dashboardStyles.statLabel}>Glucosa promedio al aplicar dosis</Text>
+                  <Text style={dashboardStyles.statValue}>{props.stats.avgCGM.toFixed(1)} mg/dL</Text>
+                </View>
+                {/* Dosis aplicada vs recomendada (variación %) */}
+                <View style={dashboardStyles.statBox}>
+                  <Text style={dashboardStyles.statLabel}>Dosis aplicada vs recomendada (variación %)</Text>
+                  <Text style={dashboardStyles.statValue}>
+                    {props.stats.avgApplyVsRecPercent !== null ? props.stats.avgApplyVsRecPercent.toFixed(1) + ' %' : '-'}
+                  </Text>
+                </View>
+                {/* Dosis recomendada promedio */}
+                <View style={dashboardStyles.statBox}>
+                  <Text style={dashboardStyles.statLabel}>Dosis recomendada promedio</Text>
+                  <Text style={dashboardStyles.statValue}>{props.stats.avgRecDose.toFixed(2)} U</Text>
+                </View>
+                {/* Dosis aplicada promedio */}
+                <View style={dashboardStyles.statBox}>
+                  <Text style={dashboardStyles.statLabel}>Dosis aplicada promedio</Text>
+                  <Text style={dashboardStyles.statValue}>{props.stats.avgApplyDose !== null ? props.stats.avgApplyDose.toFixed(2) + ' U' : '-'}</Text>
+                </View>
+                {/* Nivel de sueño promedio */}
+                <View style={dashboardStyles.statBox}>
+                  <Text style={dashboardStyles.statLabel}>Nivel de sueño promedio</Text>
+                  <Text style={dashboardStyles.statValue}>{props.stats.avgSleep.toFixed(2)}</Text>
+                </View>
+                {/* Carbohidratos promedio */}
+                <View style={dashboardStyles.statBox}>
+                  <Text style={dashboardStyles.statLabel}>Carbohidratos promedio</Text>
+                  <Text style={dashboardStyles.statValue}>{props.stats.avgCarbs.toFixed(1)} g</Text>
+                </View>
+                {/* Nivel de actividad promedio */}
+                <View style={dashboardStyles.statBox}>
+                  <Text style={dashboardStyles.statLabel}>Nivel de actividad promedio</Text>
+                  <Text style={dashboardStyles.statValue}>{props.stats.avgActivity.toFixed(2)}</Text>
+                </View>
+                {/* Nivel de trabajo promedio */}
+                <View style={dashboardStyles.statBox}>
+                  <Text style={dashboardStyles.statLabel}>Nivel de trabajo promedio</Text>
+                  <Text style={dashboardStyles.statValue}>{props.stats.avgWork.toFixed(2)}</Text>
+                </View>
+              </View>
+            ) : (
+              <Text style={dashboardStyles.noStatsText}>No hay datos suficientes para mostrar estadísticas.</Text>
+            )}
+          </CardContent>
+        </Card>
+      </View>
+    </ScrollView>
+  );
+}
+
+const Tab = createMaterialTopTabNavigator();
 
 export default function HistoryPage() {
   const navigation = useNavigation();
@@ -323,375 +715,92 @@ export default function HistoryPage() {
         icon={<Activity width={32} height={32} color="#fff" />}
         onBack={() => navigation.goBack()}
       />
-      <ScrollView>
-        <View style={styles.content}>
-          {/* HISTORIAL DE PREDICCIONES - ahora primero y fuera del Card */}
-          <View style={{ marginBottom: 24 }}>
-            <View>
-              <Text style={{ textAlign: 'center', fontSize: 20, fontWeight: 'bold', marginBottom: 8, color: '#222', fontFamily: 'System' }}>Historial de Predicciones</Text>
-            </View>
-            {/* Filtros y tabla de historial, mover aquí el contenido de la sección historial */}
-            <TouchableOpacity style={[styles.filterButtonSmall, {marginLeft: 0}]} onPress={()=>setFilterModalVisible(true)}>
-              <Plus size={16} color="#fff" style={{marginRight: 4}} />
-              <Text style={styles.filterButtonTextSmall}>Agregar filtros</Text>
-            </TouchableOpacity>
-            {/* Filtros activos */}
-            <View style={{flexDirection:'row', flexWrap:'wrap', gap:8, marginLeft:20, marginBottom:8}}>
-              {Object.entries(appliedFilters).map(([key, f]) => f.value ? (
-                <View key={key} style={{flexDirection:'row', alignItems:'center', backgroundColor:'#e0f2f1', borderRadius:16, paddingHorizontal:10, paddingVertical:4, marginRight:8, marginBottom:4}}>
-                  <Text style={{fontSize:15, color:'#00796b', fontFamily:'System'}}>{key==='fecha'?'Fecha':key==='cgm'?'CGM':'Dosis'} {f.op} {f.value}</Text>
-                  <Pressable onPress={()=>{
-                    const newFilters = {...appliedFilters};
-                    newFilters[key as FilterKey] = {...newFilters[key as FilterKey], value: ''};
-                    setAppliedFilters(newFilters);
-                    setFilters(newFilters);
-                  }}>
-                    <Text style={{marginLeft:6, color:'#ef4444', fontWeight:'bold'}}>×</Text>
-                  </Pressable>
-                </View>
-              ) : null)}
-            </View>
-            {/* Modal de filtros */}
-            <Modal
-              visible={filterModalVisible}
-              animationType="slide"
-              transparent
-              onRequestClose={()=>setFilterModalVisible(false)}
-            >
-              <Pressable style={{flex:1, backgroundColor:'rgba(0,0,0,0.3)'}} onPress={()=>setFilterModalVisible(false)} />
-              <View style={{position:'absolute', bottom:0, left:0, right:0, backgroundColor:'#fff', borderTopLeftRadius:24, borderTopRightRadius:24, padding:24}}>
-                <Text style={{fontSize:22, fontWeight:'bold', marginBottom:16, textAlign:'center'}}>Filtrar predicciones</Text>
-                {/* Fecha */}
-                <Text style={{fontSize:16, fontWeight:'600', marginTop:8}}>Fecha (dd/MM)</Text>
-                <View style={{flexDirection:'row', alignItems:'center', gap:8}}>
-                  <TextInput
-                    style={[tableStyles.filterInput, {flex:1}]}
-                    placeholder="Ej: 16/05"
-                    value={filters.fecha.value}
-                    onChangeText={v=>setFilters(prev=>({...prev, fecha:{...prev.fecha, value:v}}))}
-                    placeholderTextColor="#bdbdbd"
-                  />
-                </View>
-                
-                {/* CGM */}
-                <Text style={{fontSize:16, fontWeight:'600', marginTop:16}}>Último CGM</Text>
-                <View style={{flexDirection:'row', alignItems:'center', gap:8}}>
-                  <TouchableOpacity style={[filterOpBtnStyle(filters.cgm.op,'='), {marginRight:4}]} onPress={()=>setFilters(prev=>({...prev, cgm:{...prev.cgm, op:'='}}))}><Text style={filterOpTextStyle(filters.cgm.op,'=')}>=</Text></TouchableOpacity>
-                  <TouchableOpacity style={filterOpBtnStyle(filters.cgm.op,'>')} onPress={()=>setFilters(prev=>({...prev, cgm:{...prev.cgm, op:'>'}}))}><Text style={filterOpTextStyle(filters.cgm.op,'>')}>{'>'}</Text></TouchableOpacity>
-                  <TouchableOpacity style={filterOpBtnStyle(filters.cgm.op,'<')} onPress={()=>setFilters(prev=>({...prev, cgm:{...prev.cgm, op:'<'}}))}><Text style={filterOpTextStyle(filters.cgm.op,'<')}>{'<'}</Text></TouchableOpacity>
-                  <TextInput
-                    style={[tableStyles.filterInput, {flex:1, marginLeft:8}]}
-                    placeholder="Valor"
-                    value={filters.cgm.value}
-                    onChangeText={v=>{
-                      const validatedValue = validateNumericInput(v);
-                      setFilters(prev=>({...prev, cgm:{...prev.cgm, value:validatedValue}}));
-                    }}
-                    keyboardType="numeric"
-                    placeholderTextColor="#bdbdbd"
-                  />
-                </View>
-                {/* Dosis */}
-                <Text style={{fontSize:16, fontWeight:'600', marginTop:16}}>Dosis calculada</Text>
-                <View style={{flexDirection:'row', alignItems:'center', gap:8}}>
-                  <TouchableOpacity style={[filterOpBtnStyle(filters.dosis.op,'='), {marginRight:4}]} onPress={()=>setFilters(prev=>({...prev, dosis:{...prev.dosis, op:'='}}))}><Text style={filterOpTextStyle(filters.dosis.op,'=')}>=</Text></TouchableOpacity>
-                  <TouchableOpacity style={filterOpBtnStyle(filters.dosis.op,'>')} onPress={()=>setFilters(prev=>({...prev, dosis:{...prev.dosis, op:'>'}}))}><Text style={filterOpTextStyle(filters.dosis.op,'>')}>{'>'}</Text></TouchableOpacity>
-                  <TouchableOpacity style={filterOpBtnStyle(filters.dosis.op,'<')} onPress={()=>setFilters(prev=>({...prev, dosis:{...prev.dosis, op:'<'}}))}><Text style={filterOpTextStyle(filters.dosis.op,'<')}>{'<'}</Text></TouchableOpacity>
-                  <TextInput
-                    style={[tableStyles.filterInput, {flex:1, marginLeft:8}]}
-                    placeholder="Valor"
-                    value={filters.dosis.value}
-                    onChangeText={v=>{
-                      const validatedValue = validateNumericInput(v);
-                      setFilters(prev=>({...prev, dosis:{...prev.dosis, value:validatedValue}}));
-                    }}
-                    keyboardType="numeric"
-                    placeholderTextColor="#bdbdbd"
-                  />
-                </View>
-                <TouchableOpacity style={{backgroundColor:'#4CAF50', borderRadius:8, padding:14, marginTop:24}} onPress={()=>{
-                  setAppliedFilters(filters);
-                  setFilterModalVisible(false);
-                }}>
-                  <Text style={{color:'#fff', fontWeight:'bold', fontSize:18, textAlign:'center'}}>Aplicar filtros</Text>
-                </TouchableOpacity>
-              </View>
-            </Modal>
-            {/* ...resto de la tabla... */}
-            {isLoadingPredictions ? (
-              <LoadingSpinner text="Cargando historial..." />
-            ) : predictionError ? (
-              <Text style={{ color: '#ef4444', textAlign: 'center', margin: 16, fontSize: 18, fontFamily:'System' }}>{predictionError}</Text>
-            ) : filteredSortedHistoryAdvanced.length === 0 ? (
-              <Text style={{ color: '#6b7280', textAlign: 'center', margin: 16, fontSize: 18, fontFamily:'System' }}>No hay predicciones registradas.</Text>
-            ) : (
-              <View style={cardStyles.predictionListContainer}>
-                {/* Botones de ordenamiento */}
-                <View style={cardStyles.sortHeader}>
-                  <TouchableOpacity 
-                    style={[
-                      cardStyles.sortButton,
-                      sortBy === 'fecha' && cardStyles.sortButtonActive
-                    ]}
-                    onPress={() => {
-                      setSortBy('fecha');
-                      setSortDir(sortBy === 'fecha' && sortDir === 'desc' ? 'asc' : 'desc');
-                    }}
-                  >
-                    <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                      <Text style={[
-                        cardStyles.sortButtonText,
-                        sortBy === 'fecha' && cardStyles.sortButtonTextActive
-                      ]}>
-                        Fecha {sortBy === 'fecha' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[
-                      cardStyles.sortButton,
-                      sortBy === 'cgm' && cardStyles.sortButtonActive
-                    ]}
-                    onPress={() => {
-                      setSortBy('cgm');
-                      setSortDir(sortBy === 'cgm' && sortDir === 'desc' ? 'asc' : 'desc');
-                    }}
-                  >
-                    <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                      <Text style={[
-                        cardStyles.sortButtonText,
-                        sortBy === 'cgm' && cardStyles.sortButtonTextActive
-                      ]}>
-                        CGM {sortBy === 'cgm' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[
-                      cardStyles.sortButton,
-                      sortBy === 'dosis' && cardStyles.sortButtonActive
-                    ]}
-                    onPress={() => {
-                      setSortBy('dosis');
-                      setSortDir(sortBy === 'dosis' && sortDir === 'desc' ? 'asc' : 'desc');
-                    }}
-                  >
-                    <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                      <Text style={[
-                        cardStyles.sortButtonText,
-                        sortBy === 'dosis' && cardStyles.sortButtonTextActive
-                      ]}>
-                        Dosis {sortBy === 'dosis' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                </View>
-                {/* Lista de tarjetas de predicción */}
-                {filteredSortedHistoryAdvanced
-                  .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-                  .map((pred, idx) => {
-                  // Formatear fecha como dd/MM y hora como HH:mm
-                  const fecha = pred.date 
-                    ? format(toZonedTime(new Date(pred.date), 'America/Argentina/Buenos_Aires'), 'dd/MM') 
-                    : '-';
-                  const hora = pred.date 
-                    ? format(toZonedTime(new Date(pred.date), 'America/Argentina/Buenos_Aires'), 'HH:mm') 
-                    : '';
-                  const cgmPrev = Array.isArray(pred.cgmPrev) && pred.cgmPrev.length > 0 ? pred.cgmPrev[0] : '-';
-                  
-                  // Emoji para la dosis
-                  let dosisEmoji = '💉';
-                  if (pred.recommendedDose > 8) dosisEmoji = '💉💉';
-
-                  // Render right action for swipe con animación
-                  const renderRightActions = (_progress: unknown, dragX: Animated.AnimatedInterpolation<number>) => {
-                    const scale = dragX.interpolate({
-                      inputRange: [-DELETE_WIDTH, 0],
-                      outputRange: [1, 0.8],
-                      extrapolate: 'clamp',
-                    });
-                    return (
-                      <Animated.View style={[swipeStyles.animatedDeleteAction, { transform: [{ scale }], width: DELETE_WIDTH, height: ROW_HEIGHT }]}> 
-                        <TouchableOpacity
-                          style={[swipeStyles.deleteAction, { width: DELETE_WIDTH, height: ROW_HEIGHT }]}
-                          onPress={() => handleDeletePrediction(pred.id)}
-                          accessibilityLabel="Eliminar registro"
-                          accessibilityRole="button"
-                          activeOpacity={0.85}
-                        >
-                          <Trash2 size={22} color="#fff" style={{ marginRight: 8 }} />
-                          <Text style={swipeStyles.deleteActionText}>Eliminar</Text>
-                        </TouchableOpacity>
-                      </Animated.View>
-                    );
-                  };
-
-                  // Mostrar spinner de loading si se está eliminando esta predicción
-                  if (isDeleting === pred.id) {
-                    return (
-                      <View key={idx} style={{ position: 'relative', height: ROW_HEIGHT, marginBottom: 10, justifyContent: 'center', alignItems: 'center' }}>
-                        <LoadingSpinner text="Eliminando..." size="small" />
-                      </View>
-                    );
-                  }
-
-                  return (
-                    <View key={idx} style={{ position: 'relative', height: ROW_HEIGHT, marginBottom: 10 }}>
-                      {/* Esquinita roja */}
-                      <View style={[swipeStyles.cornerIndicator, { height: 18, width: 18, top: 0, right: 0 }]} />
-                      <Swipeable
-                        ref={ref => { if (ref) swipeableRefs.current[pred.id] = ref; else delete swipeableRefs.current[pred.id]; }}
-                        renderRightActions={renderRightActions}
-                        overshootRight={false}
-                        onSwipeableOpen={() => {
-                          Object.keys(swipeableRefs.current).forEach(id => {
-                            if (id !== pred.id && swipeableRefs.current[id]) {
-                              swipeableRefs.current[id].close();
-                            }
-                          });
-                          setOpenSwipeable(pred.id);
-                        }}
-                        onSwipeableClose={() => {
-                          if (openSwipeable === pred.id) setOpenSwipeable(null);
-                        }}
-                      >
-                        <TouchableOpacity
-                          activeOpacity={0.7}
-                          style={[
-                            cardStyles.predictionCard,
-                            { paddingRight: 0, height: ROW_HEIGHT, minHeight: ROW_HEIGHT, justifyContent: 'center' },
-                          ]}
-                          onPress={() => (navigation as any).navigate('PredictionResultPage', { result: pred })}
-                        >
-                          {/* Fila de títulos alineados */}
-                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 }}>
-                            <View style={[cardStyles.dataColumn]}>
-                              <Text style={cardStyles.dataLabel}>📅 Fecha</Text>
-                            </View>
-                            <View style={[cardStyles.dataColumn]}>
-                              <Text style={cardStyles.dataLabel}>🩸 Último CGM</Text>
-                            </View>
-                            <View style={[cardStyles.dataColumn]}>
-                              <Text style={cardStyles.dataLabel}>{dosisEmoji} Dosis calculada</Text>
-                            </View>
-                          </View>
-                          {/* Fila de valores alineados */}
-                          <View style={cardStyles.predictionContent}>
-                            <View style={cardStyles.dataColumn}>
-                              <Text style={[cardStyles.dataValue]}>{fecha} {hora}</Text>
-                            </View>
-                            <View style={cardStyles.dataColumn}>
-                              <Text style={cardStyles.dataValue}>{cgmPrev} mg/dL</Text>
-                            </View>
-                            <View style={cardStyles.dataColumn}>
-                              <Text style={cardStyles.dataValue}>{pred.recommendedDose} U</Text>
-                            </View>
-                          </View>
-                        </TouchableOpacity>
-                      </Swipeable>
-                    </View>
-);
-                  })}
-                  
-                  {/* Controles de paginación */}
-                  {filteredSortedHistoryAdvanced.length > 0 && (
-                    <View style={cardStyles.paginationContainer}>
-                      <Text style={cardStyles.paginationInfo}>
-                        Página {currentPage} de {Math.ceil(filteredSortedHistoryAdvanced.length / itemsPerPage)}
-                      </Text>
-                      <View style={cardStyles.paginationControls}>
-                        <TouchableOpacity 
-                          style={[
-                            cardStyles.paginationButton,
-                            currentPage === 1 && cardStyles.paginationButtonDisabled
-                          ]}
-                          onPress={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                          disabled={currentPage === 1}
-                        >
-                          <Text style={[
-                            cardStyles.paginationButtonText,
-                            currentPage === 1 && cardStyles.paginationButtonTextDisabled
-                          ]}>Anterior</Text>
-                        </TouchableOpacity>
-                        
-                        <TouchableOpacity 
-                          style={[
-                            cardStyles.paginationButton,
-                            currentPage >= Math.ceil(filteredSortedHistoryAdvanced.length / itemsPerPage) && cardStyles.paginationButtonDisabled
-                          ]}
-                          onPress={() => setCurrentPage(prev => Math.min(Math.ceil(filteredSortedHistoryAdvanced.length / itemsPerPage), prev + 1))}
-                          disabled={currentPage >= Math.ceil(filteredSortedHistoryAdvanced.length / itemsPerPage)}
-                        >
-                          <Text style={[
-                            cardStyles.paginationButtonText,
-                            currentPage >= Math.ceil(filteredSortedHistoryAdvanced.length / itemsPerPage) && cardStyles.paginationButtonTextDisabled
-                          ]}>Siguiente</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  )}
-                </View>
+      <View style={{ flex: 1 }}>
+        <Tab.Navigator
+          screenOptions={{
+            tabBarLabelStyle: {
+              fontWeight: 'bold',
+              fontSize: 17,
+              textTransform: 'none',
+              fontFamily: 'System',
+            },
+            tabBarActiveTintColor: '#4CAF50',
+            tabBarInactiveTintColor: '#6b7280',
+            tabBarIndicatorStyle: {
+              backgroundColor: '#4CAF50',
+              height: 3,
+              borderRadius: 2,
+            },
+            tabBarStyle: {
+              backgroundColor: '#fff',
+              elevation: 0,
+              shadowOpacity: 0,
+              borderBottomWidth: 1,
+              borderBottomColor: '#e0e0e0',
+            },
+            tabBarPressColor: '#e0f2f1',
+          }}
+        >
+          <Tab.Screen
+            name="Predicciones"
+            options={{ tabBarLabel: 'Predicciones' }}
+          >
+            {() => (
+              <HistoryTab
+                // Pass all necessary props/state/functions
+                // e.g. predictionHistory, filters, handlers, etc.
+                {...{
+                  predictionHistory,
+                  isLoadingPredictions,
+                  predictionError,
+                  isDeleting,
+                  deleteError,
+                  showDeleteConfirm,
+                  predictionToDelete,
+                  sortBy,
+                  setSortBy,
+                  sortDir,
+                  setSortDir,
+                  currentPage,
+                  setCurrentPage,
+                  itemsPerPage,
+                  filterModalVisible,
+                  setFilterModalVisible,
+                  filters,
+                  setFilters,
+                  appliedFilters,
+                  setAppliedFilters,
+                  validateNumericInput,
+                  fetchPredictionHistoryData,
+                  handleDeletePrediction,
+                  confirmDeletePrediction,
+                  cancelDeletePrediction,
+                  openSwipeable,
+                  setOpenSwipeable,
+                  swipeableRefs,
+                  ROW_HEIGHT,
+                  DELETE_WIDTH,
+                  navigation,
+                  filteredSortedHistoryAdvanced,
+                  // ...any other needed props
+                }}
+              />
             )}
-          </View>
-
-          {/* DASHBOARD DE ESTADÍSTICAS */}
-          <Card style={{ marginBottom: 24 }}>
-            <CardHeader>
-              <CardTitle style={{ textAlign: 'center' }}>Estadísticas de tus predicciones</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {stats ? (
-                <View style={dashboardStyles.statsGrid}>
-                  {/* Glucosa promedio al aplicar dosis */}
-                  <View style={dashboardStyles.statBox}>
-                    <Text style={dashboardStyles.statLabel}>Glucosa promedio al aplicar dosis</Text>
-                    <Text style={dashboardStyles.statValue}>{stats.avgCGM.toFixed(1)} mg/dL</Text>
-                  </View>
-                  {/* Dosis aplicada vs recomendada (variación %) */}
-                  <View style={dashboardStyles.statBox}>
-                    <Text style={dashboardStyles.statLabel}>Dosis aplicada vs recomendada (variación %)</Text>
-                    <Text style={dashboardStyles.statValue}>
-                      {stats.avgApplyVsRecPercent !== null ? stats.avgApplyVsRecPercent.toFixed(1) + ' %' : '-'}
-                    </Text>
-                  </View>
-                  {/* Dosis recomendada promedio */}
-                  <View style={dashboardStyles.statBox}>
-                    <Text style={dashboardStyles.statLabel}>Dosis recomendada promedio</Text>
-                    <Text style={dashboardStyles.statValue}>{stats.avgRecDose.toFixed(2)} U</Text>
-                  </View>
-                  {/* Dosis aplicada promedio */}
-                  <View style={dashboardStyles.statBox}>
-                    <Text style={dashboardStyles.statLabel}>Dosis aplicada promedio</Text>
-                    <Text style={dashboardStyles.statValue}>{stats.avgApplyDose !== null ? stats.avgApplyDose.toFixed(2) + ' U' : '-'}</Text>
-                  </View>
-                  {/* Nivel de sueño promedio */}
-                  <View style={dashboardStyles.statBox}>
-                    <Text style={dashboardStyles.statLabel}>Nivel de sueño promedio</Text>
-                    <Text style={dashboardStyles.statValue}>{stats.avgSleep.toFixed(2)}</Text>
-                  </View>
-                  {/* Carbohidratos promedio */}
-                  <View style={dashboardStyles.statBox}>
-                    <Text style={dashboardStyles.statLabel}>Carbohidratos promedio</Text>
-                    <Text style={dashboardStyles.statValue}>{stats.avgCarbs.toFixed(1)} g</Text>
-                  </View>
-                  {/* Nivel de actividad promedio */}
-                  <View style={dashboardStyles.statBox}>
-                    <Text style={dashboardStyles.statLabel}>Nivel de actividad promedio</Text>
-                    <Text style={dashboardStyles.statValue}>{stats.avgActivity.toFixed(2)}</Text>
-                  </View>
-                  {/* Nivel de trabajo promedio */}
-                  <View style={dashboardStyles.statBox}>
-                    <Text style={dashboardStyles.statLabel}>Nivel de trabajo promedio</Text>
-                    <Text style={dashboardStyles.statValue}>{stats.avgWork.toFixed(2)}</Text>
-                  </View>
-                </View>
-              ) : (
-                <Text style={dashboardStyles.noStatsText}>No hay datos suficientes para mostrar estadísticas.</Text>
-              )}
-            </CardContent>
-          </Card>
-        </View>
-      </ScrollView>
+          </Tab.Screen>
+          <Tab.Screen
+            name="Estadísticas"
+            options={{ tabBarLabel: 'Estadísticas' }}
+          >
+            {() => (
+              <StatsTab
+                stats={stats}
+                dashboardStyles={dashboardStyles}
+                // ...any other needed props
+              />
+            )}
+          </Tab.Screen>
+        </Tab.Navigator>
+      </View>
       <Footer />
       
       {/* Confirmation Modal */}
