@@ -431,7 +431,7 @@ function HistoryTab(props: any) {
 
                 // Render right action for swipe con animación y mejoras visuales
                 const renderRightActions = (_progress: unknown, dragX: Animated.AnimatedInterpolation<number>) => {
-                  // Animaciones para el swipe
+                  // Animaciones mejoradas para el swipe
                   const translateX = dragX.interpolate({
                     inputRange: [-props.DELETE_WIDTH, 0],
                     outputRange: [0, props.DELETE_WIDTH * 0.6],
@@ -447,6 +447,11 @@ function HistoryTab(props: any) {
                     outputRange: [1.15, 1],
                     extrapolate: 'clamp',
                   });
+                  const buttonScale = dragX.interpolate({
+                    inputRange: [-props.DELETE_WIDTH, -props.DELETE_WIDTH * 0.5, 0],
+                    outputRange: [1, 1.05, 1],
+                    extrapolate: 'clamp',
+                  });
 
                   return (
                     <Animated.View
@@ -457,6 +462,7 @@ function HistoryTab(props: any) {
                           height: props.ROW_HEIGHT,
                           justifyContent: 'center',
                           alignItems: 'center',
+                          transform: [{ scale: buttonScale }],
                         },
                       ]}
                     >
@@ -484,7 +490,15 @@ function HistoryTab(props: any) {
                             elevation: 4,
                           }}
                         >
-                          <Animated.View style={{ transform: [{ scale: iconScale }] }}>
+                          <Animated.View 
+                            style={{ 
+                              transform: [{ scale: iconScale }],
+                              backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                              borderRadius: 20,
+                              padding: 8,
+                              marginBottom: 4,
+                            }}
+                          >
                             <Trash2 size={28} color="#fff" />
                           </Animated.View>
                           <Animated.Text
@@ -1144,7 +1158,7 @@ export default function HistoryPage() {
   const swipeableRefs = useRef<Record<string, any>>({});
 
   const ROW_HEIGHT = 74; // Ajusta este valor según el alto real de la fila
-  const DELETE_WIDTH = 110; // Ancho fijo para el botón eliminar
+  const DELETE_WIDTH = 90; // Reducido de 110 a 90 para hacer el botón más angosto
 
   return (
     <SafeAreaView style={styles.container}>
@@ -1898,6 +1912,9 @@ const swipeStyles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 12,
+    padding: 4,
   },
   fabDeleteBehind: {
     position: 'absolute',
@@ -1908,7 +1925,7 @@ const swipeStyles = StyleSheet.create({
     backgroundColor: '#ef4444',
     borderTopRightRadius: 18,
     borderBottomRightRadius: 18,
-    width: 24,
+    width: 20, // Reducido de 24 a 20
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#ef4444',
