@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Footer } from '../components/footer';
 import { useNavigation } from '@react-navigation/native';
-import { Activity, Trash2, Plus, Calendar, Droplet, Syringe } from 'lucide-react-native';
+import { Activity, Trash2, Plus, Calendar, Droplet, Syringe, Percent, Moon, UtensilsCrossed, Briefcase } from 'lucide-react-native';
 import { LoadingSpinner } from '../components/loading-spinner';
 import { useAuth } from '../hooks/use-auth';
 import { getPredictionHistory, deleteInsulinPrediction } from '../lib/api/insulin';
@@ -143,7 +143,9 @@ function HistoryTab(props: any) {
           <View style={{flexDirection:'row', flexWrap:'wrap', gap:8, marginLeft:20, marginBottom:8}}>
             {Object.entries(props.appliedFilters).map(([key, f]: [string, any]) => f.value ? (
               <View key={key} style={{flexDirection:'row', alignItems:'center', backgroundColor:'#e0f2f1', borderRadius:16, paddingHorizontal:10, paddingVertical:4, marginRight:8, marginBottom:4}}>
-                <Text style={{fontSize:15, color:'#00796b', fontFamily:'System'}}>{key==='fecha'?'Fecha':key==='cgm'?'CGM':'Dosis'} {f.op} {f.value}</Text>
+                <Text style={{fontSize:15, color:'#00796b', fontFamily:'System'}}>
+                  {`${key==='fecha'?'Fecha':key==='cgm'?'CGM':'Dosis'} ${f.op} ${String(f.value)}`}
+                </Text>
                 <Pressable onPress={()=>{
                   const newFilters = {...props.appliedFilters};
                   newFilters[key as FilterKey] = {...newFilters[key as FilterKey], value: ''};
@@ -181,8 +183,8 @@ function HistoryTab(props: any) {
               <Text style={{fontSize:16, fontWeight:'600', marginTop:16}}>Último CGM</Text>
               <View style={{flexDirection:'row', alignItems:'center', gap:8}}>
                 <TouchableOpacity style={[filterOpBtnStyle(props.filters.cgm.op,'='), {marginRight:4}]} onPress={()=>props.setFilters((prev: any) => ({...prev, cgm:{...prev.cgm, op:'='}}))}><Text style={filterOpTextStyle(props.filters.cgm.op,'=')}>=</Text></TouchableOpacity>
-                <TouchableOpacity style={filterOpBtnStyle(props.filters.cgm.op,'>')} onPress={()=>props.setFilters((prev: any) => ({...prev, cgm:{...prev.cgm, op:'>'}}))}><Text style={filterOpTextStyle(props.filters.cgm.op,'>')}>{'>'}</Text></TouchableOpacity>
-                <TouchableOpacity style={filterOpBtnStyle(props.filters.cgm.op,'<')} onPress={()=>props.setFilters((prev: any) => ({...prev, cgm:{...prev.cgm, op:'<'}}))}><Text style={filterOpTextStyle(props.filters.cgm.op,'<')}>{'<'}</Text></TouchableOpacity>
+                <TouchableOpacity style={filterOpBtnStyle(props.filters.cgm.op,'>')} onPress={()=>props.setFilters((prev: any) => ({...prev, cgm:{...prev, op:'>'}}))}><Text style={filterOpTextStyle(props.filters.cgm.op,'>')}>{'>'}</Text></TouchableOpacity>
+                <TouchableOpacity style={filterOpBtnStyle(props.filters.cgm.op,'<')} onPress={()=>props.setFilters((prev: any) => ({...prev, cgm:{...prev, op:'<'}}))}><Text style={filterOpTextStyle(props.filters.cgm.op,'<')}>{'<'}</Text></TouchableOpacity>
                 <TextInput
                   style={[tableStyles.filterInput, {flex:1, marginLeft:8}]}
                   placeholder="Valor"
@@ -440,32 +442,32 @@ function HistoryTab(props: any) {
                         activeOpacity={0.7}
                         style={[
                           cardStyles.predictionCard,
-                          { paddingRight: 0, height: props.ROW_HEIGHT, minHeight: props.ROW_HEIGHT, justifyContent: 'center' },
+                          { paddingRight: 0, height: props.ROW_HEIGHT, minHeight: props.ROW_HEIGHT, justifyContent: 'center', overflow: 'hidden' },
                         ]}
                         onPress={() => (props.navigation as any).navigate('PredictionResultPage', { result: pred })}
                       >
                         {/* Fila de títulos alineados */}
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 }}>
-                          <View style={[cardStyles.dataColumn]}>
-                            <Text style={cardStyles.dataLabel}>📅 Fecha</Text>
+                          <View style={[cardStyles.dataColumn, { flex: 1, minWidth: 0 }]}> {/* minWidth:0 para truncar */}
+                            <Text style={cardStyles.dataLabel} numberOfLines={1} ellipsizeMode="tail">📅 Fecha</Text>
                           </View>
-                          <View style={[cardStyles.dataColumn]}>
-                            <Text style={cardStyles.dataLabel}>🩸 Último CGM</Text>
+                          <View style={[cardStyles.dataColumn, { flex: 1, minWidth: 0 }]}> 
+                            <Text style={cardStyles.dataLabel} numberOfLines={1} ellipsizeMode="tail">🩸 Último CGM</Text>
                           </View>
-                          <View style={[cardStyles.dataColumn]}>
-                            <Text style={cardStyles.dataLabel}>{dosisEmoji} Dosis calculada</Text>
+                          <View style={[cardStyles.dataColumn, { flex: 1, minWidth: 0 }]}> 
+                            <Text style={cardStyles.dataLabel} numberOfLines={1} ellipsizeMode="tail">{dosisEmoji + ' Dosis calculada'}</Text>
                           </View>
                         </View>
                         {/* Fila de valores alineados */}
                         <View style={cardStyles.predictionContent}>
-                          <View style={cardStyles.dataColumn}>
-                            <Text style={[cardStyles.dataValue]}>{fecha} {hora}</Text>
+                          <View style={[cardStyles.dataColumn, { flex: 1, minWidth: 0 }]}> 
+                            <Text style={[cardStyles.dataValue]} numberOfLines={1} ellipsizeMode="tail">{fecha} {hora}</Text>
                           </View>
-                          <View style={cardStyles.dataColumn}>
-                            <Text style={cardStyles.dataValue}>{cgmPrev} mg/dL</Text>
+                          <View style={[cardStyles.dataColumn, { flex: 1, minWidth: 0 }]}> 
+                            <Text style={cardStyles.dataValue} numberOfLines={1} ellipsizeMode="tail">{cgmPrev} mg/dL</Text>
                           </View>
-                          <View style={cardStyles.dataColumn}>
-                            <Text style={cardStyles.dataValue}>{pred.recommendedDose} U</Text>
+                          <View style={[cardStyles.dataColumn, { flex: 1, minWidth: 0 }]}> 
+                            <Text style={cardStyles.dataValue} numberOfLines={1} ellipsizeMode="tail">{pred.recommendedDose} U</Text>
                           </View>
                         </View>
                       </TouchableOpacity>
@@ -520,62 +522,184 @@ function HistoryTab(props: any) {
 }
 
 function StatsTab(props: any) {
-  // All state and logic related to statistics dashboard
-  // Use props for any values/functions needed from parent (HistoryPage)
-  // ...existing code for statistics dashboard section...
+  // Estado para la carta girada
+  const [flippedStat, setFlippedStat] = React.useState<null | string>(null);
+  // Animaciones de flip para cada stat
+  const flipAnimations = React.useRef<{ [key: string]: Animated.Value }>({});
+  const statDetails: Record<string, string> = {
+    avgCGM: 'Promedio de glucosa al aplicar dosis calculada en mg/dL.',
+    avgApplyVsRecPercent: 'Porcentaje promedio de variación entre la dosis aplicada y la recomendada.',
+    avgRecDose: 'Promedio de dosis recomendada por el sistema (U).',
+    avgApplyDose: 'Promedio de dosis realmente aplicada (U).',
+    avgSleep: 'Nivel promedio de sueño reportado por el usuario.',
+    avgCarbs: 'Cantidad promedio de carbohidratos ingeridos (g).',
+    avgActivity: 'Nivel promedio de actividad física.',
+    avgWork: 'Nivel promedio de trabajo/estrés.',
+  };
+  const statIcons: Record<string, React.ReactNode> = {
+    avgCGM: <Droplet color="#4CAF50" size={22} />,
+    avgApplyVsRecPercent: <Percent color="#2196F3" size={22} />,
+    avgRecDose: <Syringe color="#43a047" size={22} />,
+    avgApplyDose: <Syringe color="#ef4444" size={22} />,
+    avgSleep: <Moon color="#7e57c2" size={22} />,
+    avgCarbs: <UtensilsCrossed color="#ff9800" size={22} />,
+    avgActivity: <Activity color="#00bcd4" size={22} />,
+    avgWork: <Briefcase color="#607d8b" size={22} />,
+  };
+  // Inicializar animaciones de flip
+  Object.keys(statIcons).forEach(key => {
+    if (!flipAnimations.current[key]) {
+      flipAnimations.current[key] = new Animated.Value(0);
+    }
+  });
+  // Manejar flip
+  const handleFlip = (key: string) => {
+    if (flippedStat === key) {
+      Animated.timing(flipAnimations.current[key], {
+        toValue: 0,
+        duration: 350,
+        useNativeDriver: true,
+      }).start(() => setFlippedStat(null));
+    } else {
+      if (flippedStat && flipAnimations.current[flippedStat]) {
+        Animated.timing(flipAnimations.current[flippedStat], {
+          toValue: 0,
+          duration: 350,
+          useNativeDriver: true,
+        }).start();
+      }
+      setFlippedStat(key);
+      Animated.timing(flipAnimations.current[key], {
+        toValue: 1,
+        duration: 350,
+        useNativeDriver: true,
+      }).start();
+    }
+  };
+  const statList = [
+    {
+      key: 'avgCGM',
+      label: 'Glucosa promedio',
+      value: props.stats ? props.stats.avgCGM.toFixed(1) + ' mg/dL' : '-',
+      color: '#4CAF50',
+    },
+    {
+      key: 'avgApplyVsRecPercent',
+      label: 'Dosis aplicada vs rec. (%)',
+      value: props.stats && props.stats.avgApplyVsRecPercent !== null ? props.stats.avgApplyVsRecPercent.toFixed(1) + ' %' : '-',
+      color: '#2196F3',
+    },
+    {
+      key: 'avgRecDose',
+      label: 'Dosis recomendada',
+      value: props.stats ? props.stats.avgRecDose.toFixed(2) + ' U' : '-',
+      color: '#43a047',
+    },
+    {
+      key: 'avgApplyDose',
+      label: 'Dosis aplicada',
+      value: props.stats && props.stats.avgApplyDose !== null ? props.stats.avgApplyDose.toFixed(2) + ' U' : '-',
+      color: '#ef4444',
+    },
+    {
+      key: 'avgSleep',
+      label: 'Nivel de sueño',
+      value: props.stats ? props.stats.avgSleep.toFixed(2) : '-',
+      color: '#7e57c2',
+    },
+    {
+      key: 'avgCarbs',
+      label: 'Carbohidratos',
+      value: props.stats ? props.stats.avgCarbs.toFixed(1) + ' g' : '-',
+      color: '#ff9800',
+    },
+    {
+      key: 'avgActivity',
+      label: 'Actividad física',
+      value: props.stats ? props.stats.avgActivity.toFixed(2) : '-',
+      color: '#00bcd4',
+    },
+    {
+      key: 'avgWork',
+      label: 'Nivel de trabajo',
+      value: props.stats ? props.stats.avgWork.toFixed(2) : '-',
+      color: '#607d8b',
+    },
+  ];
   return (
     <ScrollView>
       <View style={styles.content}>
-        {/* DASHBOARD DE ESTADÍSTICAS - all original code for this section */}
-        <Card style={{ marginBottom: 24 }}>
-          <CardHeader>
-            <CardTitle style={{ textAlign: 'center' }}>Estadísticas de tus predicciones</CardTitle>
-          </CardHeader>
+        <Card style={{ marginBottom: 24, backgroundColor: '#fff', borderRadius: 18, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 6, elevation: 2 }}>
           <CardContent>
             {props.stats ? (
-              <View style={dashboardStyles.statsGrid}>
-                {/* Glucosa promedio al aplicar dosis */}
-                <View style={dashboardStyles.statBox}>
-                  <Text style={dashboardStyles.statLabel}>Glucosa promedio al aplicar dosis</Text>
-                  <Text style={dashboardStyles.statValue}>{props.stats.avgCGM.toFixed(1)} mg/dL</Text>
-                </View>
-                {/* Dosis aplicada vs recomendada (variación %) */}
-                <View style={dashboardStyles.statBox}>
-                  <Text style={dashboardStyles.statLabel}>Dosis aplicada vs recomendada (variación %)</Text>
-                  <Text style={dashboardStyles.statValue}>
-                    {props.stats.avgApplyVsRecPercent !== null ? props.stats.avgApplyVsRecPercent.toFixed(1) + ' %' : '-'}
-                  </Text>
-                </View>
-                {/* Dosis recomendada promedio */}
-                <View style={dashboardStyles.statBox}>
-                  <Text style={dashboardStyles.statLabel}>Dosis recomendada promedio</Text>
-                  <Text style={dashboardStyles.statValue}>{props.stats.avgRecDose.toFixed(2)} U</Text>
-                </View>
-                {/* Dosis aplicada promedio */}
-                <View style={dashboardStyles.statBox}>
-                  <Text style={dashboardStyles.statLabel}>Dosis aplicada promedio</Text>
-                  <Text style={dashboardStyles.statValue}>{props.stats.avgApplyDose !== null ? props.stats.avgApplyDose.toFixed(2) + ' U' : '-'}</Text>
-                </View>
-                {/* Nivel de sueño promedio */}
-                <View style={dashboardStyles.statBox}>
-                  <Text style={dashboardStyles.statLabel}>Nivel de sueño promedio</Text>
-                  <Text style={dashboardStyles.statValue}>{props.stats.avgSleep.toFixed(2)}</Text>
-                </View>
-                {/* Carbohidratos promedio */}
-                <View style={dashboardStyles.statBox}>
-                  <Text style={dashboardStyles.statLabel}>Carbohidratos promedio</Text>
-                  <Text style={dashboardStyles.statValue}>{props.stats.avgCarbs.toFixed(1)} g</Text>
-                </View>
-                {/* Nivel de actividad promedio */}
-                <View style={dashboardStyles.statBox}>
-                  <Text style={dashboardStyles.statLabel}>Nivel de actividad promedio</Text>
-                  <Text style={dashboardStyles.statValue}>{props.stats.avgActivity.toFixed(2)}</Text>
-                </View>
-                {/* Nivel de trabajo promedio */}
-                <View style={dashboardStyles.statBox}>
-                  <Text style={dashboardStyles.statLabel}>Nivel de trabajo promedio</Text>
-                  <Text style={dashboardStyles.statValue}>{props.stats.avgWork.toFixed(2)}</Text>
-                </View>
+              <View style={dashboardStyles.statsGridNewSmall}>
+                {statList.map(stat => {
+                  const rotateY = flipAnimations.current[stat.key].interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0deg', '180deg'],
+                  });
+                  const rotateYBack = flipAnimations.current[stat.key].interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['180deg', '360deg'],
+                  });
+                  return (
+                    <View key={stat.key} style={{ flexBasis: '46%', marginBottom: 10, alignItems: 'center', minHeight: 90 }}>
+                      <TouchableOpacity
+                        activeOpacity={0.9}
+                        onPress={() => handleFlip(stat.key)}
+                        style={{ width: '100%' }}
+                      >
+                        <View style={{ alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                          {/* Cara frontal */}
+                          <Animated.View
+                            style={[
+                              dashboardStyles.statBoxNewSmall,
+                              { borderColor: stat.color, shadowColor: stat.color, zIndex: flippedStat === stat.key ? 0 : 2 },
+                              {
+                                transform: [
+                                  { perspective: 800 },
+                                  { rotateY },
+                                ],
+                                position: flippedStat === stat.key ? 'absolute' : 'relative',
+                                backfaceVisibility: 'hidden',
+                              },
+                            ]}
+                          >
+                            <View style={dashboardStyles.statIconCircleSmall}>{statIcons[stat.key]}</View>
+                            <Text style={dashboardStyles.statLabelNewSmall}>{stat.label}</Text>
+                            <Text style={[dashboardStyles.statValueNewSmall, { color: stat.color }]}>{stat.value}</Text>
+                          </Animated.View>
+                          {/* Cara trasera */}
+                          <Animated.View
+                            style={[
+                              dashboardStyles.statBoxNewSmall,
+                              dashboardStyles.statBoxBack,
+                              { borderColor: stat.color, shadowColor: stat.color, zIndex: flippedStat === stat.key ? 2 : 0 },
+                              {
+                                transform: [
+                                  { perspective: 800 },
+                                  { rotateY: rotateYBack },
+                                ],
+                                position: flippedStat === stat.key ? 'relative' : 'absolute',
+                                backfaceVisibility: 'hidden',
+                              },
+                            ]}
+                          >
+                            <Text style={dashboardStyles.statLabelNewSmall}>{stat.label}</Text>
+                            <Text style={dashboardStyles.statDescSmall}>{statDetails[stat.key]}</Text>
+                            <TouchableOpacity
+                              style={dashboardStyles.flipBackBtn}
+                              onPress={() => handleFlip(stat.key)}
+                              activeOpacity={0.8}
+                            >
+                              <Text style={dashboardStyles.flipBackText}>Volver</Text>
+                            </TouchableOpacity>
+                          </Animated.View>
+                        </View>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
               </View>
             ) : (
               <Text style={dashboardStyles.noStatsText}>No hay datos suficientes para mostrar estadísticas.</Text>
@@ -1233,33 +1357,6 @@ const cardStyles = StyleSheet.create({
   predictionCard: {
     backgroundColor: 'white',
     borderRadius: 12,
-    marginBottom: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  predictionCardEven: {
-    backgroundColor: '#f9fbe7',
-  },
-  predictionCardOdd: {
-    backgroundColor: '#e0f7fa',
-  },
-  predictionContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  dataColumn: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  dataLabel: {
     fontSize: 12,
     color: '#6b7280',
     marginBottom: 4,
@@ -1417,6 +1514,26 @@ const cardStyles = StyleSheet.create({
     borderColor: '#fff',
     zIndex: 2,
   },
+  dataColumn: {
+    flex: 1,
+    alignItems: 'center',
+    minWidth: 0,
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  dataLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginBottom: 2,
+    fontFamily: 'System',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  predictionContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
 });
 
 // Estilos para swipe action
@@ -1569,6 +1686,14 @@ const dashboardStyles = StyleSheet.create({
     justifyContent: 'space-between',
     marginVertical: 12,
     gap: 12,
+    marginTop: 10,
+  },
+  noStatsText: {
+    fontSize: 16,
+    color: '#6b7280',
+    textAlign: 'center',
+    fontFamily: 'System',
+    marginVertical: 24,
   },
   statBox: {
     backgroundColor: '#fff',
@@ -1583,25 +1708,179 @@ const dashboardStyles = StyleSheet.create({
     elevation: 1,
     alignItems: 'center',
   },
-  statLabel: {
-    fontSize: 13,
+  // --- NUEVOS ESTILOS PARA LA NUEVA SECCIÓN DE ESTADÍSTICAS ---
+  statsGridNew: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginVertical: 8,
+    gap: 8,
+    marginTop: 10,
+  },
+  statBoxNew: {
+    backgroundColor: '#f4f4f5',
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#e0e0e0',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.10,
+    shadowRadius: 6,
+    elevation: 2,
+    minHeight: 110,
+  },
+  statIconCircle: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 6,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  statLabelNew: {
+    fontSize: 15,
     color: '#6b7280',
-    marginBottom: 4,
+    marginBottom: 2,
     textAlign: 'center',
     fontFamily: 'System',
+    fontWeight: '500',
   },
-  statValue: {
+  statValueNew: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    fontFamily: 'System',
+    marginTop: 2,
+  },
+  // Tooltip/modal
+  tooltipOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+  },
+  tooltipModal: {
+    position: 'absolute',
+    top: '40%',
+    left: '10%',
+    right: '10%',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  tooltipTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#222',
+    marginBottom: 8,
     textAlign: 'center',
-    fontFamily: 'System',
   },
-  noStatsText: {
-    fontSize: 16,
-    color: '#6b7280',
+  tooltipDesc: {
+    fontSize: 15,
+    color: '#555',
+    marginBottom: 18,
     textAlign: 'center',
-    marginVertical: 24,
+  },
+  tooltipCloseBtn: {
+    backgroundColor: '#4CAF50',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 24,
+  },
+  tooltipCloseText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  // --- NUEVOS ESTILOS PARA LA VERSIÓN PEQUEÑA Y FLIP ---
+  statsGridNewSmall: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginVertical: 4,
+    gap: 4,
+    marginTop: 22,
+  },
+  statBoxNewSmall: {
+    backgroundColor: '#f4f4f5',
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    borderWidth: 1.2,
+    borderColor: '#e0e0e0',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 1,
+    minHeight: 70,
+    width: '98%',
+    marginHorizontal: '1%',
+  },
+  statIconCircleSmall: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 4,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 1,
+    elevation: 1,
+  },
+  statLabelNewSmall: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginBottom: 1,
+    textAlign: 'center',
     fontFamily: 'System',
+    fontWeight: '500',
+  },
+  statValueNewSmall: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    fontFamily: 'System',
+    marginTop: 1,
+  },
+  statDescSmall: {
+    fontSize: 12,
+    color: '#555',
+    marginVertical: 4,
+    textAlign: 'center',
+    fontFamily: 'System',
+    minHeight: 32,
+  },
+  statBoxBack: {
+    backgroundColor: '#e8f5e9',
+    borderStyle: 'dashed',
+  },
+  flipBackBtn: {
+    marginTop: 6,
+    backgroundColor: '#4CAF50',
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 16,
+    alignSelf: 'center',
+  },
+  flipBackText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 13,
+    textAlign: 'center',
   },
 });
