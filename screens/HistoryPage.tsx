@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Footer } from '../components/footer';
 import { useNavigation } from '@react-navigation/native';
-import { Activity, Trash2, Plus, Calendar, Droplet, Syringe, Percent, Moon, UtensilsCrossed, Briefcase, Info, ChevronRight, ChevronDown } from 'lucide-react-native';
+import { Activity, Trash2, Plus, Calendar, Droplet, Syringe, Percent, Moon, UtensilsCrossed, Briefcase, Info, ChevronRight, ChevronDown, Filter, X, Check } from 'lucide-react-native';
 import { LoadingSpinner } from '../components/loading-spinner';
 import { useAuth } from '../hooks/use-auth';
 import { getPredictionHistory, deleteInsulinPrediction } from '../lib/api/insulin';
@@ -142,21 +142,29 @@ function HistoryTab(props: any) {
           </TouchableOpacity>
           {/* Filtros activos */}
           <View style={{flexDirection:'row', flexWrap:'wrap', gap:8, marginLeft:20, marginBottom:8}}>
-            {Object.entries(props.appliedFilters).map(([key, f]: [string, any]) => f.value ? (
-              <View key={key} style={{flexDirection:'row', alignItems:'center', backgroundColor:'#e0f2f1', borderRadius:16, paddingHorizontal:10, paddingVertical:4, marginRight:8, marginBottom:4}}>
-                <Text style={{fontSize:15, color:'#00796b', fontFamily:'System'}}>
-                  {`${key==='fecha'?'Fecha':key==='cgm'?'CGM':'Dosis'} ${f.op} ${String(f.value)}`}
-                </Text>
-                <TouchableOpacity onPress={()=>{
-                  const newFilters = {...props.appliedFilters};
-                  newFilters[key as FilterKey] = {...newFilters[key as FilterKey], value: ''};
-                  props.setAppliedFilters(newFilters);
-                  props.setFilters(newFilters);
-                }}>
-                  <Text style={{marginLeft:6, color:'#ef4444', fontWeight:'bold'}}>×</Text>
-                </TouchableOpacity>
-              </View>
-            ) : null)}
+            {(Object.entries(props.appliedFilters) as [keyof FiltersType, FilterType][]).map(([key, filter]) => {
+              if (filter.value) {
+                return (
+                  <View key={key} style={{flexDirection:'row', alignItems:'center', backgroundColor:'#e0f2f1', borderRadius:16, paddingHorizontal:10, paddingVertical:4, marginRight:8, marginBottom:4}}>
+                    <Text style={{color:'#4CAF50', fontSize:13, fontWeight:'500'}}>
+                      {key === 'fecha' ? '📅' : key === 'cgm' ? '🩸' : '💉'} {filter.value}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        props.setAppliedFilters((prev: FiltersType) => ({
+                          ...prev,
+                          [key]: { op: '=', value: '' }
+                        }));
+                      }}
+                      style={{marginLeft:6}}
+                    >
+                      <Text style={{color:'#4CAF50', fontSize:16}}>×</Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              }
+              return null;
+            })}
           </View>
           {/* Modal de filtros */}
           <Modal
@@ -167,73 +175,180 @@ function HistoryTab(props: any) {
           >
             <Pressable style={{flex:1, backgroundColor:'rgba(0,0,0,0.3)'}} onPress={()=>props.setFilterModalVisible(false)} />
             <View style={{position:'absolute', bottom:0, left:0, right:0, backgroundColor:'#fff', borderTopLeftRadius:24, borderTopRightRadius:24, padding:24}}>
-              <Text style={{fontSize:22, fontWeight:'bold', marginBottom:16, textAlign:'center'}}>Filtrar predicciones</Text>
+              <View style={{flexDirection:'row', alignItems:'center', justifyContent:'space-between', marginBottom:20}}>
+                <View style={{flexDirection:'row', alignItems:'center'}}>
+                  <Filter size={24} color="#4CAF50" />
+                  <Text style={{fontSize:22, fontWeight:'bold', marginLeft:8}}>Filtrar Predicciones</Text>
+                </View>
+                <View style={{flex: 1, alignItems: 'flex-end', justifyContent: 'center'}}>
+                  <TouchableOpacity 
+                    onPress={()=>props.setFilterModalVisible(false)}
+                    style={{
+                      backgroundColor: '#4CAF50',
+                      paddingHorizontal: 10,
+                      paddingVertical: 4,
+                      borderRadius: 8,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 4,
+                      shadowColor: '#4CAF50',
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.2,
+                      shadowRadius: 4,
+                      elevation: 3,
+                      marginTop: 2,
+                    }}
+                  >
+                    <ChevronDown size={15} color="#fff" />
+                    <Text style={{
+                      color: '#fff',
+                      fontSize: 13,
+                      fontWeight: '600',
+                      fontFamily: 'System',
+                    }}>Cerrar</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
               {/* Fecha */}
-              <Text style={{fontSize:16, fontWeight:'600', marginTop:8}}>Fecha (dd/MM)</Text>
-              <View style={{flexDirection:'row', alignItems:'center', gap:8}}>
-                <TextInput
-                  style={[tableStyles.filterInput, {flex:1}]}
-                  placeholder="Ej: 16/05"
-                  value={props.filters.fecha.value}
-                  onChangeText={v=>props.setFilters((prev: any) => ({...prev, fecha:{...prev.fecha, value:v}}))}
-                  placeholderTextColor="#bdbdbd"
-                />
+              <View style={filterStyles.filterSection}>
+                <View style={filterStyles.filterHeader}>
+                  <Calendar size={20} color="#4CAF50" />
+                  <Text style={filterStyles.filterTitle}>Fecha</Text>
+                </View>
+                <Text style={filterStyles.filterDescription}>Filtrar por fecha específica (formato dd/MM)</Text>
+                <View style={filterStyles.inputContainer}>
+                  <TextInput
+                    style={filterStyles.filterInput}
+                    placeholder="Ej: 16/05"
+                    value={props.filters.fecha.value}
+                    onChangeText={v=>props.setFilters((prev: any) => ({...prev, fecha:{...prev.fecha, value:v}}))}
+                    placeholderTextColor="#bdbdbd"
+                  />
+                </View>
               </View>
               
               {/* CGM */}
-              <Text style={{fontSize:16, fontWeight:'600', marginTop:16}}>Último CGM</Text>
-              <View style={{flexDirection:'row', alignItems:'center', gap:8}}>
-                <TouchableOpacity style={[filterOpBtnStyle(props.filters.cgm.op,'='), {marginRight:4}]} onPress={()=>props.setFilters((prev: any) => ({...prev, cgm:{...prev.cgm, op:'='}}))}>
-                  <Text style={filterOpTextStyle(props.filters.cgm.op,'=')}>=</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={filterOpBtnStyle(props.filters.cgm.op,'>')} onPress={()=>props.setFilters((prev: any) => ({...prev, cgm:{...prev, op:'>'}}))}>
-                  <Text style={filterOpTextStyle(props.filters.cgm.op,'>')}>{'>'}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={filterOpBtnStyle(props.filters.cgm.op,'<')} onPress={()=>props.setFilters((prev: any) => ({...prev, cgm:{...prev, op:'<'}}))}>
-                  <Text style={filterOpTextStyle(props.filters.cgm.op,'<')}>{'<'}</Text>
-                </TouchableOpacity>
-                <TextInput
-                  style={[tableStyles.filterInput, {flex:1, marginLeft:8}]}
-                  placeholder="Valor"
-                  value={props.filters.cgm.value}
-                  onChangeText={v=>{
-                    const validatedValue = props.validateNumericInput(v);
-                    props.setFilters((prev: any) => ({...prev, cgm:{...prev.cgm, value:validatedValue}}));
-                  }}
-                  keyboardType="numeric"
-                  placeholderTextColor="#bdbdbd"
-                />
+              <View style={filterStyles.filterSection}>
+                <View style={filterStyles.filterHeader}>
+                  <Droplet size={20} color="#4CAF50" />
+                  <Text style={filterStyles.filterTitle}>Último CGM</Text>
+                </View>
+                <Text style={filterStyles.filterDescription}>Filtrar por nivel de glucosa en mg/dL</Text>
+                <View style={filterStyles.operatorContainer}>
+                  <TouchableOpacity 
+                    style={[filterStyles.operatorButton, props.filters.cgm.op === '=' && filterStyles.operatorButtonActive]} 
+                    onPress={()=>props.setFilters((prev: any) => ({...prev, cgm:{...prev.cgm, op:'='}}))}
+                  >
+                    <Text style={[filterStyles.operatorText, props.filters.cgm.op === '=' && filterStyles.operatorTextActive]}>
+                      Igual (<Text style={{fontSize: 16, fontWeight: '700'}}>=</Text>)
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[filterStyles.operatorButton, props.filters.cgm.op === '>' && filterStyles.operatorButtonActive]} 
+                    onPress={()=>props.setFilters((prev: any) => ({...prev, cgm:{...prev.cgm, op:'>'}}))}
+                  >
+                    <Text style={[filterStyles.operatorText, props.filters.cgm.op === '>' && filterStyles.operatorTextActive]}>
+                      Mayor (<Text style={{fontSize: 16, fontWeight: '700'}}>{'>'}</Text>)
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[filterStyles.operatorButton, props.filters.cgm.op === '<' && filterStyles.operatorButtonActive]} 
+                    onPress={()=>props.setFilters((prev: any) => ({...prev, cgm:{...prev.cgm, op:'<'}}))}
+                  >
+                    <Text style={[filterStyles.operatorText, props.filters.cgm.op === '<' && filterStyles.operatorTextActive]}>
+                      Menor (<Text style={{fontSize: 16, fontWeight: '700'}}>{'<'}</Text>)
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={filterStyles.inputContainer}>
+                  <TextInput
+                    style={filterStyles.filterInput}
+                    placeholder="Valor en mg/dL"
+                    value={props.filters.cgm.value}
+                    onChangeText={v=>{
+                      const validatedValue = props.validateNumericInput(v);
+                      props.setFilters((prev: any) => ({...prev, cgm:{...prev.cgm, value:validatedValue}}));
+                    }}
+                    keyboardType="numeric"
+                    placeholderTextColor="#bdbdbd"
+                  />
+                </View>
               </View>
+
               {/* Dosis */}
-              <Text style={{fontSize:16, fontWeight:'600', marginTop:16}}>Dosis calculada</Text>
-              <View style={{flexDirection:'row', alignItems:'center', gap:8}}>
-                <TouchableOpacity style={[filterOpBtnStyle(props.filters.dosis.op,'='), {marginRight:4}]} onPress={()=>props.setFilters((prev: any) => ({...prev, dosis:{...prev.dosis, op:'='}}))}>
-                  <Text style={filterOpTextStyle(props.filters.dosis.op,'=')}>=</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={filterOpBtnStyle(props.filters.dosis.op,'>')} onPress={()=>props.setFilters((prev: any) => ({...prev, dosis:{...prev.dosis, op:'>'}}))}>
-                  <Text style={filterOpTextStyle(props.filters.dosis.op,'>')}>{'>'}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={filterOpBtnStyle(props.filters.dosis.op,'<')} onPress={()=>props.setFilters((prev: any) => ({...prev, dosis:{...prev.dosis, op:'<'}}))}>
-                  <Text style={filterOpTextStyle(props.filters.dosis.op,'<')}>{'<'}</Text>
-                </TouchableOpacity>
-                <TextInput
-                  style={[tableStyles.filterInput, {flex:1, marginLeft:8}]}
-                  placeholder="Valor"
-                  value={props.filters.dosis.value}
-                  onChangeText={v=>{
-                    const validatedValue = props.validateNumericInput(v);
-                    props.setFilters((prev: any) => ({...prev, dosis:{...prev.dosis, value:validatedValue}}));
-                  }}
-                  keyboardType="numeric"
-                  placeholderTextColor="#bdbdbd"
-                />
+              <View style={filterStyles.filterSection}>
+                <View style={filterStyles.filterHeader}>
+                  <Syringe size={20} color="#4CAF50" />
+                  <Text style={filterStyles.filterTitle}>Dosis calculada</Text>
+                </View>
+                <Text style={filterStyles.filterDescription}>Filtrar por dosis de insulina en unidades</Text>
+                <View style={filterStyles.operatorContainer}>
+                  <TouchableOpacity 
+                    style={[filterStyles.operatorButton, props.filters.dosis.op === '=' && filterStyles.operatorButtonActive]} 
+                    onPress={()=>props.setFilters((prev: any) => ({...prev, dosis:{...prev.dosis, op:'='}}))}
+                  >
+                    <Text style={[filterStyles.operatorText, props.filters.dosis.op === '=' && filterStyles.operatorTextActive]}>
+                      Igual (<Text style={{fontSize: 16, fontWeight: '700'}}>=</Text>)
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[filterStyles.operatorButton, props.filters.dosis.op === '>' && filterStyles.operatorButtonActive]} 
+                    onPress={()=>props.setFilters((prev: any) => ({...prev, dosis:{...prev.dosis, op:'>'}}))}
+                  >
+                    <Text style={[filterStyles.operatorText, props.filters.dosis.op === '>' && filterStyles.operatorTextActive]}>
+                      Mayor (<Text style={{fontSize: 16, fontWeight: '700'}}>{'>'}</Text>)
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[filterStyles.operatorButton, props.filters.dosis.op === '<' && filterStyles.operatorButtonActive]} 
+                    onPress={()=>props.setFilters((prev: any) => ({...prev, dosis:{...prev.dosis, op:'<'}}))}
+                  >
+                    <Text style={[filterStyles.operatorText, props.filters.dosis.op === '<' && filterStyles.operatorTextActive]}>
+                      Menor (<Text style={{fontSize: 16, fontWeight: '700'}}>{'<'}</Text>)
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={filterStyles.inputContainer}>
+                  <TextInput
+                    style={filterStyles.filterInput}
+                    placeholder="Valor en unidades"
+                    value={props.filters.dosis.value}
+                    onChangeText={v=>{
+                      const validatedValue = props.validateNumericInput(v);
+                      props.setFilters((prev: any) => ({...prev, dosis:{...prev.dosis, value:validatedValue}}));
+                    }}
+                    keyboardType="numeric"
+                    placeholderTextColor="#bdbdbd"
+                  />
+                </View>
               </View>
-              <TouchableOpacity style={{backgroundColor:'#4CAF50', borderRadius:8, padding:14, marginTop:24}} onPress={()=>{
-                props.setAppliedFilters(props.filters);
-                props.setFilterModalVisible(false);
-              }}>
-                <Text style={{color:'#fff', fontWeight:'bold', fontSize:18, textAlign:'center'}}>Aplicar filtros</Text>
-              </TouchableOpacity>
+
+              <View style={filterStyles.buttonContainer}>
+                <TouchableOpacity 
+                  style={filterStyles.clearButton}
+                  onPress={() => {
+                    props.setFilters({
+                      fecha: { op: '=', value: '' },
+                      cgm: { op: '=', value: '' },
+                      dosis: { op: '=', value: '' },
+                    });
+                  }}
+                >
+                  <Trash2 size={18} color="#6b7280" />
+                  <Text style={filterStyles.clearButtonText}>Limpiar filtros</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={filterStyles.applyButton}
+                  onPress={()=>{
+                    props.setAppliedFilters(props.filters);
+                    props.setFilterModalVisible(false);
+                  }}
+                >
+                  <Check size={18} color="#fff" />
+                  <Text style={filterStyles.applyButtonText}>Aplicar filtros</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </Modal>
           {/* ...resto de la tabla... */}
@@ -506,7 +621,7 @@ function HistoryTab(props: any) {
                       ]}>Anterior</Text>
                     </TouchableOpacity>
                     
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       style={[
                         cardStyles.paginationButton,
                         props.currentPage >= Math.ceil(props.filteredSortedHistoryAdvanced.length / props.itemsPerPage) && cardStyles.paginationButtonDisabled
@@ -743,7 +858,9 @@ function StatsTab(props: any) {
                               },
                             ]}
                           >
-                            <View style={dashboardStyles.statIconCircleSmall}>{statIcons[stat.key]}</View>
+                            <View style={dashboardStyles.statIconCircleSmall}>
+                              <Text>{statIcons[stat.key]}</Text>
+                            </View>
                             <Text style={dashboardStyles.statLabelNewSmall}>{stat.label}</Text>
                             <Text style={[dashboardStyles.statValueNewSmall, { color: stat.color }]}>{stat.value}</Text>
                           </Animated.View>
@@ -2063,5 +2180,130 @@ const dashboardStyles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 13,
     textAlign: 'center',
+  },
+});
+
+type FilterType = {
+  op: string;
+  value: string;
+};
+
+type FiltersType = {
+  fecha: FilterType;
+  cgm: FilterType;
+  dosis: FilterType;
+};
+
+// Add these new styles at the end of the StyleSheet.create section
+const filterStyles = StyleSheet.create({
+  filterSection: {
+    marginBottom: 24,
+  },
+  filterHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  filterTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    marginLeft: 8,
+    fontFamily: 'System',
+    letterSpacing: 0.2,
+  },
+  filterDescription: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginBottom: 8,
+    fontFamily: 'System',
+  },
+  operatorContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
+  },
+  operatorButton: {
+    flex: 1,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  operatorButtonActive: {
+    backgroundColor: '#4CAF50',
+    borderColor: '#388e3c',
+  },
+  operatorText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6b7280',
+    textAlign: 'center',
+  },
+  operatorSymbol: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginRight: 2,
+  },
+  operatorTextActive: {
+    color: '#fff',
+  },
+  inputContainer: {
+    marginTop: 4,
+  },
+  filterInput: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    color: '#111827',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    fontFamily: 'System',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    gap: 12,
+  },
+  clearButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f3f4f6',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    gap: 6,
+  },
+  clearButtonText: {
+    color: '#6b7280',
+    fontWeight: '600',
+    fontSize: 14,
+    fontFamily: 'System',
+  },
+  applyButton: {
+    flex: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#4CAF50',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    gap: 6,
+  },
+  applyButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
+    fontFamily: 'System',
   },
 });
