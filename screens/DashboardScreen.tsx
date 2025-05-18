@@ -44,6 +44,9 @@ export default function DashboardScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [allActivities, setAllActivities] = useState<ActivityItem[]>([]);
+  const [visibleActivities, setVisibleActivities] = useState<ActivityItem[]>([]);
+  const [activitiesPage, setActivitiesPage] = useState(1);
+  const ACTIVITIES_PER_PAGE = 5; // Número de actividades por página
   const [formError, setFormError] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
@@ -68,10 +71,11 @@ export default function DashboardScreen() {
       // Use the same data for the chart (latest 6 readings)
       setReadings(todaysReadings.slice(0, 6));
       
-      // Get all activities but only show 5 initially
+      // Get all activities but only show the first page initially
       const recentActivities = await getActivities(token);
       setAllActivities(recentActivities);
-      setActivities(recentActivities.slice(0, 5));
+      setVisibleActivities(recentActivities.slice(0, ACTIVITIES_PER_PAGE));
+      setActivitiesPage(1);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       toast({
@@ -203,14 +207,34 @@ export default function DashboardScreen() {
     setShowAllActivities(!showAllActivities);
   };
 
+  const loadMoreActivities = () => {
+    const nextPage = activitiesPage + 1;
+    const endIndex = nextPage * ACTIVITIES_PER_PAGE;
+    
+    // Cargar el siguiente lote de actividades
+    setVisibleActivities(allActivities.slice(0, endIndex));
+    setActivitiesPage(nextPage);
+  };
+
+  const resetActivitiesList = () => {
+    // Volver al estado inicial de solo 5 registros
+    setVisibleActivities(allActivities.slice(0, ACTIVITIES_PER_PAGE));
+    setActivitiesPage(1);
+  };
+
+  const hasMoreActivities = visibleActivities.length < allActivities.length;
+  const hasExpandedActivities = visibleActivities.length > ACTIVITIES_PER_PAGE;
+
   const formatTimeAgo = (date: Date) => {
     const now = new Date();
     const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / 1000 / 60);
     
     if (diffInMinutes < 1) return 'Ahora mismo';
+    if (diffInMinutes === 1) return 'Hace 1 minuto';
     if (diffInMinutes < 60) return `Hace ${diffInMinutes} minutos`;
     
     const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours === 1) return 'Hace 1 hora';
     if (diffInHours < 24) return `Hace ${diffInHours} horas`;
     
     const diffInDays = Math.floor(diffInHours / 24);
@@ -526,18 +550,18 @@ export default function DashboardScreen() {
             <View style={styles.activityCard}>
               <View style={styles.activityHeader}>
                 <Text style={styles.activityTitle}>Actividad Reciente</Text>
-                <TouchableOpacity onPress={toggleActivitiesView}>
-                  <Text style={styles.viewAllLink}>
-                    {showAllActivities ? 'Ver menos' : 'Ver todo'}
+                {(hasMoreActivities || hasExpandedActivities) && (
+                  <Text style={styles.activityCount}>
+                    Mostrando {visibleActivities.length} de {allActivities.length}
                   </Text>
-                </TouchableOpacity>
+                )}
               </View>
               
               <View style={styles.activityList}>
-                {activities.map((activity, index) => (
+                {visibleActivities.map((activity, index) => (
                   <View key={index} style={[
                     styles.activityItem,
-                    index === activities.length - 1 && styles.lastActivityItem,
+                    index === visibleActivities.length - 1 && !hasMoreActivities && styles.lastActivityItem,
                   ]}>
                     <View style={styles.activityLeft}>
                       <View style={[
@@ -584,6 +608,28 @@ export default function DashboardScreen() {
                     </Text>
                   </View>
                 ))}
+              </View>
+              
+              <View style={styles.activityButtonsContainer}>
+                {hasMoreActivities && (
+                  <TouchableOpacity 
+                    style={styles.minimalButton}
+                    onPress={loadMoreActivities}
+                  >
+                    <Feather name="chevron-down" size={16} color="#4CAF50" />
+                    <Text style={styles.minimalButtonText}>Ver más</Text>
+                  </TouchableOpacity>
+                )}
+                
+                {hasExpandedActivities && (
+                  <TouchableOpacity 
+                    style={styles.minimalButton}
+                    onPress={resetActivitiesList}
+                  >
+                    <Feather name="chevron-up" size={16} color="#f97316" />
+                    <Text style={[styles.minimalButtonText, styles.minimalButtonTextAlt]}>Ver menos</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
 
@@ -1314,5 +1360,58 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6b7280',
     textAlign: 'center',
+  },
+  activityCount: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 4,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#4CAF50',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    gap: 8,
+  },
+  actionButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  buttonIconContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 9999,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  secondaryButton: {
+    backgroundColor: '#f97316',
+  },
+  activityButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 12,
+  },
+  minimalButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(34, 197, 94, 0.3)',
+  },
+  minimalButtonText: {
+    color: '#4CAF50',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  minimalButtonTextAlt: {
+    color: '#f97316',
   },
 });
