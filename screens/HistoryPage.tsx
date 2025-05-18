@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Footer } from '../components/footer';
 import { useNavigation } from '@react-navigation/native';
-import { Activity, Trash2, Plus } from 'lucide-react-native';
+import { Activity, Trash2, Plus, Calendar, Droplet, Syringe } from 'lucide-react-native';
 import { LoadingSpinner } from '../components/loading-spinner';
 import { useAuth } from '../hooks/use-auth';
 import { getPredictionHistory, deleteInsulinPrediction } from '../lib/api/insulin';
@@ -24,6 +24,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import { AppHeader } from '../components/app-header';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
+import LinearGradient from 'react-native-linear-gradient';
 
 interface Event {
   id: number;
@@ -102,14 +103,40 @@ function HistoryTab(props: any) {
   // Only the content inside the first section (before the statistics dashboard)
   // Replace the ScrollView and View wrapping the history section with just the content
   // ...
+
+  // Animated scale refs for sort buttons (one per key)
+  const sortKeys = ['fecha', 'cgm', 'dosis'] as const;
+  type SortKey = typeof sortKeys[number];
+  const animatedScales = useRef<Record<SortKey, Animated.Value>>({
+    fecha: new Animated.Value(1),
+    cgm: new Animated.Value(1),
+    dosis: new Animated.Value(1),
+  });
+
   return (
     <ScrollView>
       <View style={styles.content}>
         {/* HISTORIAL DE PREDICCIONES - ahora primero y fuera del Card */}
         <View style={{ marginBottom: 24 }}>
           {/* Filtros y tabla de historial, mover aquí el contenido de la sección historial */}
-          <TouchableOpacity style={[styles.filterButtonSmall, {marginLeft: 0}]} onPress={()=>props.setFilterModalVisible(true)}>
-            <Plus size={16} color="#fff" style={{marginRight: 4}} />
+          <TouchableOpacity
+            style={[
+              styles.filterButtonSmall,
+              {
+                alignSelf: 'center', // Centrado horizontal
+                marginLeft: 0,
+                shadowColor: '#388e3c',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.18,
+                shadowRadius: 4,
+                elevation: 4,
+                borderWidth: 1.5,
+                borderColor: '#388e3c',
+              },
+            ]}
+            onPress={() => props.setFilterModalVisible(true)}
+          >
+            <Plus size={16} color="#fff" style={{ marginRight: 4 }} />
             <Text style={styles.filterButtonTextSmall}>Agregar filtros</Text>
           </TouchableOpacity>
           {/* Filtros activos */}
@@ -205,63 +232,59 @@ function HistoryTab(props: any) {
             <View style={cardStyles.predictionListContainer}>
               {/* Botones de ordenamiento */}
               <View style={cardStyles.sortHeader}>
-                <TouchableOpacity 
-                  style={[
-                    cardStyles.sortButton,
-                    props.sortBy === 'fecha' && cardStyles.sortButtonActive
-                  ]}
-                  onPress={() => {
-                    props.setSortBy('fecha');
-                    props.setSortDir(props.sortBy === 'fecha' && props.sortDir === 'desc' ? 'asc' : 'desc');
-                  }}
-                >
-                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                    <Text style={[
-                      cardStyles.sortButtonText,
-                      props.sortBy === 'fecha' && cardStyles.sortButtonTextActive
-                    ]}>
-                      Fecha 
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={[
-                    cardStyles.sortButton,
-                    props.sortBy === 'cgm' && cardStyles.sortButtonActive
-                  ]}
-                  onPress={() => {
-                    props.setSortBy('cgm');
-                    props.setSortDir(props.sortBy === 'cgm' && props.sortDir === 'desc' ? 'asc' : 'desc');
-                  }}
-                >
-                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                    <Text style={[
-                      cardStyles.sortButtonText,
-                      props.sortBy === 'cgm' && cardStyles.sortButtonTextActive
-                    ]}>
-                      CGM 
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={[
-                    cardStyles.sortButton,
-                    props.sortBy === 'dosis' && cardStyles.sortButtonActive
-                  ]}
-                  onPress={() => {
-                    props.setSortBy('dosis');
-                    props.setSortDir(props.sortBy === 'dosis' && props.sortDir === 'desc' ? 'asc' : 'desc');
-                  }}
-                >
-                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                    <Text style={[
-                      cardStyles.sortButtonText,
-                      props.sortBy === 'dosis' && cardStyles.sortButtonTextActive
-                    ]}>
-                      Dosis 
-                    </Text>
-                  </View>
-                </TouchableOpacity>
+                {[
+                  { key: 'fecha', label: 'Fecha', Icon: Calendar },
+                  { key: 'cgm', label: 'CGM', Icon: Droplet },
+                  { key: 'dosis', label: 'Dosis', Icon: Syringe },
+                ].map(option => {
+                  // All props-dependent logic is now inside the map callback
+                  const isActive = props.sortBy === option.key;
+                  const filterActive = !!props.appliedFilters[option.key]?.value;
+                  const animatedScale = animatedScales.current[option.key as SortKey];
+                  const handlePress = () => {
+                    Animated.sequence([
+                      Animated.timing(animatedScale, { toValue: 0.93, duration: 80, useNativeDriver: true }),
+                      Animated.timing(animatedScale, { toValue: 1, duration: 80, useNativeDriver: true }),
+                    ]).start();
+                    props.setSortBy(option.key);
+                    props.setSortDir(isActive && props.sortDir === 'desc' ? 'asc' : 'desc');
+                  };
+                  return (
+                    <Animated.View key={option.key} style={{ flex: 1, transform: [{ scale: animatedScale }] }}>
+                      <TouchableOpacity
+                        style={[
+                          cardStyles.sortButton,
+                          isActive && cardStyles.sortButtonActive,
+                          isActive && { borderBottomWidth: 2, borderBottomColor: '#388e3c' },
+                          { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', position: 'relative' },
+                        ]}
+                        onPress={handlePress}
+                        activeOpacity={0.85}
+                      >
+                        {/* Icono temático con círculo si hay filtro activo */}
+                        <View style={{ marginRight: 6, position: 'relative', justifyContent: 'center', alignItems: 'center' }}>
+                          <option.Icon size={18} color={isActive ? '#fff' : '#4b5563'} />
+                          {/* Punto verde si hay filtro activo */}
+                          {filterActive && (
+                            <View style={cardStyles.filterDot} />
+                          )}
+                        </View>
+                        <Text style={[
+                          cardStyles.sortButtonText,
+                          isActive && cardStyles.sortButtonTextActive,
+                        ]}>
+                          {option.label}
+                        </Text>
+                        {/* Flecha de ordenamiento solo en el activo */}
+                        {isActive && (
+                          <Text style={{ marginLeft: 4, color: '#fff', fontSize: 15, fontWeight: 'bold' }}>
+                            {props.sortDir === 'asc' ? '▲' : '▼'}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    </Animated.View>
+                  );
+                })}
               </View>
               {/* Lista de tarjetas de predicción */}
               {props.filteredSortedHistoryAdvanced
@@ -280,24 +303,83 @@ function HistoryTab(props: any) {
                 let dosisEmoji = '💉';
                 if (pred.recommendedDose > 8) dosisEmoji = '💉💉';
 
-                // Render right action for swipe con animación
+                // Render right action for swipe con animación y mejoras visuales
                 const renderRightActions = (_progress: unknown, dragX: Animated.AnimatedInterpolation<number>) => {
-                  const scale = dragX.interpolate({
+                  // Animaciones para el swipe
+                  const translateX = dragX.interpolate({
                     inputRange: [-props.DELETE_WIDTH, 0],
-                    outputRange: [1, 0.8],
+                    outputRange: [0, props.DELETE_WIDTH * 0.6],
                     extrapolate: 'clamp',
                   });
+                  const textOpacity = dragX.interpolate({
+                    inputRange: [-props.DELETE_WIDTH * 0.7, -props.DELETE_WIDTH * 0.3, 0],
+                    outputRange: [1, 0.5, 0],
+                    extrapolate: 'clamp',
+                  });
+                  const iconScale = dragX.interpolate({
+                    inputRange: [-props.DELETE_WIDTH, 0],
+                    outputRange: [1.15, 1],
+                    extrapolate: 'clamp',
+                  });
+
                   return (
-                    <Animated.View style={[swipeStyles.animatedDeleteAction, { transform: [{ scale }], width: props.DELETE_WIDTH, height: props.ROW_HEIGHT }]}> 
+                    <Animated.View
+                      style={[
+                        swipeStyles.animatedDeleteAction,
+                        {
+                          width: props.DELETE_WIDTH + 30,
+                          height: props.ROW_HEIGHT,
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        },
+                      ]}
+                    >
                       <TouchableOpacity
-                        style={[swipeStyles.deleteAction, { width: props.DELETE_WIDTH, height: props.ROW_HEIGHT }]}
+                        style={{ flex: 1, width: '100%', height: '100%' }}
                         onPress={() => props.handleDeletePrediction(pred.id)}
+                        activeOpacity={0.85}
                         accessibilityLabel="Eliminar registro"
                         accessibilityRole="button"
-                        activeOpacity={0.85}
                       >
-                        <Trash2 size={22} color="#fff" style={{ marginRight: 8 }} />
-                        <Text style={swipeStyles.deleteActionText}>Eliminar</Text>
+                        <LinearGradient
+                          colors={['#ff5f6d', '#ef4444', '#b71c1c']}
+                          start={{ x: 0, y: 0.5 }}
+                          end={{ x: 1, y: 0.5 }}
+                          style={{
+                            flex: 1,
+                            borderTopRightRadius: 12,
+                            borderBottomRightRadius: 12,
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            shadowColor: '#ef4444',
+                            shadowOffset: { width: 2, height: 0 },
+                            shadowOpacity: 0.18,
+                            shadowRadius: 4,
+                            elevation: 4,
+                          }}
+                        >
+                          <Animated.View style={{ transform: [{ scale: iconScale }] }}>
+                            <Trash2 size={28} color="#fff" />
+                          </Animated.View>
+                          <Animated.Text
+                            style={{
+                              color: '#fff',
+                              fontWeight: 'bold',
+                              fontSize: 16,
+                              marginTop: 6,
+                              opacity: textOpacity,
+                              transform: [{ translateX }],
+                              letterSpacing: 0.5,
+                              textShadowColor: '#b71c1c',
+                              textShadowOffset: { width: 0, height: 1 },
+                              textShadowRadius: 2,
+                            }}
+                            numberOfLines={1}
+                            ellipsizeMode="clip"
+                          >
+                            Eliminar predicción
+                          </Animated.Text>
+                        </LinearGradient>
                       </TouchableOpacity>
                     </Animated.View>
                   );
@@ -314,8 +396,30 @@ function HistoryTab(props: any) {
 
                 return (
                   <View key={idx} style={{ position: 'relative', height: props.ROW_HEIGHT, marginBottom: 10 }}>
-                    {/* Esquinita roja */}
-                    <View style={[swipeStyles.cornerIndicator, { height: 18, width: 18, top: 0, right: 0 }]} />
+                    {/* Botón eliminar sobresaliente detrás del registro */}
+                    <View
+                      style={[
+                        swipeStyles.fabDeleteBehind,
+                        // Si el swipe está abierto, ocultar el botón flotante
+                        props.openSwipeable === pred.id && { opacity: 0, zIndex: -1 },
+                      ]}
+                      pointerEvents="box-none"
+                    >
+                      <TouchableOpacity
+                        style={swipeStyles.fabDeleteInner}
+                        onPress={() => {
+                          // Abrir swipe programáticamente
+                          if (props.swipeableRefs.current[pred.id]) {
+                            props.swipeableRefs.current[pred.id].openRight();
+                          }
+                        }}
+                        activeOpacity={0.85}
+                        accessibilityLabel="Mostrar acción eliminar"
+                        accessibilityRole="button"
+                      >
+                        <Trash2 size={22} color="#fff" />
+                      </TouchableOpacity>
+                    </View>
                     <Swipeable
                       ref={ref => { if (ref) props.swipeableRefs.current[pred.id] = ref; else delete props.swipeableRefs.current[pred.id]; }}
                       renderRightActions={renderRightActions}
@@ -1293,42 +1397,110 @@ const cardStyles = StyleSheet.create({
     borderTopColor: '#eee',
     paddingLeft: 6,
   },
+  filterIconCircle: {
+    borderWidth: 1.5,
+    borderColor: '#4CAF50',
+    borderRadius: 12,
+    padding: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterDot: {
+    position: 'absolute',
+    top: -3,
+    right: -3,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#4CAF50',
+    borderWidth: 1,
+    borderColor: '#fff',
+    zIndex: 2,
+  },
 });
 
 // Estilos para swipe action
 const swipeStyles = StyleSheet.create({
   deleteAction: {
-    backgroundColor: '#ef4444',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    flex: 1,
     borderTopRightRadius: 12,
     borderBottomRightRadius: 12,
-    shadowColor: '#ef4444',
-    shadowOffset: { width: 2, height: 0 },
-    shadowOpacity: 0.18,
-    shadowRadius: 4,
-    elevation: 4,
+    backgroundColor: 'transparent',
   },
   deleteActionText: {
     color: '#fff',
     fontWeight: 'bold',
-    fontSize: 17,
+    fontSize: 16,
+    marginLeft: 2,
     letterSpacing: 0.5,
+    textShadowColor: '#b71c1c',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   animatedDeleteAction: {
     justifyContent: 'center',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     borderTopRightRadius: 12,
     borderBottomRightRadius: 12,
+    borderTopLeftRadius: 12, // Redondear también el lado izquierdo
+    borderBottomLeftRadius: 12, // Redondear también el lado izquierdo
     overflow: 'hidden',
+    flex: 1,
   },
   cornerIndicator: {
     position: 'absolute',
+    top: 0,
+    right: 0,
     backgroundColor: '#ef4444',
-    borderTopRightRadius: 12,
+    borderTopRightRadius: 6,
     borderBottomLeftRadius: 18,
-    zIndex: 2,
+    zIndex: 10,
+  },
+  fabDeleteButton: {
+    position: 'absolute',
+    right: -18,
+    top: 18,
+    zIndex: 20,
+    backgroundColor: '#ef4444',
+    borderTopRightRadius: 18,
+    borderBottomRightRadius: 18,
+    borderTopLeftRadius: 12,
+    borderBottomLeftRadius: 12,
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  fabDeleteInner: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fabDeleteBehind: {
+    position: 'absolute',
+    right: -18,
+    top: 0,
+    bottom: 0,
+    zIndex: 1,
+    backgroundColor: '#ef4444',
+    borderTopRightRadius: 18,
+    borderBottomRightRadius: 18,
+    width: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 6,
   },
 });
 
@@ -1391,47 +1563,29 @@ const deleteStyles = StyleSheet.create({
 
 // Estilos para el dashboard de estadísticas
 const dashboardStyles = StyleSheet.create({
-  dashboardCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  dashboardTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#222',
-    marginBottom: 18,
-    textAlign: 'center',
-    fontFamily: 'System',
-  },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    marginVertical: 12,
     gap: 12,
   },
   statBox: {
-    width: '48%',
-    backgroundColor: '#f4f4f5',
-    borderRadius: 12,
-    padding: 14,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 16,
     marginBottom: 12,
-    alignItems: 'center',
+    width: '47%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.08,
     shadowRadius: 2,
     elevation: 1,
+    alignItems: 'center',
   },
   statLabel: {
-    fontSize: 14,
-    color: '#4b5563',
+    fontSize: 13,
+    color: '#6b7280',
     marginBottom: 4,
     textAlign: 'center',
     fontFamily: 'System',
@@ -1439,15 +1593,15 @@ const dashboardStyles = StyleSheet.create({
   statValue: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#111827',
+    color: '#222',
     textAlign: 'center',
     fontFamily: 'System',
   },
   noStatsText: {
-    color: '#6b7280',
     fontSize: 16,
+    color: '#6b7280',
     textAlign: 'center',
+    marginVertical: 24,
     fontFamily: 'System',
-    marginVertical: 12,
   },
 });
