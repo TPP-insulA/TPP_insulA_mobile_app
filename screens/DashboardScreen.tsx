@@ -2,9 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, TextInput, Dimensions, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Loader2, ArrowUp, ArrowDown, Check, Utensils, Syringe, Droplet, Plus, MessageCircle, Activity, X as CloseIcon, Pencil, AlertCircle } from 'lucide-react-native';
+import { Loader2, ArrowUp, ArrowDown, Check, Utensils, Syringe, Droplet, Plus, MessageCircle, Activity, X as CloseIcon, Pencil, AlertCircle, Calendar } from 'lucide-react-native';
 import { Feather } from '@expo/vector-icons';
-import { format, formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow, parseISO, parse } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ChatInterface } from "../components/chat-interface";
 import { Footer } from "../components/footer";
@@ -36,23 +36,38 @@ export default function DashboardScreen() {
   const [openDialog, setOpenDialog] = useState(false);
   const [glucoseValue, setGlucoseValue] = useState('');
   const [notes, setNotes] = useState('');
+  const [dateValue, setDateValue] = useState(format(new Date(), 'dd/MM/yyyy HH:mm'));
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [readings, setReadings] = useState<GlucoseReading[]>([]);
+  const [todaysReadings, setTodaysReadings] = useState<GlucoseReading[]>([]);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [allActivities, setAllActivities] = useState<ActivityItem[]>([]);
   const [formError, setFormError] = useState('');
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!token) return;
 
     setIsLoading(true);
     try {
-      // Get last 6 glucose readings
-      const glucoseReadings = await getGlucoseReadings(token, { limit: 6 });
-      setReadings(glucoseReadings);
-
+      // Get all glucose readings for today with a single API call
+      const today = new Date();
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
+      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59).toISOString();
+      
+      const todaysReadings = await getGlucoseReadings(token, { 
+        startDate: startOfDay,
+        endDate: endOfDay 
+      });
+      
+      // Store today's readings in state
+      setTodaysReadings(todaysReadings);
+      
+      // Use the same data for the chart (latest 6 readings)
+      setReadings(todaysReadings.slice(0, 6));
+      
       // Get all activities but only show 5 initially
       const recentActivities = await getActivities(token);
       setAllActivities(recentActivities);
@@ -98,11 +113,57 @@ export default function DashboardScreen() {
       return;
     }
 
+    // Validar formato de fecha (dd/MM/yyyy HH:mm)
+    const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})$/;
+    if (!dateRegex.test(dateValue)) {
+      setFormError('Formato de fecha inválido. Use dd/MM/yyyy HH:mm');
+      return;
+    }
+
+    // Extraer componentes de la fecha para validación
+    const [datePart, timePart] = dateValue.split(' ');
+    const [day, month, year] = datePart.split('/');
+    const [hours, minutes] = timePart.split(':');
+    
+    // Validar día, mes, año
+    const dayNum = parseInt(day);
+    const monthNum = parseInt(month) - 1; // Meses en JS son 0-11
+    const yearNum = parseInt(year);
+    const hoursNum = parseInt(hours);
+    const minutesNum = parseInt(minutes);
+
+    // Validar hora (0-23)
+    if (hoursNum < 0 || hoursNum > 23) {
+      setFormError('La hora debe estar entre 00 y 23');
+      return;
+    }
+    
+    // Validar minutos (0-59)
+    if (minutesNum < 0 || minutesNum > 59) {
+      setFormError('Los minutos deben estar entre 00 y 59');
+      return;
+    }
+    
+    // Validar que la fecha sea válida en general (detecta días inválidos como 31/02)
+    const dateObj = new Date(yearNum, monthNum, dayNum, hoursNum, minutesNum);
+    if (
+      dateObj.getFullYear() !== yearNum || 
+      dateObj.getMonth() !== monthNum || 
+      dateObj.getDate() !== dayNum
+    ) {
+      setFormError('Fecha inválida. Por favor verifica el día y mes');
+      return;
+    }
+
     setIsLoading(true);
     try {
+      // Convertir a UTC ISO string
+      const utcDate = dateObj.toISOString();
+
       await createGlucoseReading({ 
         value: Number(glucoseValue),
-        notes 
+        notes: notes.substring(0, 30), // Limitar notas a 30 caracteres
+        date: utcDate,
       }, token);
       
       // Refresh data after adding new reading
@@ -112,6 +173,8 @@ export default function DashboardScreen() {
       setGlucoseValue('');
       setNotes('');
       setFormError('');
+      // Reiniciar fecha a la actual
+      setDateValue(format(new Date(), 'dd/MM/yyyy HH:mm'));
       
       toast({
         title: 'Éxito',
@@ -156,15 +219,15 @@ export default function DashboardScreen() {
   };
 
   // Rest of your component remains the same, just update the data access
-  const currentGlucose = readings[0]?.value || 0;
-  const previousGlucose = readings[1]?.value || 0;
-  const glucoseDiff = currentGlucose - previousGlucose;
+  const currentGlucose = readings.length > 0 ? readings[0].value : 0;
+  const previousGlucose = readings.length > 1 ? readings[1].value : 0;
+  const glucoseDiff = (currentGlucose !== 0 && previousGlucose !== 0) ? currentGlucose - previousGlucose : 0;
   const lastUpdated = readings[0]?.timestamp
-    ? formatDistanceToNow(new Date(readings[0].timestamp), { addSuffix: true })
+    ? formatTimeAgo(new Date(readings[0].timestamp))
     : '';
 
   const averageGlucose = Math.round(
-    readings.reduce((acc, reading) => acc + reading.value, 0) / (readings.length || 1)
+    todaysReadings.reduce((acc, reading) => acc + reading.value, 0) / (todaysReadings.length || 1)
   );
 
   const timeInRange = Math.round(
@@ -221,6 +284,21 @@ export default function DashboardScreen() {
     if (value > 140) return { fill: '#f97316', opacity: 0.8 }; // Naranja para límite alto
     return { fill: '#4CAF50', opacity: 0.8 }; // Verde para rango saludable
   };
+  const closeDialog = () => {
+    setOpenDialog(false);
+    setFormError('');
+    // Resetear campos cada vez que se cierra el modal
+    setGlucoseValue('');
+    setNotes('');
+    // Resetear la fecha a la actual
+    setDateValue(format(new Date(), 'dd/MM/yyyy HH:mm'));
+  };
+
+  const openGlucoseInputDialog = () => {
+    // Asegurar que el campo de fecha se inicialice con la fecha actual
+    setDateValue(format(new Date(), 'dd/MM/yyyy HH:mm'));
+    setOpenDialog(true);
+  };
   return (
     <View style={styles.container}>
       <AppHeader
@@ -276,7 +354,7 @@ export default function DashboardScreen() {
               </View>
               <TouchableOpacity 
                 style={styles.addButton}
-                onPress={() => setOpenDialog(true)}
+                onPress={openGlucoseInputDialog}
               >
                 <Plus width={16} height={16} color="white" />
                 <Text style={styles.addButtonText}>Agregar Lectura</Text>
@@ -337,42 +415,48 @@ export default function DashboardScreen() {
                   <View style={styles.rangeIndicator}>
                     <Text style={styles.rangeText}>Rango saludable: 80-140 mg/dL</Text>
                   </View>
-                  <View style={styles.chart}>
-                    {readings.slice(0, 6).reverse().map((reading, index) => {
-                      const max = Math.max(...readings.map(r => r.value));
-                      const min = Math.min(...readings.map(r => r.value));
-                      const range = max - min || 1;
-                      const height = ((reading.value - min) / range) * 70 + 10;
-                      const barColors = getBarColor(reading.value);
-                      
-                      return (
-                        <View key={index} style={styles.chartBar}>
-                          <View style={[
-                            styles.bar,
-                            { 
-                              height: `${height}%`,
-                              backgroundColor: barColors.fill,
-                              opacity: barColors.opacity
-                            } as any
-                          ]}>
-                            <View style={styles.barValueContainer}>
-                              <Text style={[
-                                styles.barValue,
-                                { color: reading.value >= 70 && reading.value <= 140 ? '#4CAF50' : '#ef4444' }
-                              ]}>
-                                {reading.value}
+                  {readings.length === 0 ? (
+                    <View style={styles.noDataContainer}>
+                      <Text style={styles.noDataText}>No hay datos disponibles</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.chart}>
+                      {readings.slice(0, 6).reverse().map((reading, index) => {
+                        const max = Math.max(...readings.map(r => r.value));
+                        const min = Math.min(...readings.map(r => r.value));
+                        const range = max - min || 1;
+                        const height = ((reading.value - min) / range) * 70 + 10;
+                        const barColors = getBarColor(reading.value);
+                        
+                        return (
+                          <View key={index} style={styles.chartBar}>
+                            <View style={[
+                              styles.bar,
+                              { 
+                                height: `${height}%`,
+                                backgroundColor: barColors.fill,
+                                opacity: barColors.opacity
+                              } as any
+                            ]}>
+                              <View style={styles.barValueContainer}>
+                                <Text style={[
+                                  styles.barValue,
+                                  { color: reading.value >= 70 && reading.value <= 140 ? '#4CAF50' : '#ef4444' }
+                                ]}>
+                                  {reading.value}
+                                </Text>
+                              </View>
+                            </View>
+                            <View style={styles.xAxisLabelContainer}>
+                              <Text style={styles.xAxisLabel}>
+                                {format(new Date(reading.timestamp), 'HH:mm')}
                               </Text>
                             </View>
                           </View>
-                          <View style={styles.xAxisLabelContainer}>
-                            <Text style={styles.xAxisLabel}>
-                              {format(new Date(reading.timestamp), 'HH:mm')}
-                            </Text>
-                          </View>
-                        </View>
-                      );
-                    })}
-                  </View>
+                        );
+                      })}
+                    </View>
+                  )}
                   <View style={styles.targetRange}>
                     <View style={[styles.targetLine, styles.targetLineUpper]} />
                     <View style={[styles.targetLine, styles.targetLineLower]} />
@@ -385,31 +469,39 @@ export default function DashboardScreen() {
             <View style={styles.statsGrid}>
               <View style={styles.statsCardHalf}>
                 <Text style={styles.statsLabel}>Promedio Diario</Text>
-                <View style={styles.statsValue}>
-                  <Text style={[
-                    styles.statsNumber,
-                    { color: getAverageGlucoseStatus(averageGlucose).color }
-                  ]}>
-                    {averageGlucose}
-                  </Text>
-                  <Text style={styles.statsUnit}>mg/dL</Text>
-                </View>
-                <View style={[
-                  styles.statsIndicator,
-                  { backgroundColor: getAverageGlucoseStatus(averageGlucose).bgColor }
-                ]}>
-                  {averageGlucose >= 70 && averageGlucose <= 140 ? (
-                    <Check width={12} height={12} color={getAverageGlucoseStatus(averageGlucose).color} />
-                  ) : (
-                    <AlertCircle width={12} height={12} color={getAverageGlucoseStatus(averageGlucose).color} />
-                  )}
-                  <Text style={[
-                    styles.statsStatus,
-                    { color: getAverageGlucoseStatus(averageGlucose).color }
-                  ]}>
-                    {getAverageGlucoseStatus(averageGlucose).text}
-                  </Text>
-                </View>
+                {todaysReadings.length === 0 ? (
+                  <View style={styles.noDataContainer}>
+                    <Text style={styles.noDataText}>No hay datos disponibles</Text>
+                  </View>
+                ) : (
+                  <>
+                    <View style={styles.statsValue}>
+                      <Text style={[
+                        styles.statsNumber,
+                        { color: getAverageGlucoseStatus(averageGlucose).color }
+                      ]}>
+                        {averageGlucose}
+                      </Text>
+                      <Text style={styles.statsUnit}>mg/dL</Text>
+                    </View>
+                    <View style={[
+                      styles.statsIndicator,
+                      { backgroundColor: getAverageGlucoseStatus(averageGlucose).bgColor }
+                    ]}>
+                      {averageGlucose >= 70 && averageGlucose <= 140 ? (
+                        <Check width={12} height={12} color={getAverageGlucoseStatus(averageGlucose).color} />
+                      ) : (
+                        <AlertCircle width={12} height={12} color={getAverageGlucoseStatus(averageGlucose).color} />
+                      )}
+                      <Text style={[
+                        styles.statsStatus,
+                        { color: getAverageGlucoseStatus(averageGlucose).color }
+                      ]}>
+                        {getAverageGlucoseStatus(averageGlucose).text}
+                      </Text>
+                    </View>
+                  </>
+                )}
               </View>
 
               <TouchableOpacity 
@@ -554,6 +646,31 @@ export default function DashboardScreen() {
 
                   <View style={styles.formGroup}>
                     <View style={styles.labelContainer}>
+                      <Calendar width={16} height={16} color="#4CAF50" />
+                      <Text style={styles.label}>Fecha y Hora</Text>
+                    </View>
+                    <View style={[
+                      styles.inputWrapper,
+                      formError ? styles.inputError : null
+                    ]}>
+                      <TextInput
+                        style={styles.input}
+                        value={dateValue}
+                        onChangeText={setDateValue}
+                        placeholder="dd/MM/yyyy HH:mm"
+                        maxLength={16}
+                      />
+                    </View>
+                    <View style={[styles.helperText, { flexDirection: 'row', alignItems: 'center' }]}>
+                      <AlertCircle width={12} height={12} color="#6b7280" />
+                      <Text style={{ marginLeft: 4, fontSize: 12, color: '#6b7280' }}>
+                        Formato: dd/MM/yyyy HH:mm
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.formGroup}>
+                    <View style={styles.labelContainer}>
                       <Pencil width={16} height={16} color="#4CAF50" />
                       <Text style={styles.label}>Notas (opcional)</Text>
                     </View>
@@ -561,18 +678,24 @@ export default function DashboardScreen() {
                       <TextInput
                         style={[styles.input, styles.textArea]}
                         value={notes}
-                        onChangeText={setNotes}
+                        onChangeText={(text) => setNotes(text.substring(0, 30))}
                         multiline
-                        numberOfLines={8}
-                        placeholder="✍️ Agrega comentarios sobre esta lectura (ej: antes/después de comer, ejercicio, estrés...)"
+                        numberOfLines={3}
+                        maxLength={30}
+                        placeholder="✍️ Agrega comentarios breves..."
                         textAlignVertical="top"
                         placeholderTextColor="#9ca3af"
                       />
                     </View>
-                    <View style={[styles.helperText, { flexDirection: 'row', alignItems: 'center' }]}>
-                      <AlertCircle width={12} height={12} color="#6b7280" />
-                      <Text style={{ marginLeft: 4, fontSize: 12, color: '#6b7280' }}>
-                        Las notas te ayudarán a recordar el contexto de esta lectura
+                    <View style={[styles.helperText, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <AlertCircle width={12} height={12} color="#6b7280" />
+                        <Text style={{ marginLeft: 4, fontSize: 12, color: '#6b7280' }}>
+                          Máximo 30 caracteres
+                        </Text>
+                      </View>
+                      <Text style={{ fontSize: 12, color: '#6b7280' }}>
+                        {notes.length}/30
                       </Text>
                     </View>
                   </View>
@@ -799,6 +922,16 @@ const styles = StyleSheet.create({
     padding: 8,
     paddingBottom: 25,
     paddingTop: 15,
+  },
+  noDataContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  noDataText: {
+    fontSize: 14,
+    color: '#6b7280',
   },
   targetRange: {
     position: 'absolute',
@@ -1079,10 +1212,10 @@ const styles = StyleSheet.create({
     borderColor: '#d1d5db',
     borderRadius: 8,
     backgroundColor: 'white',
-    minHeight: 200,
+    minHeight: 100,
   },
   textArea: {
-    height: 200,
+    height: 100,
     textAlignVertical: 'top',
     borderWidth: 0,
     padding: 12,
@@ -1168,5 +1301,18 @@ const styles = StyleSheet.create({
   },
   targetLineLower: {
     top: '70%',
+  },
+  noDataStats: {
+    padding: 16,
+    borderRadius: 8,
+    backgroundColor: 'rgba(229, 231, 235, 1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 100,
+  },
+  noDataStatsText: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
   },
 });

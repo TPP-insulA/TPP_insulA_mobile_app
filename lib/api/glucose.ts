@@ -20,6 +20,7 @@ export interface ActivityItem {
 }
 
 export interface CreateGlucoseReadingInput {
+  date: string; //String UTC in ISO format
   value: number;
   notes?: string;
 }
