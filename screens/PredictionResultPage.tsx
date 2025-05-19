@@ -11,6 +11,8 @@ import { Activity, Calendar, Syringe, ChevronRight, Plus, Trash2, Database, Line
 import { updateInsulinPredictionResult } from '../lib/api/insulin';
 import { useAuth } from '../hooks/use-auth';
 import { AppHeader } from '../components/app-header';
+import { getGlucoseReadings } from '../lib/api/glucose';
+import Icon from 'react-native-vector-icons/Feather';
 
 export default function PredictionResultPage() {
   const navigation = useNavigation();
@@ -46,6 +48,8 @@ export default function PredictionResultPage() {
   const { token } = useAuth();
   const [isSavingPost, setIsSavingPost] = useState(false);
   const [isDeletingPost, setIsDeletingPost] = useState(false);
+  const [isLoadingPostGlucose, setIsLoadingPostGlucose] = useState(false);
+  const [noPostGlucoseFound, setNoPostGlucoseFound] = useState(false);
 
   // Combinar CGM previos y posteriores para el gráfico
   const cgmCombined = [...cgmPrevOrdered, ...cgmPostOrdered];
@@ -100,6 +104,56 @@ export default function PredictionResultPage() {
     }
   };
 
+  const loadPostGlucoseReadings = async () => {
+    setIsLoadingPostGlucose(true);
+    setPostError(null);
+    setNoPostGlucoseFound(false);
+    try {
+      if (!token || !date) {
+        setPostError('No se puede cargar datos sin fecha de dosis');
+        return;
+      }
+      
+      // Calcular fechas: desde la fecha del resultado hasta 2h15m después
+      const startDate = new Date(date);
+      const endDate = new Date(startDate.getTime() + (2 * 60 + 15) * 60 * 1000); // 2h15m en milisegundos
+      
+      const params = {
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        limit: 24
+      };
+      
+      const readings = await getGlucoseReadings(token, params);
+      
+      // Ordenar de más antigua a más reciente para datos posteriores
+      const glucoseValues = readings
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+        .slice(0, 23) // Dejamos espacio para un campo adicional (máximo 23 en lugar de 24)
+        .map(reading => reading.value.toString());
+      
+      // Verificar si se encontraron valores
+      if (glucoseValues.length === 0) {
+        setNoPostGlucoseFound(true);
+        setCgmPostInputs(['']);
+        return;
+      }
+      
+      // Asegurarnos de que haya un campo vacío al final siempre que no hayamos alcanzado el máximo
+      if (glucoseValues.length < 24) {
+        glucoseValues.push('');
+      }
+      
+      // Actualizar los inputs con los valores encontrados
+      setCgmPostInputs(glucoseValues);
+    } catch (err) {
+      setPostError('Error cargando lecturas de glucosa posteriores');
+      setNoPostGlucoseFound(true);
+    } finally {
+      setIsLoadingPostGlucose(false);
+    }
+  };
+
   const handleDeletePost = async () => {
     setIsDeletingPost(true);
     setPostError(null);
@@ -120,6 +174,32 @@ export default function PredictionResultPage() {
     } finally {
       setIsDeletingPost(false);
     }
+  };
+
+  const handleEditPost = () => {
+    // Inicializar con los valores existentes cuando se edita
+    if (cgmPost && cgmPost.length > 0) {
+      // Convertir los valores existentes a strings
+      const values = cgmPost.map(val => val.toString());
+      
+      // Asegurarse de que haya un campo vacío al final para agregar más valores
+      if (values.length < 24) {
+        values.push('');
+      }
+      
+      setCgmPostInputs(values);
+    } else {
+      setCgmPostInputs(['']);
+    }
+    
+    // Inicializar con la dosis aplicada existente
+    if (applyDose !== undefined && applyDose !== null && applyDose !== 0) {
+      setAppliedDoseInput(applyDose.toString());
+    } else {
+      setAppliedDoseInput('');
+    }
+    
+    setShowPostInputs(true);
   };
 
   const formattedDate = date ? (() => {
@@ -276,8 +356,8 @@ export default function PredictionResultPage() {
                   borderRadius: 16,
                 },
                 propsForDots: {
-                  r: '4',
-                  strokeWidth: '2',
+                  r: '5',
+                  strokeWidth: '0',
                   stroke: '#4CAF50',
                 },
                 propsForLabels: {
@@ -298,16 +378,6 @@ export default function PredictionResultPage() {
               yAxisSuffix=""
               yAxisInterval={1}
               segments={5}
-              renderDotContent={({ x, y, index }) => {
-                if (index === predictedIndex) {
-                  return (
-                    <View key={`prediction-dot-${index}`} style={[styles.predictionDot, { left: x - 4, top: y - 4 }]}>
-                      <View style={styles.predictionDotInner} />
-                    </View>
-                  );
-                }
-                return null;
-              }}
               getDotColor={(dataPoint, index) => index === predictedIndex ? '#ff9800' : '#4CAF50'}
               onDataPointClick={({ index, x, y }) => {
                 setTooltip({ index, x, y });
@@ -332,7 +402,7 @@ export default function PredictionResultPage() {
                           borderRadius: 6,
                           padding: 6,
                           borderWidth: 1,
-                          borderColor: index === predictedIndex ? '#ff9800' : '#4CAF50',
+                          borderColor: '#4CAF50',
                           zIndex: 10,
                           minWidth: 80,
                           alignItems: 'center',
@@ -351,7 +421,7 @@ export default function PredictionResultPage() {
                 );
               }}
             />
-            <Text style={styles.xAxisLabel}>Tiempo (minutos)</Text>
+            <Text style={styles.xAxisLabel}>Tiempo</Text>
           </View>
           <View style={styles.chartLegend}>
             <View style={styles.legendItem}>
@@ -395,7 +465,7 @@ export default function PredictionResultPage() {
               <View style={styles.actionButtons}>
                 <TouchableOpacity
                   style={[styles.actionButton, styles.editButton]}
-                  onPress={() => setShowPostInputs(true)}
+                  onPress={handleEditPost}
                   disabled={isSavingPost || isDeletingPost}
                 >
                   <Plus size={20} color="#fff" />
@@ -403,6 +473,7 @@ export default function PredictionResultPage() {
                     {hasPostData ? 'Editar datos' : 'Agregar datos'}
                   </Text>
                 </TouchableOpacity>
+                
                 {hasPostData && (
                   <TouchableOpacity
                     style={[styles.actionButton, styles.deleteButton]}
@@ -423,6 +494,27 @@ export default function PredictionResultPage() {
               <Text style={styles.inputHelper}>
                 Ingrese las mediciones de glucosa de las próximas 2 horas
               </Text>
+              
+              <TouchableOpacity
+                style={[
+                  styles.loadButton, 
+                  noPostGlucoseFound ? styles.loadButtonDisabled : (isLoadingPostGlucose && styles.buttonDisabled)
+                ]}
+                onPress={loadPostGlucoseReadings}
+                disabled={isLoadingPostGlucose || !token || noPostGlucoseFound}
+              >
+                {isLoadingPostGlucose ? (
+                  <Icon name="loader" size={16} color="#4CAF50" />
+                ) : noPostGlucoseFound ? (
+                  <Icon name="x-circle" size={16} color="#9CA3AF" />
+                ) : (
+                  <Icon name="refresh-cw" size={16} color="#4CAF50" />
+                )}
+                <Text style={[styles.loadButtonText, noPostGlucoseFound && styles.disabledButtonText]}>
+                  {noPostGlucoseFound ? "No se encontraron valores" : "Cargar últimos valores"}
+                </Text>
+              </TouchableOpacity>
+              
               {cgmPostInputs.map((value, idx) => (
                 <View key={idx} style={styles.inputRow}>
                   <TextInput
@@ -816,6 +908,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: 8,
   },
+  actionButtonTextCancel: {
+    color: '#6b7280',
+    fontWeight: '500',
+    marginLeft: 8,
+  },
   postInputsContainer: {
     backgroundColor: '#f9fafb',
     borderRadius: 12,
@@ -891,7 +988,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   cancelButton: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#ef4444',
   },
   saveButton: {
     backgroundColor: '#4CAF50',
@@ -919,6 +1016,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6b7280',
     fontWeight: '500',
+    textAlign: 'center',
+    width: '100%',
   },
   yAxisLabel: {
     position: 'absolute',
@@ -927,5 +1026,32 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6b7280',
     fontWeight: '500',
+  },
+  loadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    backgroundColor: '#e1f5fe',
+    borderRadius: 8,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#4CAF50',
+  },
+  loadButtonDisabled: {
+    backgroundColor: '#f3f4f6',
+    borderColor: '#d1d5db',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  loadButtonText: {
+    fontSize: 14,
+    color: '#4CAF50',
+    fontWeight: '500',
+    marginLeft: 8,
+  },
+  disabledButtonText: {
+    color: '#9CA3AF',
   },
 });

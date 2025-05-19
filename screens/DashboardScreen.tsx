@@ -4,8 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Loader2, ArrowUp, ArrowDown, Check, Utensils, Syringe, Droplet, Plus, MessageCircle, Activity, X as CloseIcon, Pencil, AlertCircle, Calendar } from 'lucide-react-native';
 import { Feather } from '@expo/vector-icons';
-import { format, formatDistanceToNow, parseISO, parse } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { format } from 'date-fns';
 import { ChatInterface } from "../components/chat-interface";
 import { Footer } from "../components/footer";
 import { LoadingSpinner } from "../components/loading-spinner";
@@ -48,6 +47,7 @@ export default function DashboardScreen() {
   const [activitiesPage, setActivitiesPage] = useState(1);
   const ACTIVITIES_PER_PAGE = 5; // Número de actividades por página
   const [formError, setFormError] = useState('');
+  const [dateError, setDateError] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -105,6 +105,8 @@ export default function DashboardScreen() {
       setFormError('El valor debe ser un número.');
       return false;
     }
+    
+    // Limpiar el error si el valor es válido
     setFormError('');
     return true;
   };
@@ -112,15 +114,10 @@ export default function DashboardScreen() {
   const handleSubmit = async () => {
     if (!token) return;
 
-    // Validate before submitting
-    if (!validateGlucoseValue(glucoseValue)) {
-      return;
-    }
-
     // Validar formato de fecha (dd/MM/yyyy HH:mm)
     const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})$/;
     if (!dateRegex.test(dateValue)) {
-      setFormError('Formato de fecha inválido. Use dd/MM/yyyy HH:mm');
+      setDateError('Formato de fecha inválido. Use dd/MM/yyyy HH:mm');
       return;
     }
 
@@ -138,13 +135,13 @@ export default function DashboardScreen() {
 
     // Validar hora (0-23)
     if (hoursNum < 0 || hoursNum > 23) {
-      setFormError('La hora debe estar entre 00 y 23');
+      setDateError('La hora debe estar entre 00 y 23');
       return;
     }
     
     // Validar minutos (0-59)
     if (minutesNum < 0 || minutesNum > 59) {
-      setFormError('Los minutos deben estar entre 00 y 59');
+      setDateError('Los minutos deben estar entre 00 y 59');
       return;
     }
     
@@ -155,7 +152,13 @@ export default function DashboardScreen() {
       dateObj.getMonth() !== monthNum || 
       dateObj.getDate() !== dayNum
     ) {
-      setFormError('Fecha inválida. Por favor verifica el día y mes');
+      setDateError('Fecha inválida. Por favor verifica el día y mes');
+      return;
+    }
+
+    // Validar que se tenga un valor de glucosa
+    if (!glucoseValue) {
+      setFormError('Ingrese un valor de glucosa válido');
       return;
     }
 
@@ -177,7 +180,8 @@ export default function DashboardScreen() {
       setGlucoseValue('');
       setNotes('');
       setFormError('');
-      // Reiniciar fecha a la actual
+      setDateError('');
+      // Resetear la fecha a la actual
       setDateValue(format(new Date(), 'dd/MM/yyyy HH:mm'));
       
       toast({
@@ -311,6 +315,7 @@ export default function DashboardScreen() {
   const closeDialog = () => {
     setOpenDialog(false);
     setFormError('');
+    setDateError('');
     // Resetear campos cada vez que se cierra el modal
     setGlucoseValue('');
     setNotes('');
@@ -387,7 +392,7 @@ export default function DashboardScreen() {
 
             <View style={styles.card}>
               <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>Glucosa Actual</Text>
+                <Text style={styles.cardTitle}>Glucosa Diaria</Text>
                 <Text style={styles.timestamp}>
                   {readings[0]?.timestamp 
                     ? formatTimeAgo(new Date(readings[0].timestamp))
@@ -697,12 +702,18 @@ export default function DashboardScreen() {
                     </View>
                     <View style={[
                       styles.inputWrapper,
-                      formError ? styles.inputError : null
+                      dateError ? styles.inputError : null
                     ]}>
                       <TextInput
                         style={styles.input}
                         value={dateValue}
-                        onChangeText={setDateValue}
+                        onChangeText={(text) => {
+                          setDateValue(text);
+                          // Limpiar el error de fecha cuando el usuario modifica el valor
+                          if (dateError) {
+                            setDateError('');
+                          }
+                        }}
                         placeholder="dd/MM/yyyy HH:mm"
                         maxLength={16}
                       />
@@ -713,6 +724,9 @@ export default function DashboardScreen() {
                         Formato: dd/MM/yyyy HH:mm
                       </Text>
                     </View>
+                    {dateError ? (
+                      <Text style={styles.errorText}>{dateError}</Text>
+                    ) : null}
                   </View>
 
                   <View style={styles.formGroup}>
@@ -752,6 +766,7 @@ export default function DashboardScreen() {
                       onPress={() => {
                         setOpenDialog(false);
                         setFormError('');
+                        setDateError('');
                       }}
                     >
                       <CloseIcon width={16} height={16} color="#6b7280" />
@@ -760,10 +775,10 @@ export default function DashboardScreen() {
                     <TouchableOpacity
                       style={[
                         styles.submitButton,
-                        (!glucoseValue || !!formError) && styles.submitButtonDisabled
+                        (!glucoseValue || isLoading || !!formError || !!dateError) && styles.submitButtonDisabled
                       ]}
                       onPress={handleSubmit}
-                      disabled={!glucoseValue || !!formError}
+                      disabled={!glucoseValue || isLoading || !!formError || !!dateError}
                     >
                       {isLoading ? (
                         <Loader2 width={16} height={16} color="white" />

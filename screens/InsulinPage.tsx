@@ -4,7 +4,6 @@ import { Calculator, Droplet, Zap, TrendingUp, TrendingDown } from 'lucide-react
 import Icon from 'react-native-vector-icons/Feather';
 import { format } from 'date-fns';
 import { Card } from '../components/ui/card';
-import { BackButton } from '../components/back-button';
 import { Footer } from '../components/footer';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../hooks/use-auth';
@@ -12,6 +11,7 @@ import {
   calculateInsulinDose,
   getInsulinPredictions,
 } from '../lib/api/insulin';
+import { getGlucoseReadings } from '../lib/api/glucose';
 import { AppHeader } from '../components/app-header';
 
 interface Recommendation {
@@ -61,6 +61,8 @@ export default function InsulinPage() {
       accuracy: 'Accurate' | 'Slightly low' | 'Low';
     }>;
   } | null>(null);
+  const [isLoadingGlucose, setIsLoadingGlucose] = useState(false);
+  const [noGlucoseFound, setNoGlucoseFound] = useState(false);
   const [glucoseExpanded, setGlucoseExpanded] = useState(true);
   const [sleepQuality, setSleepQuality] = useState(''); // 1-10
   const [workLevel, setWorkLevel] = useState(''); // 1-10
@@ -80,6 +82,52 @@ export default function InsulinPage() {
     };
     loadPredictions();
   }, [token]);
+
+  const loadRecentGlucoseReadings = async () => {
+    setIsLoadingGlucose(true);
+    setError(null);
+    setNoGlucoseFound(false);
+    try {
+      if (!token) return;
+      
+      // Calcular fecha de inicio (2 horas y 15 minutos atrás)
+      const now = new Date();
+      const startDate = new Date(now.getTime() - (2 * 60 + 15) * 60 * 1000); // 2h15m en milisegundos
+      
+      const params = {
+        startDate: startDate.toISOString(),
+        limit: MAX_GLUCOSE_ENTRIES
+      };
+      
+      const readings = await getGlucoseReadings(token, params);
+      
+      // Ordenar de más reciente a más antigua y extraer valores
+      const glucoseValues = readings
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, MAX_GLUCOSE_ENTRIES - 1) // Dejamos espacio para un campo adicional
+        .map(reading => reading.value.toString());
+      
+      // Verificar si se encontraron valores
+      if (glucoseValues.length === 0) {
+        setNoGlucoseFound(true);
+        setGlucoseInputs(['']);
+        return;
+      }
+      
+      // Asegurarnos de que haya un campo vacío al final siempre que no hayamos alcanzado el máximo
+      if (glucoseValues.length < MAX_GLUCOSE_ENTRIES) {
+        glucoseValues.push('');
+      }
+      
+      // Actualizar los inputs con los valores encontrados
+      setGlucoseInputs(glucoseValues);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error cargando lecturas de glucosa');
+      setNoGlucoseFound(true);
+    } finally {
+      setIsLoadingGlucose(false);
+    }
+  };
 
   const handleGlucoseChange = (value: string, idx: number) => {
     if (!/^\d{0,3}$/.test(value)) return;
@@ -180,6 +228,26 @@ export default function InsulinPage() {
               </Text>
               {glucoseExpanded && (
                 <View>
+                  <TouchableOpacity
+                    style={[
+                      styles.loadButton, 
+                      noGlucoseFound ? styles.loadButtonDisabled : (isLoadingGlucose && styles.buttonDisabled)
+                    ]}
+                    onPress={loadRecentGlucoseReadings}
+                    disabled={isLoadingGlucose || !token || noGlucoseFound}
+                  >
+                    {isLoadingGlucose ? (
+                      <Icon name="loader" size={16} color="#4CAF50" />
+                    ) : noGlucoseFound ? (
+                      <Icon name="x-circle" size={16} color="#9CA3AF" />
+                    ) : (
+                      <Icon name="refresh-cw" size={16} color="#4CAF50" />
+                    )}
+                    <Text style={[styles.loadButtonText, noGlucoseFound && styles.disabledButtonText]}>
+                      {noGlucoseFound ? "No se encontraron valores" : "Cargar últimos valores"}
+                    </Text>
+                  </TouchableOpacity>
+                  
                   {glucoseInputs.map((value, idx) => (
                     <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                       <TextInput
@@ -203,6 +271,11 @@ export default function InsulinPage() {
                   ))}
                   {glucoseInputs.length === MAX_GLUCOSE_ENTRIES && glucoseInputs[MAX_GLUCOSE_ENTRIES-1] !== '' && (
                     <Text style={{ color: '#ef4444', fontSize: 12 }}>Máximo 24 mediciones alcanzado.</Text>
+                  )}
+                  {noGlucoseFound && (
+                    <Text style={{ color: '#6b7280', fontSize: 14, marginTop: 8 }}>
+                      No se encontraron valores de glucosa recientes. Asegúrate de tener mediciones en las últimas 2 horas.
+                    </Text>
                   )}
                 </View>
               )}
@@ -596,11 +669,21 @@ const styles = StyleSheet.create({
   primaryButton: {
     backgroundColor: '#4CAF50',
   },
+  secondaryButton: {
+    backgroundColor: '#f3f4f6',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+  },
   buttonDisabled: {
     backgroundColor: '#9CA3AF',
   },
   buttonText: {
     color: 'white',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  secondaryButtonText: {
+    color: '#4CAF50',
     fontSize: 16,
     fontWeight: '500',
   },
@@ -752,5 +835,29 @@ const styles = StyleSheet.create({
   },
   accuracyBad: {
     color: '#ef4444',
+  },
+  loadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#f3f4f6',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    marginBottom: 8,
+  },
+  loadButtonText: {
+    color: '#4CAF50',
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 8,
+  },
+  disabledButtonText: {
+    color: '#6b7280',
+  },
+  loadButtonDisabled: {
+    backgroundColor: '#e5e7eb',
+    borderColor: '#d1d5db',
   },
 });

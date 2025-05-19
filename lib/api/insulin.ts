@@ -239,7 +239,7 @@ export const getPredictionHistory = async (token: string, id: string): Promise<I
       {
         id: "test_5",
         userId: id,
-        date: "2025-05-16T00:05:16.268Z",
+        date: "2025-05-19T21:40:00.000Z",
         cgmPrev: [95, 100, 105],
         glucoseObjective: 100,
         carbs: 25,
