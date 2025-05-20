@@ -364,7 +364,7 @@ export default function InsulinPage() {
               {/* Glucose Section */}
               <View style={styles.section}>
                 <View style={styles.sectionHeader}>
-                  <Droplet size={16} color="#4CAF50" />
+                <Droplet size={16} color="#4CAF50" />
                   <Text style={styles.sectionTitle}>Glucosa</Text>
                 </View>
                 {glucoseInputs.filter(g => g !== '' && g !== '0').length === 0 ? (
@@ -378,7 +378,7 @@ export default function InsulinPage() {
                 ) : (
                   <GlucoseSummary />
                 )}
-              </View>
+                      </View>
 
               {/* Nutrition and Control Section */}
               <View style={styles.section}>
@@ -388,69 +388,69 @@ export default function InsulinPage() {
                 </View>
                 <View style={styles.gridContainer}>
                   <View style={styles.gridItem}>
-                    <View style={styles.labelContainer}>
-                      <Text style={styles.label}>Glucosa Objetivo</Text>
+                <View style={styles.labelContainer}>
+                  <Text style={styles.label}>Glucosa Objetivo</Text>
                       <Text style={styles.inputDescription}>Valor deseado de glucosa (80-180 mg/dL)</Text>
-                    </View>
-                    <View style={styles.inputGroup}>
-                      <TextInput
-                        style={styles.input}
-                        value={targetBloodGlucose}
-                        onChangeText={setTargetBloodGlucose}
-                        keyboardType="numeric"
+                </View>
+                <View style={styles.inputGroup}>
+                  <TextInput
+                    style={styles.input}
+                    value={targetBloodGlucose}
+                    onChangeText={setTargetBloodGlucose}
+                    keyboardType="numeric"
                         placeholder="mg/dL"
-                      />
-                      <View style={styles.inputAddon}>
-                        <Text style={styles.inputAddonText}>mg/dL</Text>
-                      </View>
-                    </View>
-                    {showTargetWarning && (
-                      <Text style={styles.errorText}>Debe ser entre 80-180 mg/dL</Text>
-                    )}
+                  />
+                  <View style={styles.inputAddon}>
+                    <Text style={styles.inputAddonText}>mg/dL</Text>
                   </View>
+                </View>
+                {showTargetWarning && (
+                      <Text style={styles.errorText}>Debe ser entre 80-180 mg/dL</Text>
+                )}
+              </View>
 
                   <View style={styles.gridItem}>
-                    <View style={styles.labelContainer}>
+                <View style={styles.labelContainer}>
                       <Text style={styles.label}>Carbohidratos</Text>
                       <Text style={styles.inputDescription}>Cantidad de carbohidratos a consumir</Text>
-                    </View>
-                    <View style={styles.inputGroup}>
-                      <TextInput
-                        style={styles.input}
-                        value={carbs}
-                        onChangeText={setCarbs}
-                        keyboardType="numeric"
+                </View>
+                <View style={styles.inputGroup}>
+                  <TextInput
+                    style={styles.input}
+                    value={carbs}
+                    onChangeText={setCarbs}
+                    keyboardType="numeric"
                         placeholder="gramos"
-                      />
-                      <View style={styles.inputAddon}>
+                  />
+                  <View style={styles.inputAddon}>
                         <Text style={styles.inputAddonText}>g</Text>
-                      </View>
-                    </View>
-                    {carbs && !isValidCarbs(carbs) && (
-                      <Text style={styles.errorText}>Número válido (2 decimales)</Text>
-                    )}
                   </View>
+                </View>
+                {carbs && !isValidCarbs(carbs) && (
+                      <Text style={styles.errorText}>Número válido (2 decimales)</Text>
+                )}
+              </View>
 
                   <View style={styles.gridItem}>
-                    <View style={styles.labelContainer}>
+                <View style={styles.labelContainer}>
                       <Text style={styles.label}>Insulina Activa</Text>
                       <Text style={styles.inputDescription}>Insulina que aún actúa en tu cuerpo</Text>
-                    </View>
-                    <View style={styles.inputGroup}>
-                      <TextInput
-                        style={styles.input}
-                        value={insulinOnBoard}
-                        onChangeText={setInsulinOnBoard}
-                        keyboardType="numeric"
+                </View>
+                <View style={styles.inputGroup}>
+                  <TextInput
+                    style={styles.input}
+                    value={insulinOnBoard}
+                    onChangeText={setInsulinOnBoard}
+                    keyboardType="numeric"
                         placeholder="unidades"
-                      />
-                      <View style={styles.inputAddon}>
-                        <Text style={styles.inputAddonText}>U</Text>
-                      </View>
-                    </View>
-                    {insulinOnBoard && !isValidInsulinOnBoard(insulinOnBoard) && (
+                  />
+                  <View style={styles.inputAddon}>
+                    <Text style={styles.inputAddonText}>U</Text>
+                  </View>
+                </View>
+                {insulinOnBoard && !isValidInsulinOnBoard(insulinOnBoard) && (
                       <Text style={styles.errorText}>Número válido (2 decimales)</Text>
-                    )}
+                )}
                   </View>
                 </View>
               </View>
@@ -469,52 +469,52 @@ export default function InsulinPage() {
                       <Text style={styles.lifestyleLabel}>Sueño</Text>
                     </View>
                     <Text style={styles.lifestyleDescription}>1: Sin dormir, 10: Dormido bien</Text>
-                    <TextInput
+                <TextInput
                       style={styles.lifestyleInput}
-                      value={sleepQuality}
-                      onChangeText={v => {
-                        if (/^$|^([1-9]|10)$/.test(v)) setSleepQuality(v);
-                      }}
-                      keyboardType="numeric"
-                      placeholder="1-10"
-                      maxLength={2}
-                    />
-                  </View>
+                  value={sleepQuality}
+                  onChangeText={v => {
+                    if (/^$|^([1-9]|10)$/.test(v)) setSleepQuality(v);
+                  }}
+                  keyboardType="numeric"
+                  placeholder="1-10"
+                  maxLength={2}
+                />
+              </View>
 
                   <View style={styles.lifestyleItem}>
                     <View style={styles.lifestyleLabelContainer}>
                       <Briefcase size={16} color="#4CAF50" />
                       <Text style={styles.lifestyleLabel}>Trabajo</Text>
-                    </View>
+                </View>
                     <Text style={styles.lifestyleDescription}>1: Sin estrés, 10: Muy estresado</Text>
-                    <TextInput
+                <TextInput
                       style={styles.lifestyleInput}
-                      value={workLevel}
-                      onChangeText={v => {
-                        if (/^$|^([1-9]|10)$/.test(v)) setWorkLevel(v);
-                      }}
-                      keyboardType="numeric"
-                      placeholder="1-10"
-                      maxLength={2}
-                    />
-                  </View>
+                  value={workLevel}
+                  onChangeText={v => {
+                    if (/^$|^([1-9]|10)$/.test(v)) setWorkLevel(v);
+                  }}
+                  keyboardType="numeric"
+                  placeholder="1-10"
+                  maxLength={2}
+                />
+              </View>
 
                   <View style={styles.lifestyleItem}>
                     <View style={styles.lifestyleLabelContainer}>
                       <Activity size={16} color="#4CAF50" />
                       <Text style={styles.lifestyleLabel}>Ejercicio</Text>
-                    </View>
+                </View>
                     <Text style={styles.lifestyleDescription}>1: Sin actividad, 10: Intenso</Text>
-                    <TextInput
+                <TextInput
                       style={styles.lifestyleInput}
-                      value={exerciseLevel}
-                      onChangeText={v => {
-                        if (/^$|^([1-9]|10)$/.test(v)) setExerciseLevel(v);
-                      }}
-                      keyboardType="numeric"
-                      placeholder="1-10"
-                      maxLength={2}
-                    />
+                  value={exerciseLevel}
+                  onChangeText={v => {
+                    if (/^$|^([1-9]|10)$/.test(v)) setExerciseLevel(v);
+                  }}
+                  keyboardType="numeric"
+                  placeholder="1-10"
+                  maxLength={2}
+                />
                   </View>
                 </View>
               </View>
@@ -550,9 +550,9 @@ export default function InsulinPage() {
                 onPress={() => setShowRecommendation(!showRecommendation)}
               >
                 <View style={styles.sectionTitleContainer}>
-                  <Droplet size={24} color="#4CAF50" />
+                    <Droplet size={24} color="#4CAF50" />
                   <Text style={styles.sectionTitle}>Dosis de Insulina Recomendada ✨</Text>
-                </View>
+                  </View>
                 <Icon
                   name={showRecommendation ? 'chevron-up' : 'chevron-down'}
                   size={20}
@@ -561,98 +561,32 @@ export default function InsulinPage() {
               </TouchableOpacity>
 
               {showRecommendation && (
-                <View style={styles.recommendationContent}>
-                  <View style={styles.recommendationValue}>
-                    <Text style={styles.recommendationNumber}>{recommendation.total}</Text>
-                    <Text style={styles.recommendationUnit}>unidades 💉</Text>
-                  </View>
+                  <View style={styles.recommendationContent}>
+                    <View style={styles.recommendationValue}>
+                      <Text style={styles.recommendationNumber}>{recommendation.total}</Text>
+                      <Text style={styles.recommendationUnit}>unidades 💉</Text>
+                    </View>
                   
-                  <View style={styles.breakdownSection}>
-                    <Text style={styles.breakdownTitle}>Cómo se calculó: 🔍</Text>
-                    <View style={styles.breakdownList}>
-                      <View style={styles.breakdownItem}>
-                        <Text style={styles.breakdownText}>🩺 Dosis de corrección:</Text>
-                        <Text style={styles.breakdownValue}>{recommendation.breakdown.correctionDose} U</Text>
-                      </View>
-                      <View style={styles.breakdownItem}>
-                        <Text style={styles.breakdownText}>🍽️ Dosis para comida:</Text>
-                        <Text style={styles.breakdownValue}>{recommendation.breakdown.mealDose} U</Text>
-                      </View>
-                      <View style={styles.breakdownItem}>
-                        <Text style={styles.breakdownText}>🏃‍♂️ Ajuste por actividad:</Text>
-                        <Text style={styles.breakdownValue}>{recommendation.breakdown.activityAdjustment} U</Text>
-                      </View>
-                      <View style={styles.breakdownItem}>
-                        <Text style={styles.breakdownText}>🕒 Ajuste por hora:</Text>
-                        <Text style={styles.breakdownValue}>{recommendation.breakdown.timeAdjustment} U</Text>
-                      </View>
+                <View style={styles.breakdownSection}>
+                  <Text style={styles.breakdownTitle}>Cómo se calculó: 🔍</Text>
+                  <View style={styles.breakdownList}>
+                    <View style={styles.breakdownItem}>
+                      <Text style={styles.breakdownText}>🩺 Dosis de corrección:</Text>
+                      <Text style={styles.breakdownValue}>{recommendation.breakdown.correctionDose} U</Text>
                     </View>
-                  </View>
-                </View>
-              )}
-            </Card>
-          )}
-
-          {/* Predictions Section */}
-          {predictions && (
-            <Card style={styles.card}>
-              <TouchableOpacity
-                style={styles.sectionHeader}
-                onPress={() => setShowPredictions(!showPredictions)}
-              >
-                <View style={styles.sectionTitleContainer}>
-                  <TrendingUp size={24} color="#4CAF50" />
-                  <Text style={styles.sectionTitle}>Rendimiento de Predicciones</Text>
-                </View>
-                <Icon
-                  name={showPredictions ? 'chevron-up' : 'chevron-down'}
-                  size={20}
-                  color="#4CAF50"
-                />
-              </TouchableOpacity>
-
-              {showPredictions && (
-                <View style={styles.predictionsContent}>
-                  <View style={styles.accuracyContainer}>
-                    <Text style={styles.accuracyText}>
-                      Precisión: {predictions.accuracy.percentage}%
-                    </Text>
-                    <View style={styles.trendContainer}>
-                      <TrendingUp size={16} color={predictions.accuracy.trend.direction === 'up' ? '#4CAF50' : '#ef4444'} />
-                      <Text style={[
-                        styles.trendText,
-                        { color: predictions.accuracy.trend.direction === 'up' ? '#4CAF50' : '#ef4444' }
-                      ]}>
-                        {predictions.accuracy.trend.value}%
-                      </Text>
+                    <View style={styles.breakdownItem}>
+                      <Text style={styles.breakdownText}>🍽️ Dosis para comida:</Text>
+                      <Text style={styles.breakdownValue}>{recommendation.breakdown.mealDose} U</Text>
                     </View>
-                  </View>
-
-                  <View style={styles.predictionsList}>
-                    {predictions.predictions.map((prediction) => (
-                      <View key={prediction.id} style={styles.predictionItem}>
-                        <View>
-                          <Text style={styles.predictionTitle}>
-                            🕒 {prediction.mealType} - {format(new Date(prediction.date), 'MMM dd, p')}
-                          </Text>
-                          <Text style={styles.predictionDetails}>
-                            🍽️ {prediction.carbs}g carbohidratos, 🩺 {prediction.glucose} mg/dL
-                          </Text>
-                        </View>
-                        <View style={styles.predictionRight}>
-                          <Text style={styles.predictionUnits}>💉 {prediction.units} unidades</Text>
-                          <Text style={[
-                            styles.predictionAccuracy,
-                            prediction.accuracy === 'Accurate' && styles.accuracyGood,
-                            prediction.accuracy === 'Slightly low' && styles.accuracyWarning,
-                            prediction.accuracy === 'Low' && styles.accuracyBad
-                          ]}>
-                            {prediction.accuracy === 'Accurate' ? '✅ Precisa' : 
-                             prediction.accuracy === 'Slightly low' ? '⚠️ Ligeramente baja' : '❌ Baja'}
-                          </Text>
-                        </View>
-                      </View>
-                    ))}
+                    <View style={styles.breakdownItem}>
+                      <Text style={styles.breakdownText}>🏃‍♂️ Ajuste por actividad:</Text>
+                      <Text style={styles.breakdownValue}>{recommendation.breakdown.activityAdjustment} U</Text>
+                    </View>
+                    <View style={styles.breakdownItem}>
+                      <Text style={styles.breakdownText}>🕒 Ajuste por hora:</Text>
+                      <Text style={styles.breakdownValue}>{recommendation.breakdown.timeAdjustment} U</Text>
+                    </View>
+                    </View>
                   </View>
                 </View>
               )}

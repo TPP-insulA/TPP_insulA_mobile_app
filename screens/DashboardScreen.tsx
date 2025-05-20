@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, TextInput, Dimensions, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Loader2, ArrowUp, ArrowDown, Check, Utensils, Syringe, Droplet, Plus, MessageCircle, Activity, X as CloseIcon, Pencil, AlertCircle, Calendar } from 'lucide-react-native';
+import { Loader2, ArrowUp, ArrowDown, Check, Utensils, Syringe, Droplet, Plus, MessageCircle, Activity, X as CloseIcon, Pencil, AlertCircle, Calendar, Calculator, TrendingUp, ChevronRight } from 'lucide-react-native';
 import { Feather } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { ChatInterface } from "../components/chat-interface";
@@ -13,6 +13,29 @@ import { useToast } from '../hooks/use-toast';
 import { getGlucoseReadings, createGlucoseReading, getActivities } from '../lib/api/glucose';
 import type { GlucoseReading, ActivityItem } from '../lib/api/glucose';
 import { AppHeader } from '../components/app-header';
+import { getInsulinPredictions } from '../lib/api/insulin';
+
+// Add type definitions for predictions
+type Prediction = {
+  id: number;
+  mealType: string;
+  date: Date;
+  carbs: number;
+  glucose: number;
+  units: number;
+  accuracy: 'Accurate' | 'Slightly low' | 'Low';
+};
+
+type PredictionsData = {
+  accuracy: {
+    percentage: number;
+    trend: {
+      value: number;
+      direction: 'up' | 'down';
+    };
+  };
+  predictions: Prediction[];
+};
 
 // Define the navigation route types
 type RootStackParamList = {
@@ -23,10 +46,81 @@ type RootStackParamList = {
   Insulin: undefined;
   Trends: undefined;
   Notifications: undefined;
+  PredictionResultPage: { 
+    result: {
+      type: 'prediction';
+      timestamp: string;
+      mealType: string;
+      carbs: number;
+      units: number;
+      accuracy: 'Accurate' | 'Slightly low' | 'Low';
+      id: number;
+    }
+  };
   // Add other screens here as needed
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
+// Extend ActivityItem type to include predictions
+type ExtendedActivityItem = ActivityItem | {
+  type: 'prediction';
+  timestamp: Date;
+  mealType: string;
+  carbs: number;
+  units: number;
+  accuracy: 'Accurate' | 'Slightly low' | 'Low';
+  id: number;
+};
+
+// Add this mock data at the top of the file, after the types
+const mockPredictions: PredictionsData = {
+  accuracy: {
+    percentage: 85,
+    trend: {
+      value: 5,
+      direction: 'up' as const
+    }
+  },
+  predictions: [
+    {
+      id: 1,
+      mealType: 'Desayuno',
+      date: new Date('2024-03-20T08:00:00'),
+      carbs: 45,
+      glucose: 120,
+      units: 3.5,
+      accuracy: 'Accurate'
+    },
+    {
+      id: 2,
+      mealType: 'Almuerzo',
+      date: new Date('2024-03-20T13:00:00'),
+      carbs: 60,
+      glucose: 135,
+      units: 4.2,
+      accuracy: 'Slightly low'
+    },
+    {
+      id: 3,
+      mealType: 'Cena',
+      date: new Date('2024-03-20T19:00:00'),
+      carbs: 50,
+      glucose: 110,
+      units: 3.8,
+      accuracy: 'Accurate'
+    },
+    {
+      id: 4,
+      mealType: 'Snack',
+      date: new Date('2024-03-20T16:00:00'),
+      carbs: 30,
+      glucose: 125,
+      units: 2.1,
+      accuracy: 'Low'
+    }
+  ]
+};
 
 export default function DashboardScreen() {
   const navigation = useNavigation<NavigationProp>();
@@ -39,16 +133,18 @@ export default function DashboardScreen() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [readings, setReadings] = useState<GlucoseReading[]>([]);
   const [todaysReadings, setTodaysReadings] = useState<GlucoseReading[]>([]);
-  const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [activities, setActivities] = useState<ExtendedActivityItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showAllActivities, setShowAllActivities] = useState(false);
-  const [allActivities, setAllActivities] = useState<ActivityItem[]>([]);
-  const [visibleActivities, setVisibleActivities] = useState<ActivityItem[]>([]);
+  const [allActivities, setAllActivities] = useState<ExtendedActivityItem[]>([]);
+  const [visibleActivities, setVisibleActivities] = useState<ExtendedActivityItem[]>([]);
   const [activitiesPage, setActivitiesPage] = useState(1);
   const ACTIVITIES_PER_PAGE = 5; // Número de actividades por página
   const [formError, setFormError] = useState('');
   const [dateError, setDateError] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [predictions, setPredictions] = useState<PredictionsData | null>(null);
+  const [isPredictionsExpanded, setIsPredictionsExpanded] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!token) return;
@@ -73,8 +169,28 @@ export default function DashboardScreen() {
       
       // Get all activities but only show the first page initially
       const recentActivities = await getActivities(token);
-      setAllActivities(recentActivities);
-      setVisibleActivities(recentActivities.slice(0, ACTIVITIES_PER_PAGE));
+      console.log('Recent activities:', recentActivities);
+      
+      // Use mock predictions
+      setPredictions(mockPredictions);
+
+      // Convert predictions to activity format
+      const predictionActivities: ExtendedActivityItem[] = mockPredictions.predictions.map(pred => ({
+        type: 'prediction',
+        timestamp: pred.date,
+        mealType: pred.mealType,
+        carbs: pred.carbs,
+        units: pred.units,
+        accuracy: pred.accuracy,
+        id: pred.id
+      }));
+
+      // Combine and sort all activities by timestamp
+      const allActivitiesCombined = [...recentActivities, ...predictionActivities]
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+      setAllActivities(allActivitiesCombined);
+      setVisibleActivities(allActivitiesCombined.slice(0, ACTIVITIES_PER_PAGE));
       setActivitiesPage(1);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -328,6 +444,93 @@ export default function DashboardScreen() {
     setDateValue(format(new Date(), 'dd/MM/yyyy HH:mm'));
     setOpenDialog(true);
   };
+
+  const handlePress = (activity: ExtendedActivityItem) => {
+    if (activity.type === 'meal') {
+      navigation.navigate('Meals');
+    } else if (activity.type === 'insulin') {
+      navigation.navigate('History');
+    } else if (activity.type === 'prediction') {
+      navigation.navigate('PredictionResultPage', {
+        result: {
+          type: 'prediction',
+          timestamp: activity.timestamp.toISOString(),
+          mealType: activity.mealType,
+          carbs: activity.carbs,
+          units: activity.units,
+          accuracy: activity.accuracy,
+          id: activity.id
+        }
+      });
+    }
+  };
+
+  const renderActivityItem = (activity: ExtendedActivityItem) => {
+    const isClickable = activity.type === 'meal' || activity.type === 'insulin' || activity.type === 'prediction';
+    const Wrapper = isClickable ? TouchableOpacity : View;
+    const wrapperProps = isClickable ? {
+      onPress: () => handlePress(activity),
+      activeOpacity: 0.7,
+    } : {};
+
+    let icon;
+    let title;
+    let subtitle;
+    let backgroundColor = '#f3f4f6';
+
+    switch (activity.type) {
+      case 'glucose':
+        icon = <Droplet size={20} color={getGlucoseIconColor(activity.value || 0)} />;
+        title = `${activity.value || 0} mg/dL`;
+        subtitle = formatTimeAgo(new Date(activity.timestamp));
+        backgroundColor = getGlucoseIconBgColor(activity.value || 0);
+        break;
+      case 'meal':
+        icon = <Utensils size={20} color="#4CAF50" />;
+        title = `${activity.mealType} (${activity.carbs}g)`;
+        subtitle = formatTimeAgo(new Date(activity.timestamp));
+        backgroundColor = '#e8f5e9';
+        break;
+      case 'insulin':
+        icon = <Syringe size={20} color="#2196F3" />;
+        title = `${activity.units} unidades`;
+        subtitle = formatTimeAgo(new Date(activity.timestamp));
+        backgroundColor = '#e3f2fd';
+        break;
+      case 'prediction':
+        icon = <Calculator size={20} color="#2196F3" />;
+        title = `${activity.mealType} (${activity.carbs}g)`;
+        subtitle = `${activity.units} unidades - ${activity.accuracy === 'Accurate' ? '✅ Precisa' : activity.accuracy === 'Slightly low' ? '⚠️ Ligeramente baja' : '❌ Baja'}`;
+        backgroundColor = '#e3f2fd';
+        break;
+    }
+
+    return (
+      <Wrapper
+        key={`${activity.type}-${new Date(activity.timestamp).getTime()}`}
+        style={[
+          styles.activityItem,
+          { backgroundColor },
+          isClickable && styles.clickableActivityItem
+        ]}
+        {...wrapperProps}
+      >
+        <View style={styles.activityIcon}>
+          {icon}
+        </View>
+        <View style={styles.activityContent}>
+          <Text style={styles.activityTitle}>{title}</Text>
+          <Text style={styles.activitySubtitle}>{subtitle}</Text>
+        </View>
+        {isClickable && (
+          <View style={styles.activityArrow}>
+            <ChevronRight size={20} color="#6b7280" />
+          </View>
+        )}
+      </Wrapper>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <AppHeader
@@ -392,7 +595,10 @@ export default function DashboardScreen() {
 
             <View style={styles.card}>
               <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>Glucosa Diaria</Text>
+                <View style={styles.cardTitleContainer}>
+                  <Droplet size={20} color="#4CAF50" />
+                  <Text style={styles.cardTitle}>Glucosa Diaria</Text>
+                </View>
                 <Text style={styles.timestamp}>
                   {readings[0]?.timestamp 
                     ? formatTimeAgo(new Date(readings[0].timestamp))
@@ -495,6 +701,90 @@ export default function DashboardScreen() {
 
             </View>
 
+            <View style={styles.predictionsCard}>
+              <TouchableOpacity 
+                style={styles.predictionsHeader}
+                onPress={() => setIsPredictionsExpanded(!isPredictionsExpanded)}
+              >
+                <View style={styles.predictionsHeaderLeft}>
+                  <Text style={styles.statsLabel}>Rendimiento de Predicciones</Text>
+                  {predictions?.accuracy && (
+                    <View style={styles.accuracyBadge}>
+                      <Text style={styles.accuracyPercentage}>{predictions.accuracy.percentage}%</Text>
+                      <View style={styles.trendContainer}>
+                        <TrendingUp 
+                          size={16} 
+                          color={predictions.accuracy.trend.direction === 'up' ? '#4CAF50' : '#ef4444'} 
+                        />
+                        <Text style={[
+                          styles.trendText,
+                          { color: predictions.accuracy.trend.direction === 'up' ? '#4CAF50' : '#ef4444' }
+                        ]}>
+                          {predictions.accuracy.trend.value}%
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+                </View>
+                <Feather 
+                  name={isPredictionsExpanded ? "chevron-up" : "chevron-down"} 
+                  size={20} 
+                  color="#6b7280" 
+                />
+              </TouchableOpacity>
+
+              {isPredictionsExpanded && (
+                <>
+                  {predictions?.predictions?.length === 0 ? (
+                    <View style={styles.noDataContainer}>
+                      <Text style={styles.noDataText}>No hay datos disponibles</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.predictionsList}>
+                      {predictions?.predictions?.map((prediction) => (
+                        <View key={prediction.id} style={styles.predictionItem}>
+                          <View>
+                            <Text style={styles.predictionTitle}>
+                              🕒 {prediction.mealType} - {format(prediction.date, 'MMM dd, p')}
+                            </Text>
+                            <Text style={styles.predictionDetails}>
+                              🍽️ {prediction.carbs}g carbohidratos, 🩺 {prediction.glucose} mg/dL
+                            </Text>
+                          </View>
+                          <View style={styles.predictionRight}>
+                            <Text style={styles.predictionUnits}>💉 {prediction.units} unidades</Text>
+                            <Text style={[
+                              styles.predictionAccuracy,
+                              prediction.accuracy === 'Accurate' && styles.accuracyGood,
+                              prediction.accuracy === 'Slightly low' && styles.accuracyWarning,
+                              prediction.accuracy === 'Low' && styles.accuracyBad
+                            ]}>
+                              {prediction.accuracy === 'Accurate' ? '✅ Precisa' : 
+                               prediction.accuracy === 'Slightly low' ? '⚠️ Ligeramente baja' : '❌ Baja'}
+                            </Text>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </>
+              )}
+
+              <TouchableOpacity 
+                style={styles.newPredictionButton}
+                onPress={() => navigation.navigate('Insulin')}
+              >
+                <View style={styles.newPredictionContent}>
+                  <View style={styles.newPredictionIcon}>
+                    <Calculator width={24} height={24} color="#4CAF50" />
+                  </View>
+                  <Text style={styles.newPredictionText}>
+                    Calcular nueva dosis de insulina
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+
             <View style={styles.statsGrid}>
               <View style={styles.statsCardHalf}>
                 <Text style={styles.statsLabel}>Promedio Diario</Text>
@@ -554,7 +844,10 @@ export default function DashboardScreen() {
 
             <View style={styles.activityCard}>
               <View style={styles.activityHeader}>
-                <Text style={styles.activityTitle}>Actividad Reciente</Text>
+                <View style={styles.cardTitleContainer}>
+                  <Activity size={20} color="#4CAF50" />
+                  <Text style={styles.activityTitle}>Actividad Reciente</Text>
+                </View>
                 {(hasMoreActivities || hasExpandedActivities) && (
                   <Text style={styles.activityCount}>
                     Mostrando {visibleActivities.length} de {allActivities.length}
@@ -563,56 +856,84 @@ export default function DashboardScreen() {
               </View>
               
               <View style={styles.activityList}>
-                {visibleActivities.map((activity, index) => (
-                  <View key={index} style={[
-                    styles.activityItem,
-                    index === visibleActivities.length - 1 && !hasMoreActivities && styles.lastActivityItem,
-                  ]}>
-                    <View style={styles.activityLeft}>
-                      <View style={[
-                        styles.activityIcon,
-                        { 
-                          backgroundColor: activity.type === 'glucose' 
-                            ? getGlucoseIconBgColor(activity.value || 0)
-                            : activity.type === 'meal'
-                            ? '#ffedd5'
-                            : '#dbeafe'
-                        }
-                      ]}>
-                        {activity.type === 'glucose' && (
-                          <Droplet 
-                            width={16} 
-                            height={16} 
-                            color={getGlucoseIconColor(activity.value || 0)} 
-                          />
-                        )}
-                        {activity.type === 'meal' && <Utensils width={16} height={16} color="#f97316" />}
-                        {activity.type === 'insulin' && <Syringe width={16} height={16} color="#3b82f6" />}
+                {visibleActivities.map((activity, index) => {
+                  const isClickable = activity.type === 'meal' || activity.type === 'insulin' || activity.type === 'prediction';
+                  const ActivityWrapper = isClickable ? TouchableOpacity : View;
+
+                  return (
+                    <ActivityWrapper
+                      key={index}
+                      style={[
+                        styles.activityItem,
+                        index === visibleActivities.length - 1 && !hasMoreActivities && styles.lastActivityItem,
+                        isClickable && styles.clickableActivityItem,
+                      ]}
+                      onPress={isClickable ? () => handlePress(activity) : undefined}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.activityLeft}>
+                        <View style={[
+                          styles.activityIcon,
+                          { 
+                            backgroundColor: activity.type === 'glucose' 
+                              ? getGlucoseIconBgColor(activity.value || 0)
+                              : activity.type === 'meal'
+                              ? '#ffedd5'
+                              : activity.type === 'prediction'
+                              ? '#dbeafe'
+                              : '#dbeafe'
+                          }
+                        ]}>
+                          {activity.type === 'glucose' && (
+                            <Droplet 
+                              width={16} 
+                              height={16} 
+                              color={getGlucoseIconColor(activity.value || 0)} 
+                            />
+                          )}
+                          {activity.type === 'meal' && <Utensils width={16} height={16} color="#f97316" />}
+                          {activity.type === 'insulin' && <Syringe width={16} height={16} color="#3b82f6" />}
+                          {activity.type === 'prediction' && <Calculator width={16} height={16} color="#3b82f6" />}
+                        </View>
+                        <View>
+                          <Text style={styles.activityName}>
+                            {activity.type === 'glucose' ? 'Lectura de glucosa' : 
+                             activity.type === 'meal' ? activity.mealType || '' : 
+                             activity.type === 'prediction' ? 'Predicción de insulina' :
+                             activity.type === 'insulin' ? 'Dosis de insulina' : ''}
+                          </Text>
+                          <Text style={styles.activityTime}>
+                            {activity.timestamp 
+                              ? formatTimeAgo(new Date(activity.timestamp))
+                              : ''}
+                          </Text>
+                          {activity.type === 'glucose' && activity.notes && (
+                            <Text style={styles.activityNotes} numberOfLines={2}>
+                              {activity.notes}
+                            </Text>
+                          )}
+                          {activity.type === 'prediction' && (
+                            <Text style={[
+                              styles.predictionAccuracy,
+                              activity.accuracy === 'Accurate' && styles.accuracyGood,
+                              activity.accuracy === 'Slightly low' && styles.accuracyWarning,
+                              activity.accuracy === 'Low' && styles.accuracyBad
+                            ]}>
+                              {activity.accuracy === 'Accurate' ? '✅ Precisa' : 
+                               activity.accuracy === 'Slightly low' ? '⚠️ Ligeramente baja' : '❌ Baja'}
+                            </Text>
+                          )}
+                        </View>
                       </View>
-                      <View>
-                        <Text style={styles.activityName}>
-                          {activity.type === 'glucose' ? 'Lectura de glucosa' : 
-                           activity.type === 'meal' ? activity.mealType || '' : 
-                           activity.type === 'insulin' ? 'Dosis de insulina' : ''}
-                        </Text>
-                        <Text style={styles.activityTime}>
-                          {activity.timestamp 
-                            ? formatTimeAgo(new Date(activity.timestamp))
-                            : ''}
-                        </Text>
-                        {activity.type === 'glucose' && activity.notes && (
-                          <Text style={styles.activityNotes} numberOfLines={2}>
-                            {activity.notes}
-                          </Text>                      )}
-                      </View>
-                    </View>
-                    <Text style={styles.activityValue}>
-                      {activity.type === 'glucose' ? `${activity.value} mg/dL` :
-                       activity.type === 'meal' ? `${activity.carbs}g carbohidratos` :
-                       activity.type === 'insulin' ? `${activity.units} unidades` : ''}
-                    </Text>
-                  </View>
-                ))}
+                      <Text style={styles.activityValue}>
+                        {activity.type === 'glucose' ? `${activity.value} mg/dL` :
+                         activity.type === 'meal' ? `${activity.carbs}g carbohidratos` :
+                         activity.type === 'prediction' ? `${activity.units} unidades` :
+                         activity.type === 'insulin' ? `${activity.units} unidades` : ''}
+                      </Text>
+                    </ActivityWrapper>
+                  );
+                })}
               </View>
               
               <View style={styles.activityButtonsContainer}>
@@ -879,6 +1200,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+  cardTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   cardTitle: {
     fontSize: 18,
     fontWeight: '600',
@@ -1039,18 +1365,13 @@ const styles = StyleSheet.create({
   statsGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 16,
+    gap: 12,
     marginBottom: 24,
-  },
-  statsLabel: {
-    fontSize: 14,
-    color: '#6b7280',
-    fontWeight: '500',
   },
   statsCardHalf: {
     flex: 1,
     backgroundColor: 'white',
-    padding: 16,
+    padding: 12,
     borderRadius: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -1058,23 +1379,29 @@ const styles = StyleSheet.create({
     shadowRadius: 1.41,
     elevation: 2,
   },
+  statsLabel: {
+    fontSize: 13,
+    color: '#6b7280',
+    fontWeight: '500',
+    marginBottom: 4,
+  },
   statsValue: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginVertical: 8,
+    marginVertical: 4,
   },
   statsNumber: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#111827',
   },
   statsUnit: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#6b7280',
   },
   statsStatus: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
     marginLeft: 4,
   },
@@ -1082,33 +1409,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     borderRadius: 9999,
+    marginTop: 2,
   },
   historyPreviewHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   viewMoreText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#4CAF50',
     fontWeight: '500',
   },
   historyPreviewContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
   },
   historyIcon: {
-    padding: 8,
-    borderRadius: 8,
+    padding: 6,
+    borderRadius: 6,
     backgroundColor: 'rgba(34, 197, 94, 0.1)',
   },
   historyPreviewText: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#6b7280',
     flex: 1,
   },
@@ -1408,8 +1736,9 @@ const styles = StyleSheet.create({
   },
   activityButtonsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     marginTop: 12,
+    gap: 8,
   },
   minimalButton: {
     flexDirection: 'row',
@@ -1428,5 +1757,142 @@ const styles = StyleSheet.create({
   },
   minimalButtonTextAlt: {
     color: '#f97316',
+  },
+  predictionsList: {
+    gap: 12,
+  },
+  predictionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#f3f4f6',
+    padding: 12,
+    borderRadius: 8,
+  },
+  predictionTitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#111827',
+  },
+  predictionDetails: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  predictionRight: {
+    alignItems: 'flex-end',
+  },
+  predictionUnits: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#111827',
+  },
+  predictionAccuracy: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  accuracyGood: {
+    color: '#4CAF50',
+  },
+  accuracyWarning: {
+    color: '#f59e0b',
+  },
+  accuracyBad: {
+    color: '#ef4444',
+  },
+  accuracyContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f3f4f6',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  accuracyText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#111827',
+  },
+  trendContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  trendText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  clickableActivityItem: {
+    cursor: 'pointer',
+  },
+  activityContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  activitySubtitle: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  activityArrow: {
+    marginLeft: 8,
+  },
+  predictionsCard: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
+  },
+  predictionsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  predictionsHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  accuracyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f3f4f6',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 9999,
+    gap: 8,
+  },
+  accuracyPercentage: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  newPredictionButton: {
+    backgroundColor: '#f3f4f6',
+    borderRadius: 8,
+    padding: 16,
+    marginTop: 8,
+  },
+  newPredictionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  newPredictionIcon: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+  },
+  newPredictionText: {
+    fontSize: 14,
+    color: '#111827',
+    fontWeight: '500',
   },
 });

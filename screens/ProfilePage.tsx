@@ -9,6 +9,7 @@ import { useAuth } from '../hooks/use-auth';
 import { getUserProfile, updateProfileImage, ProfileResponse, API_URL } from '../lib/api/auth';
 import { LoadingSpinner } from '../components/loading-spinner';
 import Feather from 'react-native-vector-icons/Feather';
+import * as FileSystem from 'expo-file-system';
 
 type RootStackParamList = {
   Login: undefined;
@@ -48,23 +49,37 @@ export default function ProfilePage() {    const [profileImage, setProfileImage]
     const handleImageChange = async (newImageUrl: string) => {
         if (!token) return;
         
-        console.log('Starting profile image update process...', { newImageUrl });
+        if (!newImageUrl) {
+            Alert.alert('Error', 'No se pudo obtener la imagen');
+            return;
+        }
+
         try {
-            // newImageUrl is already a base64 data URI from the image picker
-            console.log('Sending profile image update request...');
-            await updateProfileImage(newImageUrl, token);
-            console.log('Profile update successful');
+            // Read the file and convert it to base64
+            const base64 = await FileSystem.readAsStringAsync(newImageUrl, {
+                encoding: FileSystem.EncodingType.Base64,
+            });
             
-            setProfileImage(newImageUrl);
-            console.log('Local state updated with new image');
-        } catch (error) {
-            console.error('Error in handleImageChange:', error);
-            if (error instanceof Error) {
-                console.error('Error details:', {
-                    message: error.message,
-                    stack: error.stack
-                });
+            // Create the data URI with a shorter prefix
+            const imageUrl = `data:image/jpeg;base64,${base64}`;
+            
+            // Send only the first 100 characters of the base64 string in logs
+            console.log('Sending image update...', {
+                base64Preview: base64.substring(0, 100) + '...',
+                totalLength: base64.length
+            });
+            
+            // Update the profile image
+            const response = await updateProfileImage(imageUrl, token);
+            
+            // Update local state with the image URL from the response
+            if (response.profileImage) {
+                setProfileImage(response.profileImage);
+            } else {
+                setProfileImage(imageUrl);
             }
+        } catch (error) {
+            console.error('Error updating profile image:', error instanceof Error ? error.message : 'Unknown error');
             Alert.alert('Error', 'No se pudo actualizar la imagen de perfil');
         }
     };
@@ -269,6 +284,8 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         gap: 8,
         marginTop: 16,
+        borderWidth: 1.5,
+        borderColor: '#dc2626',
     },
     logoutButtonText: {
         color: '#dc2626',

@@ -168,19 +168,24 @@ export const updateUserProfile = async (userData: UpdateProfileInput, token: str
 };
 
 export const updateProfileImage = async (imageUrl: string, token: string): Promise<ProfileResponse> => {
-  console.log('Updating profile image:', imageUrl);
+  console.log('Updating profile image:', {
+    imageUrlPreview: imageUrl.substring(0, 50) + '...',
+    totalLength: imageUrl.length
+  });
+
   const response = await fetch(`${API_URL}/users/profile/image`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
     },
-    body: JSON.stringify({ profileImage: imageUrl }),
+    body: JSON.stringify({
+      imageUrl: imageUrl
+    }),
   });
 
   const data = await response.json();
-  console.log('Profile image update response:', data);
-
+  
   if (!response.ok) {
     throw new Error(data.message || 'Failed to update profile image');
   }

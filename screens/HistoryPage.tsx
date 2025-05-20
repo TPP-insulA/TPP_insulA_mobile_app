@@ -505,7 +505,7 @@ function HistoryTab(props: any) {
                             style={{
                               color: '#fff',
                               fontWeight: 'bold',
-                              fontSize: 16,
+                              fontSize: 14,
                               marginTop: 6,
                               opacity: textOpacity,
                               transform: [{ translateX }],
