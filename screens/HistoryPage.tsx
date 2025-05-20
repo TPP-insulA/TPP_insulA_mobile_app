@@ -326,7 +326,7 @@ function HistoryTab(props: any) {
 
               <View style={filterStyles.buttonContainer}>
                 <TouchableOpacity 
-                  style={filterStyles.clearButton}
+                  style={[filterStyles.clearButton, { borderWidth: 1, borderColor: '#bdbdbd' }]}
                   onPress={() => {
                     props.setFilters({
                       fecha: { op: '=', value: '' },

@@ -648,7 +648,7 @@ export function FoodEntryForm({ onSubmit, onCancel, initialData }: FoodEntryForm
         }
       ]}>
         <TouchableOpacity
-          style={tw`flex-row items-center justify-center bg-gray-100 p-4 rounded-lg mb-4`}
+          style={tw`flex-row items-center justify-center bg-gray-100 p-4 rounded-lg mb-4 border border-apple-green`}
           onPress={addFood}
         >
           <Plus size={24} color="#4CAF50" />
@@ -656,7 +656,7 @@ export function FoodEntryForm({ onSubmit, onCancel, initialData }: FoodEntryForm
         </TouchableOpacity>
         <View style={tw`flex-row gap-4`}>
           <TouchableOpacity
-            style={tw`flex-1 bg-gray-100 py-3 rounded-lg`}
+            style={tw`flex-1 bg-gray-100 py-3 rounded-lg border border-gray-300`}
             onPress={onCancel}          >
             <Text style={tw`text-center text-gray-600 font-medium`}>Cancelar</Text>
           </TouchableOpacity>
