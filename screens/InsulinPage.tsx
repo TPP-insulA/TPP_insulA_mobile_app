@@ -329,9 +329,14 @@ export default function InsulinPage() {
     return (
       <View style={styles.glucoseSummary}>
         <View style={styles.glucoseSummaryContent}>
-          <Droplet size={16} color="#4CAF50" />
-          <Text style={styles.glucoseSummaryText}>
-            {validGlucoses.length} glucosa(s) ingresada(s): {validGlucoses.join(', ')} mg/dL
+          <View style={styles.glucoseSummaryHeader}>
+            <Droplet size={16} color="#4CAF50" />
+            <Text style={styles.glucoseSummaryText}>
+              {validGlucoses.length} glucosa(s) ingresada(s)
+            </Text>
+          </View>
+          <Text style={styles.glucoseSummaryValues}>
+            {validGlucoses.join(', ')} mg/dL
           </Text>
         </View>
         <TouchableOpacity
@@ -386,73 +391,76 @@ export default function InsulinPage() {
                   <Coffee size={16} color="#4CAF50" />
                   <Text style={styles.sectionTitle}>Nutrición y Control</Text>
                 </View>
-                <View style={styles.gridContainer}>
-                  <View style={styles.gridItem}>
-                <View style={styles.labelContainer}>
-                  <Text style={styles.label}>Glucosa Objetivo</Text>
-                      <Text style={styles.inputDescription}>Valor deseado de glucosa (80-180 mg/dL)</Text>
-                </View>
-                <View style={styles.inputGroup}>
-                  <TextInput
-                    style={styles.input}
-                    value={targetBloodGlucose}
-                    onChangeText={setTargetBloodGlucose}
-                    keyboardType="numeric"
-                        placeholder="mg/dL"
-                  />
-                  <View style={styles.inputAddon}>
-                    <Text style={styles.inputAddonText}>mg/dL</Text>
+                <View style={styles.nutritionGrid}>
+                  <View style={styles.nutritionRow}>
+                    <View style={styles.nutritionLabel}>
+                      <View style={styles.nutritionLabelHeader}>
+                        <Droplet size={16} color="#4CAF50" />
+                        <Text style={styles.nutritionLabelText}>Glucosa Objetivo</Text>
+                      </View>
+                      <Text style={styles.nutritionDescription}>Valor deseado de glucosa (80-180 mg/dL)</Text>
+                    </View>
+                    <View style={styles.nutritionInput}>
+                      {showTargetWarning && (
+                        <Text style={[styles.errorText, styles.errorTextAbove]}>Debe ser entre 80-180 mg/dL</Text>
+                      )}
+                      <TextInput
+                        style={[styles.nutritionInputField, showTargetWarning && styles.errorInput]}
+                        value={targetBloodGlucose}
+                        onChangeText={setTargetBloodGlucose}
+                        keyboardType="numeric"
+                        placeholder="0"
+                      />
+                      <Text style={styles.nutritionUnit}>mg/dL</Text>
+                    </View>
                   </View>
-                </View>
-                {showTargetWarning && (
-                      <Text style={styles.errorText}>Debe ser entre 80-180 mg/dL</Text>
-                )}
-              </View>
 
-                  <View style={styles.gridItem}>
-                <View style={styles.labelContainer}>
-                      <Text style={styles.label}>Carbohidratos</Text>
-                      <Text style={styles.inputDescription}>Cantidad de carbohidratos a consumir</Text>
-                </View>
-                <View style={styles.inputGroup}>
-                  <TextInput
-                    style={styles.input}
-                    value={carbs}
-                    onChangeText={setCarbs}
-                    keyboardType="numeric"
-                        placeholder="gramos"
-                  />
-                  <View style={styles.inputAddon}>
-                        <Text style={styles.inputAddonText}>g</Text>
+                  <View style={styles.nutritionRow}>
+                    <View style={styles.nutritionLabel}>
+                      <View style={styles.nutritionLabelHeader}>
+                        <Coffee size={16} color="#4CAF50" />
+                        <Text style={styles.nutritionLabelText}>Carbohidratos</Text>
+                      </View>
+                      <Text style={styles.nutritionDescription}>Cantidad de carbohidratos a consumir</Text>
+                    </View>
+                    <View style={styles.nutritionInput}>
+                      <TextInput
+                        style={styles.nutritionInputField}
+                        value={carbs}
+                        onChangeText={setCarbs}
+                        keyboardType="numeric"
+                        placeholder="0.00"
+                      />
+                      <Text style={styles.nutritionUnit}>g</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.nutritionRow}>
+                    <View style={styles.nutritionLabel}>
+                      <View style={styles.nutritionLabelHeader}>
+                        <Zap size={16} color="#4CAF50" />
+                        <Text style={styles.nutritionLabelText}>Insulina Activa</Text>
+                      </View>
+                      <Text style={styles.nutritionDescription}>Insulina que aún actúa en tu cuerpo</Text>
+                    </View>
+                    <View style={styles.nutritionInput}>
+                      <TextInput
+                        style={styles.nutritionInputField}
+                        value={insulinOnBoard}
+                        onChangeText={setInsulinOnBoard}
+                        keyboardType="numeric"
+                        placeholder="0.00"
+                      />
+                      <Text style={styles.nutritionUnit}>U</Text>
+                    </View>
                   </View>
                 </View>
                 {carbs && !isValidCarbs(carbs) && (
-                      <Text style={styles.errorText}>Número válido (2 decimales)</Text>
+                  <Text style={styles.errorText}>Número válido (2 decimales)</Text>
                 )}
-              </View>
-
-                  <View style={styles.gridItem}>
-                <View style={styles.labelContainer}>
-                      <Text style={styles.label}>Insulina Activa</Text>
-                      <Text style={styles.inputDescription}>Insulina que aún actúa en tu cuerpo</Text>
-                </View>
-                <View style={styles.inputGroup}>
-                  <TextInput
-                    style={styles.input}
-                    value={insulinOnBoard}
-                    onChangeText={setInsulinOnBoard}
-                    keyboardType="numeric"
-                        placeholder="unidades"
-                  />
-                  <View style={styles.inputAddon}>
-                    <Text style={styles.inputAddonText}>U</Text>
-                  </View>
-                </View>
                 {insulinOnBoard && !isValidInsulinOnBoard(insulinOnBoard) && (
-                      <Text style={styles.errorText}>Número válido (2 decimales)</Text>
+                  <Text style={styles.errorText}>Número válido (2 decimales)</Text>
                 )}
-                  </View>
-                </View>
               </View>
 
               {/* Lifestyle Factors Section */}
@@ -625,30 +633,33 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: 'white',
     borderRadius: 12,
-    padding: 16,
-    gap: 16,
+    padding: 12,
+    gap: 10,
     marginHorizontal: 16,
-    marginBottom: 16,
-    marginTop: 15,
+    marginBottom: 12,
+    marginTop: 12,
   },
   cardHeader: {
-    marginBottom: 8,
+    marginBottom: 2,
+    alignItems: 'center',
   },
   cardTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    justifyContent: 'center',
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#111827',
+    textAlign: 'center',
   },
   cardContent: {
-    gap: 16,
+    gap: 10,
   },
   section: {
-    gap: 8,
+    gap: 6,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -657,7 +668,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '600',
     color: '#111827',
   },
@@ -711,6 +722,7 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 8,
     gap: 8,
+    marginTop: 6,
   },
   primaryButton: {
     backgroundColor: '#4CAF50',
@@ -827,23 +839,30 @@ const styles = StyleSheet.create({
     backgroundColor: '#f3f4f6',
     padding: 12,
     borderRadius: 8,
+    gap: 8,
   },
   glucoseSummaryContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    flexDirection: 'column',
+    gap: 4,
     flex: 1,
+    marginRight: 8,
   },
   glucoseSummaryText: {
     fontSize: 14,
     color: '#111827',
     flex: 1,
   },
+  glucoseSummaryValues: {
+    fontSize: 13,
+    color: '#6b7280',
+    fontStyle: 'italic',
+  },
   editGlucoseButton: {
     backgroundColor: '#4CAF50',
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 6,
+    flexShrink: 0,
   },
   editGlucoseText: {
     color: 'white',
@@ -1030,19 +1049,19 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   lifestyleLabel: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#6b7280',
     fontWeight: '500',
   },
   lifestyleDescription: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#9ca3af',
     marginBottom: 2,
   },
   lifestyleInput: {
     borderWidth: 1,
     borderColor: '#d1d5db',
-    borderRadius: 8,
+    borderRadius: 6,
     padding: 8,
     fontSize: 14,
     textAlign: 'center',
@@ -1056,5 +1075,73 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#9ca3af',
     fontStyle: 'italic',
+  },
+  nutritionGrid: {
+    gap: 10,
+  },
+  nutritionRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+    padding: 10,
+  },
+  nutritionLabel: {
+    flex: 1,
+    gap: 4,
+  },
+  nutritionLabelHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  nutritionLabelText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#374151',
+  },
+  nutritionDescription: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginLeft: 22,
+  },
+  nutritionInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    paddingHorizontal: 8,
+    minWidth: 95,
+    marginLeft: 10,
+  },
+  nutritionInputField: {
+    flex: 1,
+    fontSize: 15,
+    color: '#111827',
+    paddingVertical: 4,
+    textAlign: 'right',
+  },
+  nutritionUnit: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginLeft: 4,
+  },
+  glucoseSummaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  errorTextAbove: {
+    position: 'absolute',
+    top: -22,
+    right: 0,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  errorInput: {
+    borderColor: '#ef4444',
   },
 });

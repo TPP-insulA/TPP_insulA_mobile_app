@@ -27,18 +27,20 @@ type MessageType = {
 };
 
 const suggestedQuestions = [
-  '¿Cómo está mi control de glucosa?',
-  '¿Qué dosis de insulina necesito?',
-  '¿Cuáles son mis tendencias?',
+  '¿Necesito ajustar mi dosis de insulina?',
+  '¿Cuál es mi tendencia de glucosa?',
   '¿Qué comidas me afectan más?',
+  '¿Cómo puedo mejorar mi control?',
+  '¿Cuál es mi promedio de glucosa?',
 ];
 
 const formatAIResponse = (text: string): string => {
-  // Split into paragraphs
+  // Split into paragraphs and take only the first 2-3 most important ones
   const paragraphs = text.split('\n').filter(p => p.trim());
+  const importantParagraphs = paragraphs.slice(0, 3);
   
   // Convert list items to bullets if detected
-  let formattedText = paragraphs.join('\n\n');
+  let formattedText = importantParagraphs.join('\n\n');
   if (formattedText.includes('- ') || formattedText.includes('• ')) {
     formattedText = formattedText
       .split('\n')
@@ -235,7 +237,7 @@ export function ChatUI({
         content: formattedResponse,
         sender: 'ai',
         timestamp: new Date(),
-        showSuggestions: false,
+        showSuggestions: true,
       };
 
       setMessages(prev => {
