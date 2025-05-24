@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, Image as RNImage, ScrollView, 
 import * as Form from "react-hook-form";
 import * as ImagePicker from 'expo-image-picker';
 import { Camera, Image as GalleryIcon, Plus, Trash2, UtensilsCrossed, ScrollText, Scale, Banana, Cookie, GanttChart, CalendarClock, Pizza, Brain, ArrowLeft } from 'lucide-react-native';
-import tw from '../styles/theme';
+import { tw } from '../styles/theme';
 import { CreateMealInput, FoodItem, processFoodName, Meal } from '../lib/api/meals';
 import { useToast } from '../hooks/use-toast';
 
@@ -383,7 +383,7 @@ export function FoodEntryForm({ onSubmit, onCancel, initialData }: FoodEntryForm
       </View>
       
       {/* Scrollable Content */}
-      <ScrollView 
+      <ScrollView
         style={tw`bg-white`} 
         contentContainerStyle={tw`pb-32 pt-4`}
         showsVerticalScrollIndicator={false}
@@ -504,7 +504,7 @@ export function FoodEntryForm({ onSubmit, onCancel, initialData }: FoodEntryForm
               )}
             </View>
 
-            {collapsedFoods[index] !== true && (
+            {!collapsedFoods[index] && (
               <>
                 <ControlledInput
                   control={control}
@@ -528,7 +528,8 @@ export function FoodEntryForm({ onSubmit, onCancel, initialData }: FoodEntryForm
                         rules={{ required: false }}
                         render={({ field: { onChange, onBlur, value } }) => (
                           <TextInput
-                            style={tw`border border-gray-300 rounded-lg p-2.5 text-base bg-white`}                            onChangeText={onChange}
+                            style={tw`border border-gray-300 rounded-lg p-2.5 text-base bg-white`}
+                            onChangeText={onChange}
                             onBlur={onBlur}
                             value={value}
                             placeholder="Ej: 100g pechuga de pollo"
@@ -555,7 +556,7 @@ export function FoodEntryForm({ onSubmit, onCancel, initialData }: FoodEntryForm
                   )}
                 </View>
 
-                <View style={tw`flex-row gap-4`}>
+                <View style={tw`flex-row gap-4 mb-4`}>
                   <View style={tw`flex-1`}>
                     <ControlledInput
                       control={control}
@@ -580,7 +581,7 @@ export function FoodEntryForm({ onSubmit, onCancel, initialData }: FoodEntryForm
                   </View>
                 </View>
 
-                <View style={tw`flex-row gap-4`}>
+                <View style={tw`flex-row gap-4 mb-4`}>
                   <View style={tw`flex-1`}>
                     <ControlledInput
                       control={control}
@@ -634,7 +635,9 @@ export function FoodEntryForm({ onSubmit, onCancel, initialData }: FoodEntryForm
           </View>
         ))}
         </View>
-      </ScrollView>      {/* Floating action buttons */}
+      </ScrollView>
+
+      {/* Floating action buttons */}
       <View style={[
         tw`absolute bottom-0 left-0 right-0 bg-white px-6 py-4`,
         {

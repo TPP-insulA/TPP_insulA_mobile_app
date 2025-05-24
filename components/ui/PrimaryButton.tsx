@@ -8,6 +8,7 @@ import {
   Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { Title } from './typography';
 

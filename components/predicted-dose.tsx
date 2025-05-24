@@ -1,6 +1,7 @@
+import React from 'react';
 import { View, Text } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
-import tw from '../styles/theme';
+import { tw } from '../styles/theme';
 
 interface PredictedDoseProps {
   dose: number
