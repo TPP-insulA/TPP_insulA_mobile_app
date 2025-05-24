@@ -20,6 +20,7 @@ import EditProfileScreen from './screens/EditProfileScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
 import SettingsPage from './screens/SettingsPage';
 import PredictionResultPage from './screens/PredictionResultPage';
+import { FullChatScreen } from './screens/FullChatScreen';
 import { BackButton } from './components/back-button';
 
 const Stack = createNativeStackNavigator();
@@ -103,6 +104,7 @@ function AppStack() {
         }}
       />
       <Stack.Screen name="PredictionResultPage" component={PredictionResultPage} options={{ headerShown: false }} />
+      <Stack.Screen name="FullChat" component={FullChatScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 }

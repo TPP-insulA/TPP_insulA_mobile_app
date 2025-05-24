@@ -9,6 +9,7 @@ import { useAuth } from '../hooks/use-auth';
 import { getUserProfile, updateProfileImage, ProfileResponse, API_URL } from '../lib/api/auth';
 import { LoadingSpinner } from '../components/loading-spinner';
 import Feather from 'react-native-vector-icons/Feather';
+import * as FileSystem from 'expo-file-system';
 
 type RootStackParamList = {
   Login: undefined;
@@ -48,23 +49,37 @@ export default function ProfilePage() {    const [profileImage, setProfileImage]
     const handleImageChange = async (newImageUrl: string) => {
         if (!token) return;
         
-        console.log('Starting profile image update process...', { newImageUrl });
+        if (!newImageUrl) {
+            Alert.alert('Error', 'No se pudo obtener la imagen');
+            return;
+        }
+
         try {
-            // newImageUrl is already a base64 data URI from the image picker
-            console.log('Sending profile image update request...');
-            await updateProfileImage(newImageUrl, token);
-            console.log('Profile update successful');
+            // Read the file and convert it to base64
+            const base64 = await FileSystem.readAsStringAsync(newImageUrl, {
+                encoding: FileSystem.EncodingType.Base64,
+            });
             
-            setProfileImage(newImageUrl);
-            console.log('Local state updated with new image');
-        } catch (error) {
-            console.error('Error in handleImageChange:', error);
-            if (error instanceof Error) {
-                console.error('Error details:', {
-                    message: error.message,
-                    stack: error.stack
-                });
+            // Create the data URI with a shorter prefix
+            const imageUrl = `data:image/jpeg;base64,${base64}`;
+            
+            // Send only the first 100 characters of the base64 string in logs
+            console.log('Sending image update...', {
+                base64Preview: base64.substring(0, 100) + '...',
+                totalLength: base64.length
+            });
+            
+            // Update the profile image
+            const response = await updateProfileImage(imageUrl, token);
+            
+            // Update local state with the image URL from the response
+            if (response.profileImage) {
+                setProfileImage(response.profileImage);
+            } else {
+                setProfileImage(imageUrl);
             }
+        } catch (error) {
+            console.error('Error updating profile image:', error instanceof Error ? error.message : 'Unknown error');
             Alert.alert('Error', 'No se pudo actualizar la imagen de perfil');
         }
     };
@@ -252,23 +267,26 @@ const styles = StyleSheet.create({
         marginTop: 30,
     },
     content: {
-        padding: 16,
-        gap: 24,
-    },    profileSection: {
-        marginTop: 45,
+        padding: 12,
+        gap: 16,
+    },
+    profileSection: {
+        marginTop: 35,
         alignItems: 'center',
-        marginBottom: 24,
+        marginBottom: 16,
         width: '100%',
     },
     logoutButton: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: '#fef2f2',
-        paddingVertical: 8,
-        paddingHorizontal: 16,
+        paddingVertical: 6,
+        paddingHorizontal: 12,
         borderRadius: 20,
-        gap: 8,
-        marginTop: 16,
+        gap: 6,
+        marginTop: 12,
+        borderWidth: 1.5,
+        borderColor: '#dc2626',
     },
     logoutButtonText: {
         color: '#dc2626',
@@ -285,27 +303,28 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     name: {
-        fontSize: 24,
+        fontSize: 22,
         fontWeight: 'bold',
         color: '#111827',
-        marginBottom: 4,
+        marginBottom: 2,
     },
     email: {
-        fontSize: 16,
-        color: '#6b7280',    },
+        fontSize: 15,
+        color: '#6b7280',
+    },
     section: {
-        gap: 16,
+        gap: 8,
     },
     sectionHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 8,
-        marginBottom: 8,
+        gap: 6,
+        marginBottom: 4,
         width: '100%',
     },
     sectionTitle: {
-        fontSize: 18,
+        fontSize: 17,
         fontWeight: '600',
         color: '#111827',
         textAlign: 'center',
@@ -317,42 +336,43 @@ const styles = StyleSheet.create({
         shadowColor: '#000',
         shadowOffset: {
             width: 0,
-            height: 2,
+            height: 1,
         },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
-        elevation: 5,
+        shadowOpacity: 0.2,
+        shadowRadius: 2,
+        elevation: 3,
     },
     menuItem: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: 16,
+        padding: 12,
         borderBottomWidth: 1,
         borderBottomColor: '#e5e7eb',
     },
     menuItemLeft: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
+        gap: 8,
     },
     menuItemText: {
-        fontSize: 16,
+        fontSize: 15,
         color: '#111827',
     },
     infoRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: 16,
+        padding: 12,
         borderBottomWidth: 1,
         borderBottomColor: '#e5e7eb',
     },
     infoLabel: {
-        fontSize: 16,
-        color: '#6b7280',    },
+        fontSize: 15,
+        color: '#6b7280',
+    },
     infoValue: {
-        fontSize: 16,
+        fontSize: 15,
         fontWeight: '500',
         color: '#111827',
     },

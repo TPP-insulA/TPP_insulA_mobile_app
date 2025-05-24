@@ -4,8 +4,8 @@ import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../hooks/use-auth';
 import { updateUserProfile, UpdateProfileInput } from '../lib/api/auth';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { BackButton } from '../components/back-button';
-import { User } from 'lucide-react-native';
+import { User, UserCircle, Scale, Ruler, Calendar, Stethoscope, Save } from 'lucide-react-native';
+import { AppHeader } from '../components/app-header';
 
 export default function EditProfileScreen() {
     const navigation = useNavigation();
@@ -58,24 +58,23 @@ export default function EditProfileScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
-                <View style={styles.titleContainer}>
-                    <TouchableOpacity
-                        style={styles.backButton}
-                        onPress={() => navigation.goBack()}
-                    >
-                        <BackButton />
-                    </TouchableOpacity>
-                    <User width={32} height={32} color="#4CAF50" />
-                    <Text style={styles.title}>Editar Perfil</Text>
-                </View>
-            </View>
+            <AppHeader
+                title="Editar Perfil"
+                icon={<User size={32} color="#fff" />}
+                onBack={() => navigation.goBack()}
+            />
             <ScrollView style={styles.content}>
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Información Personal</Text>
+                    <View style={styles.sectionHeader}>
+                        <UserCircle size={20} color="#4b5563" />
+                        <Text style={styles.sectionTitle}>Información Personal</Text>
+                    </View>
                     <View style={styles.card}>
                         <View style={styles.inputContainer}>
-                            <Text style={styles.label}>Nombre</Text>
+                            <View style={styles.labelContainer}>
+                                <User size={16} color="#6b7280" />
+                                <Text style={styles.label}>Nombre</Text>
+                            </View>
                             <TextInput
                                 style={styles.input}
                                 value={formData.firstName}
@@ -86,7 +85,10 @@ export default function EditProfileScreen() {
                         </View>
 
                         <View style={styles.inputContainer}>
-                            <Text style={styles.label}>Apellido</Text>
+                            <View style={styles.labelContainer}>
+                                <User size={16} color="#6b7280" />
+                                <Text style={styles.label}>Apellido</Text>
+                            </View>
                             <TextInput
                                 style={styles.input}
                                 value={formData.lastName}
@@ -97,7 +99,10 @@ export default function EditProfileScreen() {
                         </View>
 
                         <View style={styles.inputContainer}>
-                            <Text style={styles.label}>Peso (kg)</Text>
+                            <View style={styles.labelContainer}>
+                                <Scale size={16} color="#6b7280" />
+                                <Text style={styles.label}>Peso (kg)</Text>
+                            </View>
                             <TextInput
                                 style={styles.input}
                                 value={formData.weight}
@@ -109,7 +114,10 @@ export default function EditProfileScreen() {
                         </View>
 
                         <View style={styles.inputContainer}>
-                            <Text style={styles.label}>Altura (cm)</Text>
+                            <View style={styles.labelContainer}>
+                                <Ruler size={16} color="#6b7280" />
+                                <Text style={styles.label}>Altura (cm)</Text>
+                            </View>
                             <TextInput
                                 style={styles.input}
                                 value={formData.height}
@@ -123,20 +131,29 @@ export default function EditProfileScreen() {
                 </View>
 
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Información Médica</Text>
+                    <View style={styles.sectionHeader}>
+                        <Stethoscope size={20} color="#4b5563" />
+                        <Text style={styles.sectionTitle}>Información Médica</Text>
+                    </View>
                     <View style={styles.card}>
                         <View style={styles.inputContainer}>
-                            <Text style={styles.label}>Fecha de Diagnóstico</Text>
+                            <View style={styles.labelContainer}>
+                                <Calendar size={16} color="#6b7280" />
+                                <Text style={styles.label}>Fecha de Diagnóstico</Text>
+                            </View>
                             <TouchableOpacity
                                 style={styles.input}
                                 onPress={() => setShowDatePicker(true)}
                             >
-                                <Text>{formData.diagnosisDate || 'Seleccionar fecha'}</Text>
+                                <Text style={styles.dateText}>{formData.diagnosisDate || 'Seleccionar fecha'}</Text>
                             </TouchableOpacity>
                         </View>
 
                         <View style={styles.inputContainer}>
-                            <Text style={styles.label}>Médico Tratante</Text>
+                            <View style={styles.labelContainer}>
+                                <Stethoscope size={16} color="#6b7280" />
+                                <Text style={styles.label}>Médico Tratante</Text>
+                            </View>
                             <TextInput
                                 style={styles.input}
                                 value={formData.treatingDoctor}
@@ -153,6 +170,7 @@ export default function EditProfileScreen() {
                     onPress={handleSubmit}
                     disabled={isLoading}
                 >
+                    <Save size={20} color="white" />
                     <Text style={styles.saveButtonText}>
                         {isLoading ? 'Guardando...' : 'Guardar Cambios'}
                     </Text>
@@ -181,109 +199,83 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#f4f4f5',
     },
-    header: {
-        width: '100%',
-        backgroundColor: 'white',
-        borderBottomWidth: 1,
-        borderBottomColor: '#e5e7eb',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingBottom: 16,
-        paddingTop: 50,
-    },
-    titleContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        marginBottom: 4,
-        position: 'relative',
-        width: '100%',
-        justifyContent: 'center',
-        paddingVertical: 4,
-        marginTop: 30,
-    },
-    backButton: {
-        position: 'absolute',
-        left: 0,
-        zIndex: 1,
-        alignSelf: 'center',
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: '#111827',
-    },
     content: {
-        padding: 16,
-        paddingTop: 24,
+        padding: 12,
     },
     section: {
-        marginBottom: 28,
+        gap: 8,
+        marginBottom: 16,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        marginBottom: 4,
     },
     sectionTitle: {
-        fontSize: 20,
-        fontWeight: '700',
+        fontSize: 16,
+        fontWeight: '600',
         color: '#111827',
-        marginBottom: 16,
-        paddingHorizontal: 4,
+        textAlign: 'center',
     },
     card: {
         backgroundColor: 'white',
-        borderRadius: 16,
-        padding: 20,
+        borderRadius: 12,
+        padding: 12,
         shadowColor: '#000',
         shadowOffset: {
             width: 0,
             height: 1,
         },
-        shadowOpacity: 0.15,
-        shadowRadius: 3,
+        shadowOpacity: 0.2,
+        shadowRadius: 2,
         elevation: 3,
     },
     inputContainer: {
-        marginBottom: 20,
+        marginBottom: 12,
+    },
+    labelContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginBottom: 6,
     },
     label: {
-        fontSize: 15,
-        fontWeight: '600',
+        fontSize: 14,
+        fontWeight: '500',
         color: '#374151',
-        marginBottom: 8,
-        paddingHorizontal: 4,
     },
     input: {
-        borderWidth: 1.5,
+        borderWidth: 1,
         borderColor: '#e5e7eb',
-        borderRadius: 12,
-        padding: 14,
-        fontSize: 16,
+        borderRadius: 8,
+        padding: 10,
+        fontSize: 15,
         color: '#111827',
         backgroundColor: '#ffffff',
     },
+    dateText: {
+        fontSize: 15,
+        color: '#111827',
+    },
     saveButton: {
         backgroundColor: '#4CAF50',
-        padding: 16,
-        borderRadius: 12,
+        padding: 12,
+        borderRadius: 8,
         alignItems: 'center',
         marginTop: 8,
-        marginBottom: 32,
-        shadowColor: '#4CAF50',
-        shadowOffset: {
-            width: 0,
-            height: 2,
-        },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
-        elevation: 4,
+        marginBottom: 16,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: 8,
     },
     saveButtonDisabled: {
         backgroundColor: '#9ca3af',
-        shadowOpacity: 0,
-        elevation: 0,
     },
     saveButtonText: {
         color: 'white',
-        fontSize: 17,
+        fontSize: 15,
         fontWeight: '600',
-        letterSpacing: 0.3,
     },
 });

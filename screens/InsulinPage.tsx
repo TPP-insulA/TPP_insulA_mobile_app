@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TextInput } from 'react-native';
-import { Calculator, Droplet, Zap, TrendingUp, TrendingDown } from 'lucide-react-native';
+import React, { useState, useEffect, useCallback, memo } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TextInput, Modal, Pressable } from 'react-native';
+import { Calculator, Droplet, Zap, TrendingUp, TrendingDown, AlertCircle, Coffee, Moon, Briefcase, Activity } from 'lucide-react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import { format } from 'date-fns';
 import { Card } from '../components/ui/card';
-import { BackButton } from '../components/back-button';
 import { Footer } from '../components/footer';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../hooks/use-auth';
@@ -12,7 +11,10 @@ import {
   calculateInsulinDose,
   getInsulinPredictions,
 } from '../lib/api/insulin';
+import { getGlucoseReadings } from '../lib/api/glucose';
 import { AppHeader } from '../components/app-header';
+
+const MAX_GLUCOSE_ENTRIES = 24;
 
 interface Recommendation {
   total: number;
@@ -32,6 +34,121 @@ interface Prediction {
   units: number;
   accuracy: 'Accurate' | 'Slightly low' | 'Low';
 }
+
+const GlucoseModal = memo(({ 
+  isVisible, 
+  onClose, 
+  glucoseInputs, 
+  onGlucoseChange, 
+  onRemoveGlucose, 
+  onAddGlucose,
+  isLoadingGlucose,
+  noGlucoseFound,
+  onLoadRecent,
+  token
+}: {
+  isVisible: boolean;
+  onClose: () => void;
+  glucoseInputs: string[];
+  onGlucoseChange: (value: string, idx: number) => void;
+  onRemoveGlucose: (idx: number) => void;
+  onAddGlucose: () => void;
+  isLoadingGlucose: boolean;
+  noGlucoseFound: boolean;
+  onLoadRecent: () => void;
+  token: string | null;
+}) => {
+  if (!isVisible) return null;
+
+  return (
+    <Modal
+      visible={isVisible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Ingresar Mediciones de Glucosa 🩺</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Icon name="x" size={24} color="#6b7280" />
+            </TouchableOpacity>
+          </View>
+          
+          <Text style={styles.modalDescription}>
+            Ingresa tus niveles de glucosa recientes (mg/dL) de las últimas 2 horas. Máximo 24 mediciones. Usa el botón 'Cargar últimos valores' para obtener datos automáticos o ingrésalos manualmente. 📝
+          </Text>
+
+          <TouchableOpacity
+            style={[styles.loadButton, noGlucoseFound ? styles.loadButtonDisabled : (isLoadingGlucose && styles.buttonDisabled)]}
+            onPress={onLoadRecent}
+            disabled={isLoadingGlucose || !token || noGlucoseFound}
+          >
+            {isLoadingGlucose ? (
+              <Icon name="loader" size={16} color="#4CAF50" />
+            ) : noGlucoseFound ? (
+              <Icon name="x-circle" size={16} color="#9CA3AF" />
+            ) : (
+              <Icon name="refresh-cw" size={16} color="#4CAF50" />
+            )}
+            <Text style={[styles.loadButtonText, noGlucoseFound && styles.disabledButtonText]}>
+              {noGlucoseFound ? "No se encontraron valores" : "Cargar últimos valores"}
+            </Text>
+          </TouchableOpacity>
+
+          <ScrollView 
+            style={styles.glucoseInputsScroll}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.glucoseInputsContent}
+          >
+            <View style={styles.glucoseGrid}>
+              {glucoseInputs.map((value, idx) => (
+                <View key={idx} style={styles.glucoseInputContainer}>
+                  <TextInput
+                    style={styles.glucoseInput}
+                    value={value}
+                    onChangeText={v => onGlucoseChange(v, idx)}
+                    keyboardType="numeric"
+                    placeholder={`Glucosa #${idx + 1}`}
+                    maxLength={3}
+                  />
+                  <View style={styles.glucoseInputAddon}>
+                    <Text style={styles.glucoseInputAddonText}>mg/dL</Text>
+                  </View>
+                  {idx > 0 && (
+                    <TouchableOpacity onPress={() => onRemoveGlucose(idx)} style={styles.removeGlucoseButton}>
+                      <Icon name="x-circle" size={20} color="#ef4444" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+
+          {glucoseInputs.length < MAX_GLUCOSE_ENTRIES && (
+            <TouchableOpacity
+              style={styles.addGlucoseInputButton}
+              onPress={onAddGlucose}
+            >
+              <Icon name="plus-circle" size={20} color="#4CAF50" />
+              <Text style={styles.addGlucoseInputText}>Agregar medición</Text>
+            </TouchableOpacity>
+          )}
+
+          <View style={styles.modalFooter}>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={onClose}
+            >
+              <Text style={styles.modalButtonText}>Guardar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+});
 
 export default function InsulinPage() {
   const navigation = useNavigation();
@@ -61,12 +178,19 @@ export default function InsulinPage() {
       accuracy: 'Accurate' | 'Slightly low' | 'Low';
     }>;
   } | null>(null);
-  const [glucoseExpanded, setGlucoseExpanded] = useState(true);
+  const [isLoadingGlucose, setIsLoadingGlucose] = useState(false);
+  const [noGlucoseFound, setNoGlucoseFound] = useState(false);
   const [sleepQuality, setSleepQuality] = useState(''); // 1-10
   const [workLevel, setWorkLevel] = useState(''); // 1-10
   const [exerciseLevel, setExerciseLevel] = useState(''); // 1-10
 
-  const MAX_GLUCOSE_ENTRIES = 24;
+  // New states for glucose modal
+  const [isGlucoseModalVisible, setIsGlucoseModalVisible] = useState(false);
+  const [showAllGlucoseInputs, setShowAllGlucoseInputs] = useState(false);
+  const [showRecommendation, setShowRecommendation] = useState(false);
+  const [showPredictions, setShowPredictions] = useState(false);
+
+  const INITIAL_VISIBLE_INPUTS = 12;
 
   useEffect(() => {
     const loadPredictions = async () => {
@@ -81,7 +205,48 @@ export default function InsulinPage() {
     loadPredictions();
   }, [token]);
 
-  const handleGlucoseChange = (value: string, idx: number) => {
+  const loadRecentGlucoseReadings = async () => {
+    setIsLoadingGlucose(true);
+    setError(null);
+    setNoGlucoseFound(false);
+    try {
+      if (!token) return;
+      
+      const now = new Date();
+      const startDate = new Date(now.getTime() - (2 * 60 + 15) * 60 * 1000);
+      
+      const params = {
+        startDate: startDate.toISOString(),
+        limit: MAX_GLUCOSE_ENTRIES
+      };
+      
+      const readings = await getGlucoseReadings(token, params);
+      
+      const glucoseValues = readings
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, MAX_GLUCOSE_ENTRIES - 1)
+        .map(reading => reading.value.toString());
+      
+      if (glucoseValues.length === 0) {
+        setNoGlucoseFound(true);
+        setGlucoseInputs(['']);
+        return;
+      }
+      
+      if (glucoseValues.length < MAX_GLUCOSE_ENTRIES) {
+        glucoseValues.push('');
+      }
+      
+      setGlucoseInputs(glucoseValues);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error cargando lecturas de glucosa');
+      setNoGlucoseFound(true);
+    } finally {
+      setIsLoadingGlucose(false);
+    }
+  };
+
+  const handleGlucoseChange = useCallback((value: string, idx: number) => {
     if (!/^\d{0,3}$/.test(value)) return;
     if (value === '0') return;
     const arr = [...glucoseInputs];
@@ -90,12 +255,18 @@ export default function InsulinPage() {
       arr.push('');
     }
     setGlucoseInputs(arr.slice(0, MAX_GLUCOSE_ENTRIES));
-  };
+  }, [glucoseInputs]);
 
-  const handleRemoveGlucose = (idx: number) => {
+  const handleRemoveGlucose = useCallback((idx: number) => {
     const arr = glucoseInputs.filter((_, i) => i !== idx);
     setGlucoseInputs(arr.length === 0 ? [''] : arr);
-  };
+  }, [glucoseInputs]);
+
+  const handleAddGlucose = useCallback(() => {
+    const newInputs = [...glucoseInputs];
+    newInputs.push('');
+    setGlucoseInputs(newInputs);
+  }, [glucoseInputs]);
 
   const isValidCarbs = (val: string) => /^\d+(,\d{0,2})?$|^\d+(\.\d{0,2})?$/.test(val);
   const isValidInsulinOnBoard = (val: string) => /^\d+(,\d{0,2})?$|^\d+(\.\d{0,2})?$/.test(val);
@@ -131,7 +302,7 @@ export default function InsulinPage() {
     try {
       const cgmPrev = glucoseInputs.filter(g => g !== '').map(Number);
       const calculation = {
-        userId: token, // TODO: reemplazar con el ID del usuario
+        userId: token,
         date: new Date().toISOString(),
         cgmPrev,
         glucoseObjective: Number(targetBloodGlucose),
@@ -148,6 +319,34 @@ export default function InsulinPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Glucose Summary Component
+  const GlucoseSummary = () => {
+    const validGlucoses = glucoseInputs.filter(g => g !== '' && g !== '0');
+    if (validGlucoses.length === 0) return null;
+
+    return (
+      <View style={styles.glucoseSummary}>
+        <View style={styles.glucoseSummaryContent}>
+          <View style={styles.glucoseSummaryHeader}>
+            <Droplet size={16} color="#4CAF50" />
+            <Text style={styles.glucoseSummaryText}>
+              {validGlucoses.length} glucosa(s) ingresada(s)
+            </Text>
+          </View>
+          <Text style={styles.glucoseSummaryValues}>
+            {validGlucoses.join(', ')} mg/dL
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={styles.editGlucoseButton}
+          onPress={() => setIsGlucoseModalVisible(true)}
+        >
+          <Text style={styles.editGlucoseText}>Editar</Text>
+        </TouchableOpacity>
+      </View>
+    );
   };
 
   return (
@@ -167,120 +366,119 @@ export default function InsulinPage() {
               </View>
             </View>
             <View style={styles.cardContent}>
-              <TouchableOpacity
-                style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}
-                onPress={() => setGlucoseExpanded(exp => !exp)}
-              >
+              {/* Glucose Section */}
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
                 <Droplet size={16} color="#4CAF50" />
-                <Text style={[styles.label, { flex: 1 }]}>Glucosa (mg/dL)</Text>
-                <Icon name={glucoseExpanded ? 'chevron-up' : 'chevron-down'} size={20} color="#4CAF50" />
-              </TouchableOpacity>
-              <Text style={{ color: '#6b7280', fontSize: 12, marginBottom: 8 }}>
-                Las mediciones se cargan de más reciente a más antigua. Solo se permiten mediciones de las últimas 2 horas (mg/dL). Máximo 24 mediciones.
-              </Text>
-              {glucoseExpanded && (
-                <View>
-                  {glucoseInputs.map((value, idx) => (
-                    <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                      <TextInput
-                        style={[styles.input, { flex: 1 }]}
-                        value={value}
-                        onChangeText={v => handleGlucoseChange(v, idx)}
-                        keyboardType="numeric"
-                        placeholder={`Glucosa #${idx + 1}`}
-                        maxLength={3}
-                        editable={idx < MAX_GLUCOSE_ENTRIES}
-                      />
-                      <View style={styles.inputAddon}>
-                        <Text style={styles.inputAddonText}>mg/dL</Text>
-                      </View>
-                      {idx > 0 && (
-                        <TouchableOpacity onPress={() => handleRemoveGlucose(idx)} style={{ marginLeft: 8 }}>
-                          <Icon name="x-circle" size={20} color="#ef4444" />
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  ))}
-                  {glucoseInputs.length === MAX_GLUCOSE_ENTRIES && glucoseInputs[MAX_GLUCOSE_ENTRIES-1] !== '' && (
-                    <Text style={{ color: '#ef4444', fontSize: 12 }}>Máximo 24 mediciones alcanzado.</Text>
-                  )}
+                  <Text style={styles.sectionTitle}>Glucosa</Text>
                 </View>
-              )}
-
-              <View style={styles.formGroup}>
-                <View style={styles.labelContainer}>
-                  <Droplet size={16} color="#4CAF50" />
-                  <Text style={styles.label}>Glucosa Objetivo</Text>
-                </View>
-                <View style={styles.inputGroup}>
-                  <TextInput
-                    style={styles.input}
-                    value={targetBloodGlucose}
-                    onChangeText={setTargetBloodGlucose}
-                    keyboardType="numeric"
-                    placeholder="Glucosa objetivo (mg/dL)"
-                  />
-                  <View style={styles.inputAddon}>
-                    <Text style={styles.inputAddonText}>mg/dL</Text>
-                  </View>
-                </View>
-                {showTargetWarning && (
-                  <Text style={{ color: '#ef4444', fontSize: 12 }}>Debe ser un número entre 80 y 180 mg/dL.</Text>
+                {glucoseInputs.filter(g => g !== '' && g !== '0').length === 0 ? (
+                  <TouchableOpacity
+                    style={styles.addGlucoseButton}
+                    onPress={() => setIsGlucoseModalVisible(true)}
+                  >
+                    <Droplet size={16} color="#fff" />
+                    <Text style={styles.addGlucoseText}>Agregar Glucosas 📈</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <GlucoseSummary />
                 )}
-              </View>
+                      </View>
 
-              <View style={styles.formGroup}>
-                <View style={styles.labelContainer}>
-                  <Icon name="coffee" size={16} color="#4CAF50" />
-                  <Text style={styles.label}>Carbohidratos a Consumir</Text>
+              {/* Nutrition and Control Section */}
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Coffee size={16} color="#4CAF50" />
+                  <Text style={styles.sectionTitle}>Nutrición y Control</Text>
                 </View>
-                <View style={styles.inputGroup}>
-                  <TextInput
-                    style={styles.input}
-                    value={carbs}
-                    onChangeText={setCarbs}
-                    keyboardType="numeric"
-                    placeholder="Ingrese carbohidratos"
-                  />
-                  <View style={styles.inputAddon}>
-                    <Text style={styles.inputAddonText}>gramos</Text>
+                <View style={styles.nutritionGrid}>
+                  <View style={styles.nutritionRow}>
+                    <View style={styles.nutritionLabel}>
+                      <View style={styles.nutritionLabelHeader}>
+                        <Droplet size={16} color="#4CAF50" />
+                        <Text style={styles.nutritionLabelText}>Glucosa Objetivo</Text>
+                      </View>
+                      <Text style={styles.nutritionDescription}>Valor deseado de glucosa (80-180 mg/dL)</Text>
+                    </View>
+                    <View style={styles.nutritionInput}>
+                      {showTargetWarning && (
+                        <Text style={[styles.errorText, styles.errorTextAbove]}>Debe ser entre 80-180 mg/dL</Text>
+                      )}
+                      <TextInput
+                        style={[styles.nutritionInputField, showTargetWarning && styles.errorInput]}
+                        value={targetBloodGlucose}
+                        onChangeText={setTargetBloodGlucose}
+                        keyboardType="numeric"
+                        placeholder="0"
+                      />
+                      <Text style={styles.nutritionUnit}>mg/dL</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.nutritionRow}>
+                    <View style={styles.nutritionLabel}>
+                      <View style={styles.nutritionLabelHeader}>
+                        <Coffee size={16} color="#4CAF50" />
+                        <Text style={styles.nutritionLabelText}>Carbohidratos</Text>
+                      </View>
+                      <Text style={styles.nutritionDescription}>Cantidad de carbohidratos a consumir</Text>
+                    </View>
+                    <View style={styles.nutritionInput}>
+                      <TextInput
+                        style={styles.nutritionInputField}
+                        value={carbs}
+                        onChangeText={setCarbs}
+                        keyboardType="numeric"
+                        placeholder="0.00"
+                      />
+                      <Text style={styles.nutritionUnit}>g</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.nutritionRow}>
+                    <View style={styles.nutritionLabel}>
+                      <View style={styles.nutritionLabelHeader}>
+                        <Zap size={16} color="#4CAF50" />
+                        <Text style={styles.nutritionLabelText}>Insulina Activa</Text>
+                      </View>
+                      <Text style={styles.nutritionDescription}>Insulina que aún actúa en tu cuerpo</Text>
+                    </View>
+                    <View style={styles.nutritionInput}>
+                      <TextInput
+                        style={styles.nutritionInputField}
+                        value={insulinOnBoard}
+                        onChangeText={setInsulinOnBoard}
+                        keyboardType="numeric"
+                        placeholder="0.00"
+                      />
+                      <Text style={styles.nutritionUnit}>U</Text>
+                    </View>
                   </View>
                 </View>
                 {carbs && !isValidCarbs(carbs) && (
-                  <Text style={{ color: '#ef4444', fontSize: 12 }}>Ingrese un número válido (hasta 2 decimales).</Text>
+                  <Text style={styles.errorText}>Número válido (2 decimales)</Text>
                 )}
-              </View>
-
-              <View style={styles.formGroup}>
-                <View style={styles.labelContainer}>
-                  <Zap size={16} color="#4CAF50" />
-                  <Text style={styles.label}>Insulin On Board</Text>
-                </View>
-                <View style={styles.inputGroup}>
-                  <TextInput
-                    style={styles.input}
-                    value={insulinOnBoard}
-                    onChangeText={setInsulinOnBoard}
-                    keyboardType="numeric"
-                    placeholder="Insulina activa (U)"
-                  />
-                  <View style={styles.inputAddon}>
-                    <Text style={styles.inputAddonText}>U</Text>
-                  </View>
-                </View>
                 {insulinOnBoard && !isValidInsulinOnBoard(insulinOnBoard) && (
-                  <Text style={{ color: '#ef4444', fontSize: 12 }}>Ingrese un número válido (hasta 2 decimales).</Text>
+                  <Text style={styles.errorText}>Número válido (2 decimales)</Text>
                 )}
               </View>
 
-              {/* CAMPOS DE SUEÑO, TRABAJO Y EJERCICIO AL FINAL */}
-              <View style={styles.formGroup}>
-                <View style={styles.labelContainer}>
-                  <Icon name="moon" size={16} color="#4CAF50" />
-                  <Text style={styles.label}>¿Cómo dormiste? (1 = mal, 10 = excelente)</Text>
+              {/* Lifestyle Factors Section */}
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Activity size={16} color="#4CAF50" />
+                  <Text style={styles.sectionTitle}>Factores de Estilo de Vida</Text>
                 </View>
+
+                <View style={styles.lifestyleGrid}>
+                  <View style={styles.lifestyleItem}>
+                    <View style={styles.lifestyleLabelContainer}>
+                      <Moon size={16} color="#4CAF50" />
+                      <Text style={styles.lifestyleLabel}>Sueño</Text>
+                    </View>
+                    <Text style={styles.lifestyleDescription}>1: Sin dormir, 10: Dormido bien</Text>
                 <TextInput
-                  style={styles.input}
+                      style={styles.lifestyleInput}
                   value={sleepQuality}
                   onChangeText={v => {
                     if (/^$|^([1-9]|10)$/.test(v)) setSleepQuality(v);
@@ -289,17 +487,16 @@ export default function InsulinPage() {
                   placeholder="1-10"
                   maxLength={2}
                 />
-                {sleepQuality && (Number(sleepQuality) < 1 || Number(sleepQuality) > 10) && (
-                  <Text style={{ color: '#ef4444', fontSize: 12 }}>Ingrese un valor entre 1 y 10.</Text>
-                )}
               </View>
-              <View style={styles.formGroup}>
-                <View style={styles.labelContainer}>
-                  <Icon name="briefcase" size={16} color="#4CAF50" />
-                  <Text style={styles.label}>Nivel de trabajo (1 = poco, 10 = mucho)</Text>
+
+                  <View style={styles.lifestyleItem}>
+                    <View style={styles.lifestyleLabelContainer}>
+                      <Briefcase size={16} color="#4CAF50" />
+                      <Text style={styles.lifestyleLabel}>Trabajo</Text>
                 </View>
+                    <Text style={styles.lifestyleDescription}>1: Sin estrés, 10: Muy estresado</Text>
                 <TextInput
-                  style={styles.input}
+                      style={styles.lifestyleInput}
                   value={workLevel}
                   onChangeText={v => {
                     if (/^$|^([1-9]|10)$/.test(v)) setWorkLevel(v);
@@ -308,17 +505,16 @@ export default function InsulinPage() {
                   placeholder="1-10"
                   maxLength={2}
                 />
-                {workLevel && (Number(workLevel) < 1 || Number(workLevel) > 10) && (
-                  <Text style={{ color: '#ef4444', fontSize: 12 }}>Ingrese un valor entre 1 y 10.</Text>
-                )}
               </View>
-              <View style={styles.formGroup}>
-                <View style={styles.labelContainer}>
-                  <Icon name="activity" size={16} color="#4CAF50" />
-                  <Text style={styles.label}>Ejercicio realizado (1 = nada, 10 = muy intenso)</Text>
+
+                  <View style={styles.lifestyleItem}>
+                    <View style={styles.lifestyleLabelContainer}>
+                      <Activity size={16} color="#4CAF50" />
+                      <Text style={styles.lifestyleLabel}>Ejercicio</Text>
                 </View>
+                    <Text style={styles.lifestyleDescription}>1: Sin actividad, 10: Intenso</Text>
                 <TextInput
-                  style={styles.input}
+                      style={styles.lifestyleInput}
                   value={exerciseLevel}
                   onChangeText={v => {
                     if (/^$|^([1-9]|10)$/.test(v)) setExerciseLevel(v);
@@ -327,11 +523,11 @@ export default function InsulinPage() {
                   placeholder="1-10"
                   maxLength={2}
                 />
-                {exerciseLevel && (Number(exerciseLevel) < 1 || Number(exerciseLevel) > 10) && (
-                  <Text style={{ color: '#ef4444', fontSize: 12 }}>Ingrese un valor entre 1 y 10.</Text>
-                )}
+                  </View>
+                </View>
               </View>
 
+              {/* Calculate Button */}
               <TouchableOpacity
                 style={[styles.button, styles.primaryButton, !canCalculate() && styles.buttonDisabled]}
                 onPress={handleCalculate}
@@ -344,30 +540,41 @@ export default function InsulinPage() {
                 )}
                 <Text style={styles.buttonText}>Calcular Dosis de Insulina</Text>
               </TouchableOpacity>
+
               {error && (
-                <Text style={{ color: '#ef4444', marginTop: 8 }}>{error}</Text>
+                <View style={styles.errorContainer}>
+                  <AlertCircle size={16} color="#ef4444" />
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
               )}
             </View>
           </Card>
 
+          {/* Recommendation Section */}
           {recommendation && (
             <Card style={styles.card}>
-              <View style={styles.cardContent}>
-                <View style={styles.recommendationHeader}>
-                  <View style={styles.iconContainer}>
+              <TouchableOpacity
+                style={styles.sectionHeader}
+                onPress={() => setShowRecommendation(!showRecommendation)}
+              >
+                <View style={styles.sectionTitleContainer}>
                     <Droplet size={24} color="#4CAF50" />
+                  <Text style={styles.sectionTitle}>Dosis de Insulina Recomendada ✨</Text>
                   </View>
+                <Icon
+                  name={showRecommendation ? 'chevron-up' : 'chevron-down'}
+                  size={20}
+                  color="#4CAF50"
+                />
+              </TouchableOpacity>
+
+              {showRecommendation && (
                   <View style={styles.recommendationContent}>
-                    <Text style={styles.recommendationTitle}>Dosis de Insulina Recomendada ✨</Text>
                     <View style={styles.recommendationValue}>
                       <Text style={styles.recommendationNumber}>{recommendation.total}</Text>
                       <Text style={styles.recommendationUnit}>unidades 💉</Text>
                     </View>
-                    <Text style={styles.recommendationSubtext}>
-                      Basado en tus datos ingresados 📊
-                    </Text>
-                  </View>
-                </View>
+                  
                 <View style={styles.breakdownSection}>
                   <Text style={styles.breakdownTitle}>Cómo se calculó: 🔍</Text>
                   <View style={styles.breakdownList}>
@@ -387,80 +594,27 @@ export default function InsulinPage() {
                       <Text style={styles.breakdownText}>🕒 Ajuste por hora:</Text>
                       <Text style={styles.breakdownValue}>{recommendation.breakdown.timeAdjustment} U</Text>
                     </View>
-                    <View style={[styles.breakdownItem, styles.breakdownTotal]}>
-                      <Text style={[styles.breakdownText, styles.totalText]}>💉 Dosis total:</Text>
-                      <Text style={[styles.breakdownValue, styles.totalValue]}>{recommendation.total} U</Text>
                     </View>
                   </View>
                 </View>
-              </View>
+              )}
             </Card>
           )}
-
-          <Card style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View style={styles.cardTitleContainer}>
-                <TrendingUp size={24} color="#4CAF50" />
-                <Text style={styles.cardTitle}>Rendimiento de Predicciones</Text>
-              </View>
-            </View>
-            <View style={styles.cardContent}>
-              <View style={styles.performanceHeader}>
-                <View>
-                  <Text style={styles.performanceLabel}>Precisión de Predicciones 🎯</Text>
-                  <View style={styles.performanceValue}>
-                    <Text style={styles.performanceNumber}>{predictions?.accuracy.percentage}%</Text>
-                    <View style={styles.performanceBadge}>
-                      {predictions?.accuracy.trend.direction === 'up' ? (
-                        <TrendingUp size={12} color="#4CAF50" />
-                      ) : (
-                        <TrendingDown size={12} color="#ef4444" />
-                      )}
-                      <Text style={styles.performanceBadgeText}>
-                        {predictions?.accuracy.trend.value}% este mes
-                        {predictions?.accuracy.trend.direction === 'up' ? ' 📈' : ' 📉'}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              </View>
-              <Text style={styles.performanceDescription}>
-                🤖 El modelo está aprendiendo continuamente de tus respuestas glucémicas y mejorando sus predicciones.
-                La precisión reciente ha {predictions?.accuracy.trend.direction === 'up' ? 'aumentado ⬆️ ' : 'disminuido ⬇️ '} 
-                 a medida que el modelo se adapta a tus patrones.
-              </Text>
-              <Text style={styles.sectionTitle}>Predicciones Recientes 🔮</Text>
-              <View style={styles.predictionsList}>
-                {predictions?.predictions.map((prediction) => (
-                  <View key={prediction.id} style={styles.predictionItem}>
-                    <View>
-                      <Text style={styles.predictionTitle}>
-                        🕒 {prediction.mealType} - {format(new Date(prediction.date), 'MMM dd, p')}
-                      </Text>
-                      <Text style={styles.predictionDetails}>
-                        🍽️ {prediction.carbs}g carbohidratos, 🩺 {prediction.glucose} mg/dL
-                      </Text>
-                    </View>
-                    <View style={styles.predictionRight}>
-                      <Text style={styles.predictionUnits}>💉 {prediction.units} unidades</Text>
-                      <Text style={[
-                        styles.predictionAccuracy,
-                        prediction.accuracy === 'Accurate' && styles.accuracyGood,
-                        prediction.accuracy === 'Slightly low' && styles.accuracyWarning,
-                        prediction.accuracy === 'Low' && styles.accuracyBad
-                      ]}>
-                        {prediction.accuracy === 'Accurate' ? '✅ Precisa' : 
-                         prediction.accuracy === 'Slightly low' ? '⚠️ Ligeramente baja' : '❌ Baja'}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            </View>
-          </Card>
         </View>
       </ScrollView>
       <Footer />
+      <GlucoseModal
+        isVisible={isGlucoseModalVisible}
+        onClose={() => setIsGlucoseModalVisible(false)}
+        glucoseInputs={glucoseInputs}
+        onGlucoseChange={handleGlucoseChange}
+        onRemoveGlucose={handleRemoveGlucose}
+        onAddGlucose={handleAddGlucose}
+        isLoadingGlucose={isLoadingGlucose}
+        noGlucoseFound={noGlucoseFound}
+        onLoadRecent={loadRecentGlucoseReadings}
+        token={token}
+      />
     </SafeAreaView>
   );
 }
@@ -476,87 +630,63 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
-  header: {
-    width: '100%',
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    paddingTop: 20,
-  },
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 8,
-    position: 'relative',
-    width: '100%',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    marginTop: 30,
-  },
-  backButton: {
-    position: 'absolute',
-    left: 0,
-    zIndex: 1,
-    alignSelf: 'center',
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  descriptionContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    justifyContent: 'center',
-  },
-  description: {
-    fontSize: 16,
-    color: '#6b7280',
-    textAlign: 'center',
-  },
   card: {
     backgroundColor: 'white',
     borderRadius: 12,
-    padding: 16,
-    gap: 20,
+    padding: 12,
+    gap: 10,
     marginHorizontal: 16,
-    marginBottom: 16,
-    marginTop: 15,
+    marginBottom: 12,
+    marginTop: 12,
   },
   cardHeader: {
-    marginBottom: 16,
+    marginBottom: 2,
+    alignItems: 'center',
   },
   cardTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    justifyContent: 'center',
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#111827',
+    textAlign: 'center',
   },
   cardContent: {
-    gap: 16,
+    gap: 10,
   },
-  formGroup: {
-    gap: 8,
+  section: {
+    gap: 6,
   },
-  labelContainer: {
+  sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     marginBottom: 4,
+  },
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  gridItem: {
+    flex: 1,
+    minWidth: '45%',
+    gap: 4,
   },
   label: {
     fontSize: 14,
@@ -572,11 +702,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#d1d5db',
     borderRadius: 8,
-    padding: 12,
+    padding: 10,
     fontSize: 16,
   },
   inputAddon: {
-    padding: 12,
+    padding: 10,
     backgroundColor: '#f3f4f6',
     borderTopRightRadius: 8,
     borderBottomRightRadius: 8,
@@ -589,9 +719,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
+    padding: 14,
     borderRadius: 8,
     gap: 8,
+    marginTop: 6,
   },
   primaryButton: {
     backgroundColor: '#4CAF50',
@@ -604,23 +735,156 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
-  recommendationHeader: {
+  errorContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 16,
-  },
-  recommendationContent: {
-    flex: 1,
-  },
-  iconContainer: {
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FEE2E2',
     padding: 12,
-    backgroundColor: '#f3f4f6',
     borderRadius: 8,
   },
-  recommendationTitle: {
-    fontSize: 16,
+  errorText: {
+    color: '#ef4444',
+    fontSize: 12,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxHeight: '90%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
     fontWeight: '600',
     color: '#111827',
+  },
+  modalDescription: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  glucoseInputsScroll: {
+    maxHeight: 400,
+  },
+  glucoseInputsContent: {
+    paddingBottom: 16,
+  },
+  glucoseGrid: {
+    gap: 8,
+  },
+  glucoseInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 4,
+  },
+  glucoseInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    height: 48,
+  },
+  glucoseInputAddon: {
+    padding: 8,
+    backgroundColor: '#f3f4f6',
+    borderTopRightRadius: 8,
+    borderBottomRightRadius: 8,
+  },
+  glucoseInputAddonText: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  removeGlucoseButton: {
+    marginLeft: 4,
+  },
+  addGlucoseInputButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f3f4f6',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#4CAF50',
+    borderStyle: 'dashed',
+  },
+  addGlucoseInputText: {
+    color: '#4CAF50',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  glucoseSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f3f4f6',
+    padding: 12,
+    borderRadius: 8,
+    gap: 8,
+  },
+  glucoseSummaryContent: {
+    flexDirection: 'column',
+    gap: 4,
+    flex: 1,
+    marginRight: 8,
+  },
+  glucoseSummaryText: {
+    fontSize: 14,
+    color: '#111827',
+    flex: 1,
+  },
+  glucoseSummaryValues: {
+    fontSize: 13,
+    color: '#6b7280',
+    fontStyle: 'italic',
+  },
+  editGlucoseButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    flexShrink: 0,
+  },
+  editGlucoseText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  addGlucoseButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#4CAF50',
+    padding: 12,
+    borderRadius: 8,
+    gap: 8,
+  },
+  addGlucoseText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  recommendationContent: {
+    gap: 16,
   },
   recommendationValue: {
     flexDirection: 'row',
@@ -636,12 +900,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#6b7280',
   },
-  recommendationSubtext: {
-    fontSize: 14,
-    color: '#6b7280',
-  },
   breakdownSection: {
-    gap: 16,
+    gap: 12,
   },
   breakdownTitle: {
     fontSize: 16,
@@ -661,88 +921,66 @@ const styles = StyleSheet.create({
   },
   breakdownValue: {
     fontSize: 14,
+    fontWeight: '500',
     color: '#111827',
   },
-  breakdownTotal: {
-    borderTopWidth: 1,
-    borderTopColor: '#d1d5db',
-    paddingTop: 8,
-  },
-  totalText: {
-    fontWeight: '600',
-  },
-  totalValue: {
-    fontWeight: '600',
-  },
-  performanceHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  predictionsContent: {
     gap: 16,
   },
-  performanceLabel: {
-    fontSize: 14,
-    color: '#6b7280',
-  },
-  performanceValue: {
+  accuracyContainer: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f3f4f6',
+    padding: 12,
+    borderRadius: 8,
   },
-  performanceNumber: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#4CAF50',
+  accuracyText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#111827',
   },
-  performanceBadge: {
+  trendContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 8,
-    padding: 4,
   },
-  performanceBadgeText: {
-    fontSize: 12,
-    color: '#6b7280',
-  },
-  performanceDescription: {
+  trendText: {
     fontSize: 14,
-    color: '#6b7280',
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
+    fontWeight: '500',
   },
   predictionsList: {
-    gap: 16,
+    gap: 12,
   },
   predictionItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    backgroundColor: '#f3f4f6',
+    padding: 12,
+    borderRadius: 8,
   },
   predictionTitle: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#111827',
   },
   predictionDetails: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#6b7280',
+    marginTop: 2,
   },
   predictionRight: {
     alignItems: 'flex-end',
   },
   predictionUnits: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#111827',
   },
   predictionAccuracy: {
     fontSize: 12,
-    fontWeight: '500',
+    marginTop: 2,
   },
   accuracyGood: {
     color: '#4CAF50',
@@ -752,5 +990,158 @@ const styles = StyleSheet.create({
   },
   accuracyBad: {
     color: '#ef4444',
+  },
+  loadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f3f4f6',
+    padding: 12,
+    borderRadius: 8,
+    gap: 8,
+    marginBottom: 16,
+  },
+  loadButtonDisabled: {
+    backgroundColor: '#e5e7eb',
+  },
+  loadButtonText: {
+    color: '#4CAF50',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  disabledButtonText: {
+    color: '#9CA3AF',
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 8,
+  },
+  modalButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  modalButtonText: {
+    color: 'white',
+    fontWeight: '500',
+  },
+  sectionDescription: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginBottom: 8,
+    fontStyle: 'italic',
+  },
+  lifestyleGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginTop: 4,
+  },
+  lifestyleItem: {
+    flex: 1,
+    gap: 4,
+  },
+  lifestyleLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  lifestyleLabel: {
+    fontSize: 14,
+    color: '#6b7280',
+    fontWeight: '500',
+  },
+  lifestyleDescription: {
+    fontSize: 12,
+    color: '#9ca3af',
+    marginBottom: 2,
+  },
+  lifestyleInput: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 6,
+    padding: 8,
+    fontSize: 14,
+    textAlign: 'center',
+    backgroundColor: '#f9fafb',
+  },
+  labelContainer: {
+    gap: 2,
+    marginBottom: 4,
+  },
+  inputDescription: {
+    fontSize: 11,
+    color: '#9ca3af',
+    fontStyle: 'italic',
+  },
+  nutritionGrid: {
+    gap: 10,
+  },
+  nutritionRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+    padding: 10,
+  },
+  nutritionLabel: {
+    flex: 1,
+    gap: 4,
+  },
+  nutritionLabelHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  nutritionLabelText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#374151',
+  },
+  nutritionDescription: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginLeft: 22,
+  },
+  nutritionInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    paddingHorizontal: 8,
+    minWidth: 95,
+    marginLeft: 10,
+  },
+  nutritionInputField: {
+    flex: 1,
+    fontSize: 15,
+    color: '#111827',
+    paddingVertical: 4,
+    textAlign: 'right',
+  },
+  nutritionUnit: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginLeft: 4,
+  },
+  glucoseSummaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  errorTextAbove: {
+    position: 'absolute',
+    top: -22,
+    right: 0,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  errorInput: {
+    borderColor: '#ef4444',
   },
 });

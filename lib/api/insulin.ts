@@ -172,7 +172,7 @@ export const getPredictionHistory = async (token: string, id: string): Promise<I
     const data = await response.json();*/
     // Simulating a response for testing purposes
     // add sleep of 5 secs
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    await new Promise(resolve => setTimeout(resolve, 1000));
     const response = {
       ok: true
     };
@@ -239,7 +239,7 @@ export const getPredictionHistory = async (token: string, id: string): Promise<I
       {
         id: "test_5",
         userId: id,
-        date: "2025-05-16T00:05:16.268Z",
+        date: "2025-05-19T21:40:00.000Z",
         cgmPrev: [95, 100, 105],
         glucoseObjective: 100,
         carbs: 25,
@@ -291,7 +291,7 @@ export const getPredictionHistory = async (token: string, id: string): Promise<I
         sleepLevel: 2,
         workLevel: 3,
         activityLevel: 2,
-        recommendedDose: 4,
+        recommendedDose: 5,
         applyDose: 4,
         cgmPost: [85, 90, 95],
       },
