@@ -7,6 +7,7 @@ import { useAuth } from './hooks/use-auth';
 import { View, ActivityIndicator } from 'react-native';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import DashboardScreen from './screens/DashboardScreen';
 import LoginScreen from './screens/LoginScreen';
@@ -22,6 +23,7 @@ import SettingsPage from './screens/SettingsPage';
 import PredictionResultPage from './screens/PredictionResultPage';
 import { FullChatScreen } from './screens/FullChatScreen';
 import { BackButton } from './components/back-button';
+import OnboardingScreen from './screens/OnboardingScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -122,18 +124,39 @@ export default function App() {
 
   // Initialize auth state when app loads
   useEffect(() => {
-    initialize();
+    const initializeApp = async () => {
+      await initialize();
+      // Forzar el estado de onboarding a false para debugging
+      await AsyncStorage.setItem('hasSeenOnboarding', 'false');
+    };
+    initializeApp();
   }, [initialize]);
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <NavigationContainer theme={navigationTheme}>
           <ThemeProvider>
-            {isLoading ? (
-              <LoadingScreen />
+            {isAuthenticated ? (
+              <Stack.Navigator screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+                <Stack.Screen name="Dashboard" component={DashboardScreen} />
+                <Stack.Screen name="Meals" component={MealsPage} />
+                <Stack.Screen name="History" component={HistoryPage} />
+                <Stack.Screen name="Insulin" component={InsulinPage} />
+                <Stack.Screen name="Profile" component={ProfilePage} />
+                <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+                <Stack.Screen name="Settings" component={SettingsPage} />
+                <Stack.Screen name="Notifications" component={NotificationsScreen} />
+                <Stack.Screen name="PredictionResultPage" component={PredictionResultPage} />
+                <Stack.Screen name="FullChat" component={FullChatScreen} />
+              </Stack.Navigator>
             ) : (
-              isAuthenticated ? <AppStack /> : <AuthStack />
+              <AuthStack />
             )}
           </ThemeProvider>
         </NavigationContainer>
