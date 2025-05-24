@@ -80,7 +80,7 @@ export const useAuth = create<AuthState>()(
         set({ isLoading: true, error: null });
         try {
           const response = await loginUser({ email, password });
-          console.log('Login response:', response);
+
           
           if (hasRequiredUserFields(response)) {
             const { token, ...userFields } = response;

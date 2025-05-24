@@ -6,12 +6,14 @@ import { useAuth } from "../hooks/use-auth";
 import { useBiometrics } from "../hooks/use-biometrics";
 import { BiometricEnrollModal } from "../components/biometric-enroll-modal";
 import { Fingerprint } from "lucide-react-native";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type RootStackParamList = {
   Login: undefined;
   Dashboard: undefined;
   ForgotPasswordPage: undefined;
   Signup: undefined;
+  Onboarding: undefined;
 };
 
 type LoginScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>;
@@ -21,7 +23,6 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [showBiometricsModal, setShowBiometricsModal] = useState(false);
-  const [justLoggedIn, setJustLoggedIn] = useState(false);
   const { login, isLoading, error: authError, isAuthenticated } = useAuth();
   const navigation = useNavigation<LoginScreenNavigationProp>();
   
@@ -49,7 +50,6 @@ export default function LoginScreen() {
   useEffect(() => {
     const checkBiometricsEnrollment = async () => {
       if (
-        justLoggedIn && // User just logged in
         isAuthenticated && // Authentication was successful
         isBiometricsAvailable && // Device has biometrics
         !isBiometricsEnabled && // Biometrics not already enabled
@@ -60,7 +60,7 @@ export default function LoginScreen() {
     };
 
     checkBiometricsEnrollment();
-  }, [justLoggedIn, isAuthenticated]);
+  }, [isAuthenticated]);
 
   // Update error message if authError changes
   useEffect(() => {
@@ -72,11 +72,9 @@ export default function LoginScreen() {
   // Handle navigation based on authentication state
   useEffect(() => {
     if (isAuthenticated) {
-      // Check if user just logged in and hasn't been asked about biometrics before
       const checkBiometricsPrompt = async () => {
         const hasBeenAskedBefore = await hasUserBeenAskedForBiometrics();
-        
-        if (justLoggedIn && !hasBeenAskedBefore && isBiometricsAvailable && !isBiometricsEnabled) {
+        if (!hasBeenAskedBefore && isBiometricsAvailable && !isBiometricsEnabled) {
           setShowBiometricsModal(true);
         } else {
           navigation.reset({
@@ -85,10 +83,9 @@ export default function LoginScreen() {
           });
         }
       };
-      
       checkBiometricsPrompt();
     }
-  }, [isAuthenticated, justLoggedIn, isBiometricsAvailable, isBiometricsEnabled, navigation]);
+  }, [isAuthenticated, isBiometricsAvailable, isBiometricsEnabled, navigation]);
 
   const handleSubmit = async () => {
     if (!email || !password) {
@@ -98,7 +95,6 @@ export default function LoginScreen() {
 
     try {
       await login(email, password);
-      setJustLoggedIn(true); // Mark as just logged in to potentially show biometrics prompt
     } catch (err) {
       // Error is handled by useAuth and displayed through the error state
     }

@@ -5,8 +5,16 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, navigationTheme } from './components/theme-provider';
 import { useAuth } from './hooks/use-auth';
 import { View, ActivityIndicator } from 'react-native';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Font from 'expo-font';
+import {
+  useFonts,
+  Roboto_400Regular,
+  Roboto_500Medium,
+  Roboto_700Bold,
+} from '@expo-google-fonts/roboto';
 
 import DashboardScreen from './screens/DashboardScreen';
 import LoginScreen from './screens/LoginScreen';
@@ -22,6 +30,7 @@ import SettingsPage from './screens/SettingsPage';
 import PredictionResultPage from './screens/PredictionResultPage';
 import { FullChatScreen } from './screens/FullChatScreen';
 import { BackButton } from './components/back-button';
+import OnboardingScreen from './screens/OnboardingScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -119,21 +128,50 @@ function LoadingScreen() {
 
 export default function App() {
   const { isAuthenticated, isLoading, initialize } = useAuth();
+  const [fontsLoaded] = useFonts({
+    'Roboto-Regular': Roboto_400Regular,
+    'Roboto-Medium': Roboto_500Medium,
+    'Roboto-Bold': Roboto_700Bold,
+  });
+  const [hasSeenOnboarding, setHasSeenOnboarding] = useState<boolean | null>(null);
 
-  // Initialize auth state when app loads
+  // Initialize auth state and check onboarding status when app loads
   useEffect(() => {
-    initialize();
+    const initializeApp = async () => {
+      await initialize();
+      const onboardingStatus = await AsyncStorage.getItem('hasSeenOnboarding');
+      setHasSeenOnboarding(onboardingStatus === 'true');
+    };
+    initializeApp();
   }, [initialize]);
+
+  if (!fontsLoaded || isLoading || hasSeenOnboarding === null) {
+    return <LoadingScreen />;
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <NavigationContainer theme={navigationTheme}>
           <ThemeProvider>
-            {isLoading ? (
-              <LoadingScreen />
+            {isAuthenticated ? (
+              <Stack.Navigator screenOptions={{ headerShown: false }}>
+                {!hasSeenOnboarding ? (
+                  <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+                ) : null}
+                <Stack.Screen name="Dashboard" component={DashboardScreen} />
+                <Stack.Screen name="Meals" component={MealsPage} />
+                <Stack.Screen name="History" component={HistoryPage} />
+                <Stack.Screen name="Insulin" component={InsulinPage} />
+                <Stack.Screen name="Profile" component={ProfilePage} />
+                <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+                <Stack.Screen name="Settings" component={SettingsPage} />
+                <Stack.Screen name="Notifications" component={NotificationsScreen} />
+                <Stack.Screen name="PredictionResultPage" component={PredictionResultPage} />
+                <Stack.Screen name="FullChat" component={FullChatScreen} />
+              </Stack.Navigator>
             ) : (
-              isAuthenticated ? <AppStack /> : <AuthStack />
+              <AuthStack />
             )}
           </ThemeProvider>
         </NavigationContainer>

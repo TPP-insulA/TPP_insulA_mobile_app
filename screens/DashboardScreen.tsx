@@ -285,7 +285,7 @@ export default function DashboardScreen() {
 
       await createGlucoseReading({ 
         value: Number(glucoseValue),
-        notes: notes.substring(0, 30), // Limitar notas a 30 caracteres
+        notes: notes.substring(0, 40), // Limitar notas a 40 caracteres
         date: utcDate,
       }, token);
       
@@ -908,7 +908,7 @@ export default function DashboardScreen() {
                               : ''}
                           </Text>
                           {activity.type === 'glucose' && activity.notes && (
-                            <Text style={styles.activityNotes} numberOfLines={2}>
+                            <Text style={styles.activityNotes} numberOfLines={2} ellipsizeMode="tail">
                               {activity.notes}
                             </Text>
                           )}
@@ -1059,10 +1059,10 @@ export default function DashboardScreen() {
                       <TextInput
                         style={[styles.input, styles.textArea]}
                         value={notes}
-                        onChangeText={(text) => setNotes(text.substring(0, 30))}
+                        onChangeText={(text) => setNotes(text.substring(0, 40))}
                         multiline
                         numberOfLines={3}
-                        maxLength={30}
+                        maxLength={40}
                         placeholder="✍️ Agrega comentarios breves..."
                         textAlignVertical="top"
                         placeholderTextColor="#9ca3af"
@@ -1072,11 +1072,11 @@ export default function DashboardScreen() {
                       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                         <AlertCircle width={12} height={12} color="#6b7280" />
                         <Text style={{ marginLeft: 4, fontSize: 12, color: '#6b7280' }}>
-                          Máximo 30 caracteres
+                          Máximo 40 caracteres
                         </Text>
                       </View>
                       <Text style={{ fontSize: 12, color: '#6b7280' }}>
-                        {notes.length}/30
+                        {notes.length}/40
                       </Text>
                     </View>
                   </View>
@@ -1507,6 +1507,11 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     marginTop: 2,
     fontStyle: 'italic',
+    flexShrink: 1,
+    flexWrap: 'wrap',
+    maxWidth: '100%',
+    width: '100%',
+    overflow: 'hidden',
   },
   modalContainer: {
     flex: 1,
