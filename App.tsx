@@ -5,9 +5,16 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, navigationTheme } from './components/theme-provider';
 import { useAuth } from './hooks/use-auth';
 import { View, ActivityIndicator } from 'react-native';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Font from 'expo-font';
+import {
+  useFonts,
+  Roboto_400Regular,
+  Roboto_500Medium,
+  Roboto_700Bold,
+} from '@expo-google-fonts/roboto';
 
 import DashboardScreen from './screens/DashboardScreen';
 import LoginScreen from './screens/LoginScreen';
@@ -121,18 +128,24 @@ function LoadingScreen() {
 
 export default function App() {
   const { isAuthenticated, isLoading, initialize } = useAuth();
+  const [fontsLoaded] = useFonts({
+    'Roboto-Regular': Roboto_400Regular,
+    'Roboto-Medium': Roboto_500Medium,
+    'Roboto-Bold': Roboto_700Bold,
+  });
+  const [hasSeenOnboarding, setHasSeenOnboarding] = useState<boolean | null>(null);
 
-  // Initialize auth state when app loads
+  // Initialize auth state and check onboarding status when app loads
   useEffect(() => {
     const initializeApp = async () => {
       await initialize();
-      // Forzar el estado de onboarding a false para debugging
-      await AsyncStorage.setItem('hasSeenOnboarding', 'false');
+      const onboardingStatus = await AsyncStorage.getItem('hasSeenOnboarding');
+      setHasSeenOnboarding(onboardingStatus === 'true');
     };
     initializeApp();
   }, [initialize]);
 
-  if (isLoading) {
+  if (!fontsLoaded || isLoading || hasSeenOnboarding === null) {
     return <LoadingScreen />;
   }
 
@@ -143,7 +156,9 @@ export default function App() {
           <ThemeProvider>
             {isAuthenticated ? (
               <Stack.Navigator screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+                {!hasSeenOnboarding ? (
+                  <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+                ) : null}
                 <Stack.Screen name="Dashboard" component={DashboardScreen} />
                 <Stack.Screen name="Meals" component={MealsPage} />
                 <Stack.Screen name="History" component={HistoryPage} />

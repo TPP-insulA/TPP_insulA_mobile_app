@@ -4,6 +4,21 @@ import { DefaultTheme } from '@react-navigation/native';
 
 const paperTheme = {
   ...MD3LightTheme,
+  fonts: {
+    ...MD3LightTheme.fonts,
+    regular: {
+      fontFamily: 'Roboto-Regular',
+    },
+    medium: {
+      fontFamily: 'Roboto-Medium',
+    },
+    light: {
+      fontFamily: 'Roboto-Regular',
+    },
+    thin: {
+      fontFamily: 'Roboto-Regular',
+    },
+  },
   colors: {
     ...MD3LightTheme.colors,
     primary: '#4CAF50',

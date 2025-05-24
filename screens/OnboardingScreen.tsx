@@ -26,7 +26,7 @@ const OnboardingScreen = () => {
 
   const handleDone = async () => {
     try {
-      await AsyncStorage.setItem('hasSeenOnboarding', 'false');
+      await AsyncStorage.setItem('hasSeenOnboarding', 'true');
       navigation.navigate('Dashboard');
     } catch (error) {
       console.error('Error saving onboarding status:', error);
