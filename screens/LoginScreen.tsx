@@ -4,9 +4,11 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "../hooks/use-auth";
 import { useBiometrics } from "../hooks/use-biometrics";
+import { useGoogleAuth } from "../hooks/use-google-auth";
 import { BiometricEnrollModal } from "../components/biometric-enroll-modal";
 import { Fingerprint } from "lucide-react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFirebaseAuth } from '../hooks/use-firebase-auth';
 
 type RootStackParamList = {
   Login: undefined;
@@ -24,6 +26,7 @@ export default function LoginScreen() {
   const [error, setError] = useState("");
   const [showBiometricsModal, setShowBiometricsModal] = useState(false);
   const { login, isLoading, error: authError, isAuthenticated } = useAuth();
+  const { configureGoogleSignIn, signInWithGoogle } = useGoogleAuth();
   const navigation = useNavigation<LoginScreenNavigationProp>();
   
   const { 
@@ -34,6 +37,8 @@ export default function LoginScreen() {
     saveBiometricsChoice,
     hasUserBeenAskedForBiometrics
   } = useBiometrics();
+  const { handleGoogleSignIn, handleEmailSignIn } = useFirebaseAuth();
+
   // Check if biometrics can be used on component mount
   useEffect(() => {
     const checkBiometrics = async () => {
@@ -87,6 +92,10 @@ export default function LoginScreen() {
     }
   }, [isAuthenticated, isBiometricsAvailable, isBiometricsEnabled, navigation]);
 
+  useEffect(() => {
+    configureGoogleSignIn();
+  }, []);
+
   const handleSubmit = async () => {
     if (!email || !password) {
       setError("Por favor ingresa email y contraseña");
@@ -94,9 +103,33 @@ export default function LoginScreen() {
     }
 
     try {
-      await login(email, password);
-    } catch (err) {
-      // Error is handled by useAuth and displayed through the error state
+      await handleEmailSignIn(email, password);
+    } catch (err: any) {
+      console.error('[LoginScreen] Login error:', err);
+      
+      // Handle specific error cases
+      if (err.code === 'auth/invalid-credential') {
+        setError('Email o contraseña incorrectos');
+      } else if (err.code === 'auth/user-not-found') {
+        Alert.alert(
+          'Usuario no encontrado',
+          'No existe una cuenta con este email. ¿Deseas registrarte?',
+          [
+            {
+              text: 'Cancelar',
+              style: 'cancel'
+            },
+            {
+              text: 'Registrarme',
+              onPress: () => navigation.navigate('Signup')
+            }
+          ]
+        );
+      } else if (err.code === 'auth/network-request-failed') {
+        setError('Error de conexión. Por favor, verifica tu conexión a internet.');
+      } else {
+        setError(err.message || 'Error al iniciar sesión');
+      }
     }
   };
   const handleBiometricAuth = async () => {
@@ -137,6 +170,27 @@ export default function LoginScreen() {
     setPassword("Franfran");
   };
 
+  const handleGoogleSignInPress = async () => {
+    console.log('[LoginScreen] Starting Google Sign-In process...');
+    try {
+      const firebaseUser = await handleGoogleSignIn();
+      console.log('[LoginScreen] Google Sign-In successful:', {
+        email: firebaseUser?.email,
+        uid: firebaseUser?.uid
+      });
+    } catch (error: any) {
+      console.error('[LoginScreen] Google Sign-In error:', error);
+      if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
+        // User cancelled the sign-in, no need to show error
+        return;
+      } else if (error.code === 'auth/network-request-failed') {
+        setError('Error de conexión. Por favor, verifica tu conexión a internet.');
+      } else {
+        setError(error.message || 'Error al iniciar sesión con Google');
+      }
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <BiometricEnrollModal
@@ -163,94 +217,106 @@ export default function LoginScreen() {
             </Text>
           </View>
 
-          <View style={styles.cardContent}>
-            {error ? (
-              <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            ) : null}
-
-            <View style={styles.form}>
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>Email</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="tu@email.com"
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  editable={!isLoading}
-                />
-              </View>
-
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>Contraseña</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Tu contraseña"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry
-                  editable={!isLoading}
-                />
-              </View>
-
-              <TouchableOpacity 
-                style={styles.forgotPasswordContainer}
-                onPress={() => navigation.navigate('ForgotPasswordPage')}
-              >
-                <Text style={styles.forgotPasswordText}>
-                  ¿Olvidaste tu contraseña?
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.button, isLoading && styles.buttonDisabled]}
-                onPress={handleSubmit}
-                disabled={isLoading}
-              >
-                <Text style={styles.buttonText}>
-                  {isLoading ? "Ingresando..." : "Iniciar Sesión"}
-                </Text>
-              </TouchableOpacity>
-
-              {isBiometricsAvailable && isBiometricsEnabled && (
-                <TouchableOpacity
-                  style={[styles.biometricButton]}
-                  onPress={handleBiometricAuth}
-                  disabled={isLoading}
-                >
-                  <Fingerprint size={18} color="#4CAF50" />
-                  <Text style={styles.biometricButtonText}>
-                    Usar {biometricType === 'FaceID' ? 'Face ID' : biometricType === 'TouchID' ? 'Touch ID' : 'Biometría'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              <TouchableOpacity
-                style={[styles.demoButton]}
-                onPress={handleDemoLogin}
-                disabled={isLoading}
-              >
-                <Text style={styles.demoButtonText}>
-                  Usar credenciales de demo
-                </Text>
-              </TouchableOpacity>
+          {error ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
             </View>
-          </View>
+          ) : null}
 
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>
-              ¿No tienes una cuenta?{" "}
-              <Text 
-                style={styles.footerLink}
-                onPress={() => navigation.navigate('Signup')}
-              >
-                Regístrate
+          <View style={styles.form}>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Email</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="tu@email.com"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                editable={!isLoading}
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Contraseña</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Tu contraseña"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                editable={!isLoading}
+              />
+            </View>
+
+            <TouchableOpacity 
+              style={styles.forgotPasswordContainer}
+              onPress={() => navigation.navigate('ForgotPasswordPage')}
+            >
+              <Text style={styles.forgotPasswordText}>
+                ¿Olvidaste tu contraseña?
               </Text>
-            </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.button, isLoading && styles.buttonDisabled]}
+              onPress={handleSubmit}
+              disabled={isLoading}
+            >
+              <Text style={styles.buttonText}>
+                {isLoading ? "Ingresando..." : "Iniciar Sesión"}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.googleButton]}
+              onPress={handleGoogleSignInPress}
+              disabled={isLoading}
+            >
+              <Image
+                source={require('../assets/google-icon.png')}
+                style={styles.googleIcon}
+              />
+              <Text style={styles.googleButtonText}>
+                Continuar con Google
+              </Text>
+            </TouchableOpacity>
+
+            {isBiometricsAvailable && !isBiometricsEnabled && (
+              <TouchableOpacity
+                style={[styles.biometricButton]}
+                onPress={handleBiometricAuth}
+                disabled={isLoading}
+              >
+                <Fingerprint size={18} color="#4CAF50" />
+                <Text style={styles.biometricButtonText}>
+                  Usar {biometricType === 'FaceID' ? 'Face ID' : biometricType === 'TouchID' ? 'Touch ID' : 'Biometría'}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              style={[styles.demoButton]}
+              onPress={handleDemoLogin}
+              disabled={isLoading}
+            >
+              <Text style={styles.demoButtonText}>
+                Usar credenciales de demo
+              </Text>
+            </TouchableOpacity>
           </View>
+        </View>
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            ¿No tienes una cuenta?{" "}
+            <Text 
+              style={styles.footerLink}
+              onPress={() => navigation.navigate('Signup')}
+            >
+              Regístrate
+            </Text>
+          </Text>
         </View>
       </View>
     </SafeAreaView>
@@ -405,6 +471,27 @@ const styles = StyleSheet.create({
   },
   footerLink: {
     color: '#4CAF50',
+    fontWeight: '500',
+  },
+  googleButton: {
+    backgroundColor: 'white',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+  },
+  googleIcon: {
+    width: 24,
+    height: 24,
+    marginRight: 8,
+  },
+  googleButtonText: {
+    color: '#111827',
+    fontSize: 16,
     fontWeight: '500',
   },
 });

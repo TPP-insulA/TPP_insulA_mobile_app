@@ -4,6 +4,8 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { GlucoseProfile } from "../types";
 import { useAuth } from "../hooks/use-auth";
+import { useGoogleAuth } from "../hooks/use-google-auth";
+import { useFirebaseAuth } from '../hooks/use-firebase-auth';
 
 type RootStackParamList = {
   Login: undefined;
@@ -30,8 +32,15 @@ export default function SignupScreen() {
   });
   
   const { register, isLoading, error: authError, isAuthenticated } = useAuth();
+  const { configureGoogleSignIn, signInWithGoogle } = useGoogleAuth();
+  const { handleGoogleSignIn, handleEmailSignUp } = useFirebaseAuth();
   const [error, setError] = useState("");
+  const [isGoogleSignIn, setIsGoogleSignIn] = useState(false);
   const navigation = useNavigation<SignupScreenNavigationProp>();
+
+  useEffect(() => {
+    configureGoogleSignIn();
+  }, []);
 
   // Update error message if authError changes
   useEffect(() => {
@@ -107,15 +116,48 @@ export default function SignupScreen() {
     setStep(step - 1);
   };
 
-  const handleSubmit = async () => {
-    if (!validateStep()) return;
-    
+  const handleGoogleSignInPress = async () => {
+    console.log('[SignupScreen] Starting Google Sign-In process...');
     try {
-      console.log('Starting registration process...');
-      // Convert string values to numbers
-      const userData = {
-        email: formData.email,
-        password: formData.password,
+      const firebaseUser = await handleGoogleSignIn();
+      console.log('[SignupScreen] Google Sign-In successful:', {
+        email: firebaseUser?.email,
+        uid: firebaseUser?.uid
+      });
+
+      // Pre-fill form with user data
+      if (firebaseUser?.email) {
+        setFormData(prev => ({
+          ...prev,
+          email: firebaseUser.email || '',
+          firstName: firebaseUser.displayName ? firebaseUser.displayName.split(' ')[0] : '',
+          lastName: firebaseUser.displayName ? firebaseUser.displayName.split(' ').slice(1).join(' ') : '',
+        }));
+        setIsGoogleSignIn(true);
+        setStep(2);
+        console.log('[SignupScreen] Form pre-filled and moved to step 2');
+      }
+    } catch (error: any) {
+      console.error('[SignupScreen] Google Sign-In error:', error);
+      if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
+        // User cancelled the sign-in, no need to show error
+        return;
+      } else if (error.code === 'auth/network-request-failed') {
+        setError('Error de conexión. Por favor, verifica tu conexión a internet.');
+      } else {
+        setError(error.message || 'Error al iniciar sesión con Google');
+      }
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!validateStep()) {
+      return;
+    }
+
+    try {
+      console.log('[SignupScreen] Starting registration process...');
+      await handleEmailSignUp(formData.email, formData.password, {
         firstName: formData.firstName,
         lastName: formData.lastName,
         birthDay: parseInt(formData.birthDay),
@@ -124,32 +166,31 @@ export default function SignupScreen() {
         weight: parseFloat(formData.weight),
         height: parseFloat(formData.height),
         glucoseProfile: formData.glucoseProfile,
-      };
-
-      console.log('Registration data:', JSON.stringify(userData, null, 2));
-      console.log('Attempting to register user...');
-
-      // Use the register function from useAuth
-      await register(userData);
+      });
+      console.log('[SignupScreen] Registration successful');
+    } catch (err: any) {
+      console.error('[SignupScreen] Registration error:', err);
       
-      console.log('Registration successful!');
-      Alert.alert(
-        "Cuenta creada",
-        "¡Tu cuenta ha sido creada exitosamente!",
-        [{ text: "OK", onPress: () => navigation.navigate('Dashboard') }]
-      );
-    } catch (err) {
-      console.error('Registration error:', err);
-      if (err instanceof Error) {
-        console.error('Error details:', {
-          message: err.message,
-          stack: err.stack,
-          name: err.name
-        });
+      if (err.code === 'auth/email-already-in-use') {
+        Alert.alert(
+          'Email en uso',
+          'Ya existe una cuenta con este email. ¿Deseas iniciar sesión?',
+          [
+            {
+              text: 'Cancelar',
+              style: 'cancel'
+            },
+            {
+              text: 'Iniciar sesión',
+              onPress: () => navigation.navigate('Login')
+            }
+          ]
+        );
+      } else if (err.code === 'auth/network-request-failed') {
+        setError('Error de conexión. Por favor, verifica tu conexión a internet.');
+      } else {
+        setError(err.message || 'Error al registrarse');
       }
-      const errorMessage = err instanceof Error ? err.message : "Error al crear la cuenta. Por favor, intenta de nuevo.";
-      console.error('Error message to display:', errorMessage);
-      setError(errorMessage);
     }
   };
 
@@ -393,9 +434,9 @@ export default function SignupScreen() {
           <View style={styles.cardHeader}>
             <Text style={styles.title}>Crear Cuenta</Text>
             <Text style={styles.description}>
-              {step === 1 && "Ingresa tus credenciales"}
-              {step === 2 && "Completa tu información personal"}
-              {step === 3 && "Selecciona tu perfil glucémico"}
+              {step === 1 ? "Ingresa tus datos básicos" : 
+               step === 2 ? "Información personal" : 
+               "Información de salud"}
             </Text>
             <View style={styles.stepIndicator}>
               {[1, 2, 3].map((s) => (
@@ -420,6 +461,22 @@ export default function SignupScreen() {
 
             <View style={styles.form}>
               {renderStepContent()}
+
+              {step === 1 && (
+                <TouchableOpacity
+                  style={[styles.googleButton]}
+                  onPress={handleGoogleSignInPress}
+                  disabled={isLoading}
+                >
+                  <Image
+                    source={require('../assets/google-icon.png')}
+                    style={styles.googleIcon}
+                  />
+                  <Text style={styles.googleButtonText}>
+                    Continuar con Google
+                  </Text>
+                </TouchableOpacity>
+              )}
 
               <View style={[styles.buttonContainer, step === 1 && styles.buttonContainerCenter]}>
                 {step > 1 && (
@@ -684,6 +741,27 @@ const styles = StyleSheet.create({
   dateSeparator: {
     fontSize: 18,
     color: '#6b7280',
+  },
+  googleButton: {
+    backgroundColor: 'white',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+  },
+  googleIcon: {
+    width: 24,
+    height: 24,
+    marginRight: 8,
+  },
+  googleButtonText: {
+    color: '#111827',
+    fontSize: 16,
+    fontWeight: '500',
   },
 });
 

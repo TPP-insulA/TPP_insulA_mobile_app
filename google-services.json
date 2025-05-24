@@ -1,0 +1,56 @@
+{
+  "project_info": {
+    "project_number": "345938546990",
+    "firebase_url": "https://insula-4b1ba-default-rtdb.firebaseio.com",
+    "project_id": "insula-4b1ba",
+    "storage_bucket": "insula-4b1ba.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:345938546990:android:763af6c9aa6817ea51eabf",
+        "android_client_info": {
+          "package_name": "com.anonymous.TPPInsulaApp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "345938546990-e0dbkh2jf8ccuch7qio5dski8jt7brsf.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.anonymous.TPPInsulaApp",
+            "certificate_hash": "9aeefcddcb93e7d17a13c2872edc70d8441fd91c"
+          }
+        },
+        {
+          "client_id": "345938546990-lqfdqbhfhp77ksidh44htoogt47qm8ub.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.anonymous.TPPInsulaApp",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "345938546990-0uq4oq5nht5teo9vncf3an2b6hmnu1qo.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyApJ0Yy69I23eN52Wek_DXTGQFfSSe-e3c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "345938546990-0uq4oq5nht5teo9vncf3an2b6hmnu1qo.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

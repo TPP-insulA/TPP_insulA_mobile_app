@@ -1,4 +1,4 @@
-package com.anonymous.insulA
+package com.anonymous.TPPInsulaApp
 
 import android.app.Application
 import android.content.res.Configuration

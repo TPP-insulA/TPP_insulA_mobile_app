@@ -1,4 +1,4 @@
-import { GlucoseProfile } from '../../types';
+import { GlucoseProfile } from '../types';
 
 // Replace 'your-ip' with your computer's local IP address (e.g., '192.168.1.100')
 // const API_URL = 'http://192.168.1.13:3000/api';  // You need to change 'your-ip' to your computer's IP address
@@ -29,17 +29,19 @@ export interface UserResponse {
   email: string;
   firstName: string;
   lastName: string;
+  birthDay: number;
+  birthMonth: number;
+  birthYear: number;
+  weight: number;
+  height: number;
+  glucoseProfile: GlucoseProfile;
+  profileImage: string | null;
+  diabetesType: string;
+  diagnosisDate: string;
+  treatingDoctor: string | null;
+  createdAt: string;
+  updatedAt: string;
   token: string;
-  birthDay?: number;
-  birthMonth?: number;
-  birthYear?: number;
-  weight?: number;
-  height?: number;
-  glucoseProfile?: GlucoseProfile;
-  glucoseTarget?: {
-    minTarget: number;
-    maxTarget: number;
-  };
 }
 
 export interface MedicalInfo {
@@ -48,10 +50,7 @@ export interface MedicalInfo {
   treatingDoctor: string;
 }
 
-export interface ProfileResponse extends UserResponse {
-  medicalInfo: MedicalInfo;
-  profileImage?: string;
-}
+export interface ProfileResponse extends Omit<UserResponse, 'token'> {}
 
 export interface UpdateProfileInput {
   firstName?: string;
@@ -64,83 +63,82 @@ export interface UpdateProfileInput {
   };
 }
 
-export const registerUser = async (userData: RegisterUserInput): Promise<UserResponse> => {
+export interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+}
+
+export const registerUser = async (userData: RegisterUserInput): Promise<ApiResponse<UserResponse>> => {
   console.log('Starting registerUser API call...');
-  console.log('API URL:', `${API_URL}/users/register`);
-  console.log('Request headers:', {
-    'Content-Type': 'application/json'
-  });
-  console.log('Request body:', JSON.stringify(userData, null, 2));
-
-  try {
-    const response = await fetch(`${API_URL}/users/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(userData),
-    });
-
-    console.log('Response status:', response.status);
-    console.log('Response status text:', response.statusText);
-    console.log('Response headers:', JSON.stringify(Object.fromEntries([...response.headers.entries()]), null, 2));
-
-    const data = await response.json();
-    console.log('Response data:', JSON.stringify(data, null, 2));
-
-    if (!response.ok) {
-      console.error('Registration failed:', data.message || 'Registration failed');
-      throw new Error(data.message || 'Registration failed');
-    }
-
-    return data;
-  } catch (error) {
-    console.error('Network or parsing error:', error);
-    if (error instanceof TypeError && error.message === 'Network request failed') {
-      console.error('This might be a CORS issue or the server might be down');
-      console.log('Please check:');
-      console.log('1. Is the backend server running?');
-      console.log('2. Is the API_URL correct?', API_URL);
-      console.log('3. Are you connecting to the right port?');
-      console.log('4. Is CORS properly configured on the backend?');
-    }
-    throw error;
-  }
-};
-
-export const loginUser = async (credentials: LoginInput): Promise<UserResponse> => {
-  const response = await fetch(`${API_URL}/users/login`, {
+  const response = await fetch(`${API_URL}/users/register`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(credentials),
+    body: JSON.stringify(userData),
   });
 
+  console.log('API URL:', response.url);
+  console.log('Request headers:', {
+    'Content-Type': 'application/json',
+  });
+  console.log('Request body:', userData);
+  console.log('Response status:', response.status);
+  console.log('Response status text:', response.statusText);
+  console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
   const data = await response.json();
+  console.log('Response data:', data);
 
   if (!response.ok) {
-    throw new Error(data.message || 'Login failed');
+    throw new Error(data.message || 'Error al registrar usuario');
   }
 
   return data;
 };
 
-export const getUserProfile = async (token: string): Promise<ProfileResponse> => {
-  console.log('Fetching user profile...');
+export const loginUser = async ({ email, password }: { email: string; password: string }): Promise<ApiResponse<UserResponse>> => {
+  console.log('Starting loginUser API call...');
+  const response = await fetch(`${API_URL}/users/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ email, password }),
+  });
+
+  console.log('API URL:', response.url);
+  console.log('Request headers:', {
+    'Content-Type': 'application/json',
+  });
+  console.log('Request body:', { email, password });
+  console.log('Response status:', response.status);
+  console.log('Response status text:', response.statusText);
+  console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+  const data = await response.json();
+  console.log('Response data:', data);
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Error al iniciar sesión');
+  }
+
+  return data;
+};
+
+export const getUserProfile = async (token: string): Promise<ApiResponse<ProfileResponse>> => {
   const response = await fetch(`${API_URL}/users/profile`, {
     method: 'GET',
     headers: {
-      'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
     },
   });
 
   const data = await response.json();
-  console.log('Profile data received:', data);
 
   if (!response.ok) {
-    throw new Error(data.message || 'Failed to fetch user profile');
+    throw new Error(data.message || 'Error al obtener perfil de usuario');
   }
 
   return data;
