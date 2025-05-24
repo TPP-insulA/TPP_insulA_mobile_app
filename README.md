@@ -9,24 +9,50 @@ insulA es una aplicación integral para la gestión de la diabetes diseñada par
 
 ## Características
 
-### Características Actuales
-- 📊 Panel de control con métricas clave de salud
-- 📝 Registro y seguimiento de niveles de glucosa
-- 💉 Registro de dosis de insulina
-- 📈 Análisis y visualización de tendencias
-- 📅 Vista de historial de datos
-- ⚙️ Configuraciones personalizables
-- 🌓 Soporte para modo claro/oscuro
+### Características Implementadas
+- 📱 Autenticación y Seguridad
+  - Login y registro de usuarios
+  - Autenticación biométrica (huella digital)
+  - Recuperación de contraseña
+  - Perfil de usuario personalizable
+
+- 📊 Dashboard Principal
+  - Panel de control con métricas clave de salud
+  - Registro y seguimiento de niveles de glucosa
+  - Visualización de estado actual de glucosa
+  - Actividad reciente integrada
+
+- 💉 Gestión de Insulina
+  - Registro de dosis de insulina
+  - Calculadora de dosis de insulina
+  - Predicciones de dosis basadas en comidas
+  - Ajustes por actividad física
+
+- 🍽️ Gestión de Comidas
+  - Registro de comidas y carbohidratos
+  - Historial de comidas
+  - Cálculo de carbohidratos por comida
+
+- 📈 Historial y Análisis
+  - Historial detallado de mediciones
+  - Estadísticas y tendencias
+  - Filtros y búsqueda avanzada
+  - Visualización de predicciones
+
+- ⚙️ Configuraciones
+  - Modo claro/oscuro
+  - Notificaciones personalizables
+  - Unidades de medida configurables
+  - Preferencias de usuario
 
 ### Características Planificadas
-- 🔔 Recordatorios y notificaciones
-- 📊 Análisis y reportes avanzados
+- 🔔 Recordatorios y notificaciones avanzadas
 - 🤝 Integración con profesionales de la salud
 - 📱 Funcionalidad de exportación de datos
 - 🔄 Sincronización de datos entre dispositivos
 - 👥 Acceso para familiares/cuidadores
-- 🍎 Seguimiento de alimentos y carbohidratos
-- 💪 Registro de ejercicios y análisis de impacto
+- 💪 Seguimiento detallado de ejercicios
+- 📊 Análisis y reportes avanzados
 
 ## Stack Tecnológico
 
