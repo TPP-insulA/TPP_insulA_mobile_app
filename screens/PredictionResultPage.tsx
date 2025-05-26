@@ -20,7 +20,6 @@ export default function PredictionResultPage() {
   const result: InsulinPredictionResult = (route.params as any)?.result || {};
   const {
     id = '',
-    userId = '',
     cgmPrev = [],
     glucoseObjective = 0,
     carbs = 0,
@@ -89,11 +88,11 @@ export default function PredictionResultPage() {
     setIsSavingPost(true);
     try {
       const updatedResult = {
-        ...result,
-        cgmPost: cgmPostInputs.filter(g => g !== '').map(Number),
         applyDose: appliedDoseInput !== '' ? Number(appliedDoseInput.replace(',', '.')) : undefined,
+        cgmPost: cgmPostInputs.filter(g => g !== '').map(Number),
       };
-      await updateInsulinPredictionResult(token ?? '', updatedResult);
+      console.log(result);
+      await updateInsulinPredictionResult(token ?? '', result.id, updatedResult);
       result.cgmPost = updatedResult.cgmPost;
       result.applyDose = updatedResult.applyDose;
       setShowPostInputs(false);
@@ -159,11 +158,10 @@ export default function PredictionResultPage() {
     setPostError(null);
     try {
       const updatedResult = {
-        ...result,
         cgmPost: [],
         applyDose: undefined,
       };
-      await updateInsulinPredictionResult(token ?? '', updatedResult);
+      await updateInsulinPredictionResult(token ?? '', result.id, updatedResult);
       result.cgmPost = [];
       result.applyDose = undefined;
       setCgmPostInputs(['']);

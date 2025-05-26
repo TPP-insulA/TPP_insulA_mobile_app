@@ -302,7 +302,6 @@ export default function InsulinPage() {
     try {
       const cgmPrev = glucoseInputs.filter(g => g !== '').map(Number);
       const calculation = {
-        userId: token,
         date: new Date().toISOString(),
         cgmPrev,
         glucoseObjective: Number(targetBloodGlucose),
@@ -313,6 +312,7 @@ export default function InsulinPage() {
         activityLevel: Number(exerciseLevel),
       };
       const result = await calculateInsulinDose(calculation, token);
+      console.log('Insulin calculation result:', result);
       (navigation as any).navigate('PredictionResultPage', { result });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error calculando dosis');
@@ -456,10 +456,10 @@ export default function InsulinPage() {
                   </View>
                 </View>
                 {carbs && !isValidCarbs(carbs) && (
-                  <Text style={styles.errorText}>Número válido (2 decimales)</Text>
+                  <Text style={styles.errorText}>Carbohidratos inválido (2 decimales máx.)</Text>
                 )}
                 {insulinOnBoard && !isValidInsulinOnBoard(insulinOnBoard) && (
-                  <Text style={styles.errorText}>Número válido (2 decimales)</Text>
+                  <Text style={styles.errorText}>IOB inválido (2 decimales máx.)</Text>
                 )}
               </View>
 
