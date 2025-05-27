@@ -13,29 +13,8 @@ import { useToast } from '../hooks/use-toast';
 import { getGlucoseReadings, createGlucoseReading, getActivities } from '../lib/api/glucose';
 import type { GlucoseReading, ActivityItem } from '../lib/api/glucose';
 import { AppHeader } from '../components/app-header';
-import { getInsulinPredictions } from '../lib/api/insulin';
+import { getPredictionHistory, type InsulinPredictionResult } from '../lib/api/insulin';
 
-// Add type definitions for predictions
-type Prediction = {
-  id: number;
-  mealType: string;
-  date: Date;
-  carbs: number;
-  glucose: number;
-  units: number;
-  accuracy: 'Accurate' | 'Slightly low' | 'Low';
-};
-
-type PredictionsData = {
-  accuracy: {
-    percentage: number;
-    trend: {
-      value: number;
-      direction: 'up' | 'down';
-    };
-  };
-  predictions: Prediction[];
-};
 
 // Define the navigation route types
 type RootStackParamList = {
@@ -57,7 +36,6 @@ type RootStackParamList = {
       id: number;
     }
   };
-  // Add other screens here as needed
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -73,54 +51,17 @@ type ExtendedActivityItem = ActivityItem | {
   id: number;
 };
 
-// Add this mock data at the top of the file, after the types
-const mockPredictions: PredictionsData = {
+type PredictionWithAccuracy = {
   accuracy: {
-    percentage: 85,
+    percentage: number;
     trend: {
-      value: 5,
-      direction: 'up' as const
-    }
-  },
-  predictions: [
-    {
-      id: 1,
-      mealType: 'Desayuno',
-      date: new Date('2024-03-20T08:00:00'),
-      carbs: 45,
-      glucose: 120,
-      units: 3.5,
-      accuracy: 'Accurate'
-    },
-    {
-      id: 2,
-      mealType: 'Almuerzo',
-      date: new Date('2024-03-20T13:00:00'),
-      carbs: 60,
-      glucose: 135,
-      units: 4.2,
-      accuracy: 'Slightly low'
-    },
-    {
-      id: 3,
-      mealType: 'Cena',
-      date: new Date('2024-03-20T19:00:00'),
-      carbs: 50,
-      glucose: 110,
-      units: 3.8,
-      accuracy: 'Accurate'
-    },
-    {
-      id: 4,
-      mealType: 'Snack',
-      date: new Date('2024-03-20T16:00:00'),
-      carbs: 30,
-      glucose: 125,
-      units: 2.1,
-      accuracy: 'Low'
-    }
-  ]
-};
+      value: number;
+      direction: 'up' | 'down' | 'equal';
+    };
+  };
+  data: InsulinPredictionResult[];
+}
+
 
 export default function DashboardScreen() {
   const navigation = useNavigation<NavigationProp>();
@@ -143,7 +84,8 @@ export default function DashboardScreen() {
   const [formError, setFormError] = useState('');
   const [dateError, setDateError] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [predictions, setPredictions] = useState<PredictionsData | null>(null);
+  const [predictions, setPredictions] = useState<PredictionWithAccuracy | null>(null);
+  const [recentPredictions, setRecentPredictions] = useState<InsulinPredictionResult[]>([]);
   const [isPredictionsExpanded, setIsPredictionsExpanded] = useState(false);
 
   const fetchData = useCallback(async () => {
@@ -168,29 +110,86 @@ export default function DashboardScreen() {
       setReadings(todaysReadings.slice(0, 6));
       
       // Get all activities but only show the first page initially
-      const recentActivities = await getActivities(token);
-      console.log('Recent activities:', recentActivities);
+      const activities = await getActivities(token);
+      console.log('Recent activities:', activities);
       
-      // Use mock predictions
-      setPredictions(mockPredictions);
+      // Fetch insulin predictions
+      const predictions = await getPredictionHistory(token);
+      
+      // Calculate prediction accuracy for predictions with applied doses
+      const predictionsWithDoses = predictions.filter(prediction => prediction.applyDose !== null && prediction.applyDose !== undefined);
+      let accuracySum = 0;
+      let accuracyCount = 0;
+      
+      if (predictionsWithDoses.length > 0) {
+        predictionsWithDoses.forEach(prediction => {
+          if (prediction.applyDose !== null && prediction.applyDose !== undefined) {
+            // Calculate accuracy percentage (recommended vs applied)
+            const recommendedDose = prediction.recommendedDose;
+            const appliedDose = prediction.applyDose;
+            
+            // If applied dose is greater than recommended, accuracy is (recommended/applied)
+            // If recommended dose is greater than applied, accuracy is (applied/recommended)
+            // This gives a percentage where 100% means exact match
+            const accuracy = recommendedDose > appliedDose 
+              ? (appliedDose / recommendedDose) * 100 
+              : (recommendedDose / appliedDose) * 100;
+              
+            accuracySum += accuracy;
+            accuracyCount++;
+          }
+        });
+      }
+      
+      // Calculate average accuracy
+      const averageAccuracy = accuracyCount > 0 ? accuracySum / accuracyCount : -1; // Use -1 to indicate no predictions with doses
+      console.log('Average prediction accuracy:', averageAccuracy.toFixed(2) + '%');
+      
+      // Do the same for recent predictions (last 3)
+      const recentPredictions = predictions.slice(0, 3);
+      const recentPredictionsWithDoses = recentPredictions.filter(prediction => prediction.applyDose !== null && prediction.applyDose !== undefined);
+      let recentAccuracySum = 0;
+      let recentAccuracyCount = 0;
+      
+      if (recentPredictionsWithDoses.length > 0) {
+        recentPredictionsWithDoses.forEach(prediction => {
+          if (prediction.applyDose !== null && prediction.applyDose !== undefined) {
+            const recommendedDose = prediction.recommendedDose;
+            const appliedDose = prediction.applyDose;
+            
+            const accuracy = recommendedDose > appliedDose 
+              ? (appliedDose / recommendedDose) * 100 
+              : (recommendedDose / appliedDose) * 100;
+              
+            recentAccuracySum += accuracy;
+            recentAccuracyCount++;
+          }
+        });
+      }
+      
+      // Calculate average accuracy for recent predictions
+      const recentAverageAccuracy = recentAccuracyCount > 0 ? recentAccuracySum / recentAccuracyCount : -1; // Use -1 to indicate no recent predictions with doses
+      
+      // Store predictions with accuracy information
+      const trendValue = Math.abs(Math.round(averageAccuracy - recentAverageAccuracy));
+      setPredictions({
+        accuracy: {
+          percentage: Math.round(averageAccuracy),
+          trend: {
+            value: trendValue,
+            direction: trendValue === 0 ? 'equal' : recentAverageAccuracy > averageAccuracy ? 'up' : 'down'
+          }
+        },
+        data: predictions
+      });
+      setRecentPredictions(recentPredictions);
+      console.log(recentPredictions);
+      console.log('Predictions:', predictions);
+      console.log('Trend value:', Math.abs(Math.round(averageAccuracy - recentAverageAccuracy)));
+      console.log('Trend direction:', trendValue === 0 ? 'equal' : recentAverageAccuracy > averageAccuracy ? 'up' : 'down');
 
-      // Convert predictions to activity format
-      const predictionActivities: ExtendedActivityItem[] = mockPredictions.predictions.map(pred => ({
-        type: 'prediction',
-        timestamp: pred.date,
-        mealType: pred.mealType,
-        carbs: pred.carbs,
-        units: pred.units,
-        accuracy: pred.accuracy,
-        id: pred.id
-      }));
-
-      // Combine and sort all activities by timestamp
-      const allActivitiesCombined = [...recentActivities, ...predictionActivities]
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-      setAllActivities(allActivitiesCombined);
-      setVisibleActivities(allActivitiesCombined.slice(0, ACTIVITIES_PER_PAGE));
+      setAllActivities(activities);
+      setVisibleActivities(activities.slice(0, ACTIVITIES_PER_PAGE));
       setActivitiesPage(1);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -710,17 +709,17 @@ export default function DashboardScreen() {
                   <Text style={styles.statsLabel}>Rendimiento de Predicciones</Text>
                   {predictions?.accuracy && (
                     <View style={styles.accuracyBadge}>
-                      <Text style={styles.accuracyPercentage}>{predictions.accuracy.percentage}%</Text>
+                      <Text style={styles.accuracyPercentage}>{predictions.accuracy.percentage !== -1 ? predictions.accuracy.percentage : 'N/A'}%</Text>
                       <View style={styles.trendContainer}>
                         <TrendingUp 
                           size={16} 
-                          color={predictions.accuracy.trend.direction === 'up' ? '#4CAF50' : '#ef4444'} 
+                          color={predictions.accuracy.trend.direction === 'up' ? '#4CAF50' : predictions.accuracy.trend.direction === 'down' ? '#ef4444' : '#6b7280'} 
                         />
                         <Text style={[
                           styles.trendText,
-                          { color: predictions.accuracy.trend.direction === 'up' ? '#4CAF50' : '#ef4444' }
+                          { color: predictions.accuracy.trend.direction === 'up' ? '#4CAF50' : predictions.accuracy.trend.direction === 'down' ? '#ef4444' : '#6b7280' }
                         ]}>
-                          {predictions.accuracy.trend.value}%
+                          {predictions.accuracy.trend.value !== -1 ? predictions.accuracy.trend.value : 'N/A'}%
                         </Text>
                       </View>
                     </View>
@@ -735,32 +734,39 @@ export default function DashboardScreen() {
 
               {isPredictionsExpanded && (
                 <>
-                  {predictions?.predictions?.length === 0 ? (
+                  {recentPredictions?.length === 0 ? (
                     <View style={styles.noDataContainer}>
                       <Text style={styles.noDataText}>No hay datos disponibles</Text>
                     </View>
                   ) : (
                     <View style={styles.predictionsList}>
-                      {predictions?.predictions?.map((prediction) => (
+                      {recentPredictions?.map((prediction) => (
                         <View key={prediction.id} style={styles.predictionItem}>
                           <View>
                             <Text style={styles.predictionTitle}>
-                              🕒 {prediction.mealType} - {format(prediction.date, 'MMM dd, p')}
+                              🕒 {format(prediction.date, 'dd/MM/yyyy HH:mm')}
                             </Text>
                             <Text style={styles.predictionDetails}>
-                              🍽️ {prediction.carbs}g carbohidratos, 🩺 {prediction.glucose} mg/dL
+                              🍽️ {prediction.carbs}g carbs, 🩺 {prediction.cgmPrev[0]} mg/dL
                             </Text>
                           </View>
                           <View style={styles.predictionRight}>
-                            <Text style={styles.predictionUnits}>💉 {prediction.units} unidades</Text>
+                            <Text style={styles.predictionUnits}>💉 {prediction.recommendedDose} unidades</Text>
                             <Text style={[
                               styles.predictionAccuracy,
-                              prediction.accuracy === 'Accurate' && styles.accuracyGood,
-                              prediction.accuracy === 'Slightly low' && styles.accuracyWarning,
-                              prediction.accuracy === 'Low' && styles.accuracyBad
+                              prediction.applyDose === undefined || prediction.applyDose === null ? styles.accuracyBad :
+                              Math.abs(prediction.applyDose - prediction.recommendedDose) <= 0.5 ? styles.accuracyGood :
+                              Math.abs(prediction.applyDose - prediction.recommendedDose) <= 1.0 ? styles.accuracyWarning :
+                              styles.accuracyBad
                             ]}>
-                              {prediction.accuracy === 'Accurate' ? '✅ Precisa' : 
-                               prediction.accuracy === 'Slightly low' ? '⚠️ Ligeramente baja' : '❌ Baja'}
+                              {prediction.applyDose === undefined || prediction.applyDose === null 
+                                ? '❌ Sin dosis aplicada' 
+                                : Math.abs(prediction.applyDose - prediction.recommendedDose) <= 0.5 
+                                  ? '✅ Precisa' 
+                                  : Math.abs(prediction.applyDose - prediction.recommendedDose) <= 1.0 
+                                    ? '⚠️ Ligeramente diferente' 
+                                    : '❌ Diferencia significativa'
+                              }
                             </Text>
                           </View>
                         </View>
@@ -892,15 +898,13 @@ export default function DashboardScreen() {
                             />
                           )}
                           {activity.type === 'meal' && <Utensils width={16} height={16} color="#f97316" />}
-                          {activity.type === 'insulin' && <Syringe width={16} height={16} color="#3b82f6" />}
-                          {activity.type === 'prediction' && <Calculator width={16} height={16} color="#3b82f6" />}
+                          {activity.type === 'insulin' && <Calculator width={16} height={16} color="#3b82f6" />}
                         </View>
                         <View>
                           <Text style={styles.activityName}>
                             {activity.type === 'glucose' ? 'Lectura de glucosa' : 
                              activity.type === 'meal' ? activity.mealType || '' : 
-                             activity.type === 'prediction' ? 'Predicción de insulina' :
-                             activity.type === 'insulin' ? 'Dosis de insulina' : ''}
+                             activity.type === 'insulin' ? 'Cálculo de insulina' : ''}
                           </Text>
                           <Text style={styles.activityTime}>
                             {activity.timestamp 
@@ -912,24 +916,12 @@ export default function DashboardScreen() {
                               {activity.notes}
                             </Text>
                           )}
-                          {activity.type === 'prediction' && (
-                            <Text style={[
-                              styles.predictionAccuracy,
-                              activity.accuracy === 'Accurate' && styles.accuracyGood,
-                              activity.accuracy === 'Slightly low' && styles.accuracyWarning,
-                              activity.accuracy === 'Low' && styles.accuracyBad
-                            ]}>
-                              {activity.accuracy === 'Accurate' ? '✅ Precisa' : 
-                               activity.accuracy === 'Slightly low' ? '⚠️ Ligeramente baja' : '❌ Baja'}
-                            </Text>
-                          )}
                         </View>
                       </View>
                       <Text style={styles.activityValue}>
                         {activity.type === 'glucose' ? `${activity.value} mg/dL` :
                          activity.type === 'meal' ? `${activity.carbs}g carbohidratos` :
-                         activity.type === 'prediction' ? `${activity.units} unidades` :
-                         activity.type === 'insulin' ? `${activity.units} unidades` : ''}
+                         activity.type === 'insulin' ? `${activity.value} unidades` : ''}
                       </Text>
                     </ActivityWrapper>
                   );
