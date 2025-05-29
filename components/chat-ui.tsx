@@ -13,7 +13,7 @@ import {
 import { Feather } from '@expo/vector-icons';
 import { Bot } from 'lucide-react-native';
 import { getGlucoseReadings } from '../lib/api/glucose';
-import { getInsulinDoses } from '../lib/api/insulin';
+import { getPredictionHistory } from '../lib/api/insulin';
 import { getMeals } from '../lib/api/meals';
 import { GEMINI_API_KEY } from '@env';
 import Markdown from 'react-native-markdown-display';
@@ -55,6 +55,7 @@ const formatAIResponse = (text: string): string => {
 async function getAIResponse(prompt: string): Promise<string> {
   try {
     const API_KEY = GEMINI_API_KEY;
+    console.log('[Chat] Using Gemini API Key:', API_KEY ? 'Provided' : 'Not provided');
     console.log('[Chat] API Key first 10 chars:', API_KEY.substring(0, 10) + '...');
     console.log('[Chat] Calling Gemini API...');
     const res = await fetch(
@@ -190,7 +191,7 @@ export function ChatUI({
           console.error('[Chat] Error fetching glucose data:', err?.message || String(err));
           return [];
         }),
-        getInsulinDoses(token, { limit: 3 }).catch(err => {
+        getPredictionHistory(token).catch(err => {
           console.error('[Chat] Error fetching insulin data:', err?.message || String(err));
           return { doses: [] };
         }),
@@ -206,9 +207,9 @@ export function ChatUI({
             .join('; ')
         : 'No hay lecturas recientes';
 
-      const insulinSummary = insulinData?.doses && Array.isArray(insulinData.doses) && insulinData.doses.length > 0
-        ? insulinData.doses
-            .map(d => `${d.units}U ${d.type} @ ${new Date(d.timestamp).toLocaleTimeString()}`)
+      const insulinSummary = insulinData && Array.isArray(insulinData) && insulinData.length > 0
+        ? insulinData.slice(0,3)
+            .map(d => `${d.recommendedDose}U @ ${new Date(d.date).toLocaleTimeString()}`)
             .join('; ')
         : 'No hay dosis recientes';
 
@@ -219,6 +220,12 @@ export function ChatUI({
         : 'No hay comidas recientes';
 
       const context = [
+        'Simula ser un asistente de salud para pacientes con diabetes tipo 1.',
+        'Si sientes que no tienes suficiente información, responde con "No tengo suficiente información para responder a esa pregunta".',
+        'Proporciona respuestas claras y concisas, evitando tecnicismos innecesarios.',
+        'Utiliza un tono amigable y profesional, como si fueras un asistente de salud virtual.',
+        'Si sientes que la pregunta no es relacionada con la diabetes o factores que pueden afectar la glucosa, responde con "Lo siento, no puedo ayudar con eso".',
+        'La pregunta la realiza un paciente con los siguientes datos:',
         `Paciente (últimos registros):`,
         `• Glucosa: ${glucoseSummary}`,
         `• Insulina: ${insulinSummary}`,

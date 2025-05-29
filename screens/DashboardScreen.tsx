@@ -74,16 +74,13 @@ export default function DashboardScreen() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [readings, setReadings] = useState<GlucoseReading[]>([]);
   const [todaysReadings, setTodaysReadings] = useState<GlucoseReading[]>([]);
-  const [activities, setActivities] = useState<ExtendedActivityItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [showAllActivities, setShowAllActivities] = useState(false);
   const [allActivities, setAllActivities] = useState<ExtendedActivityItem[]>([]);
   const [visibleActivities, setVisibleActivities] = useState<ExtendedActivityItem[]>([]);
   const [activitiesPage, setActivitiesPage] = useState(1);
   const ACTIVITIES_PER_PAGE = 5; // Número de actividades por página
   const [formError, setFormError] = useState('');
   const [dateError, setDateError] = useState('');
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [predictions, setPredictions] = useState<PredictionWithAccuracy | null>(null);
   const [recentPredictions, setRecentPredictions] = useState<InsulinPredictionResult[]>([]);
   const [isPredictionsExpanded, setIsPredictionsExpanded] = useState(false);
@@ -313,17 +310,6 @@ export default function DashboardScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const toggleActivitiesView = () => {
-    if (showAllActivities) {
-      // Show only recent activities
-      setActivities(allActivities.slice(0, 5));
-    } else {
-      // Show all activities
-      setActivities(allActivities);
-    }
-    setShowAllActivities(!showAllActivities);
   };
 
   const loadMoreActivities = () => {
