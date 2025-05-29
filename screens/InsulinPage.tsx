@@ -1,16 +1,12 @@
-import React, { useState, useEffect, useCallback, memo } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TextInput, Modal, Pressable } from 'react-native';
-import { Calculator, Droplet, Zap, TrendingUp, TrendingDown, AlertCircle, Coffee, Moon, Briefcase, Activity } from 'lucide-react-native';
+import React, { useState, useCallback, memo } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TextInput, Modal } from 'react-native';
+import { Calculator, Droplet, Zap,  AlertCircle, Coffee, Moon, Briefcase, Activity } from 'lucide-react-native';
 import Icon from 'react-native-vector-icons/Feather';
-import { format } from 'date-fns';
 import { Card } from '../components/ui/card';
 import { Footer } from '../components/footer';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../hooks/use-auth';
-import { 
-  calculateInsulinDose,
-  getInsulinPredictions,
-} from '../lib/api/insulin';
+import { calculateInsulinDose } from '../lib/api/insulin';
 import { getGlucoseReadings } from '../lib/api/glucose';
 import { AppHeader } from '../components/app-header';
 
@@ -24,15 +20,6 @@ interface Recommendation {
     activityAdjustment: number;
     timeAdjustment: number;
   };
-}
-
-interface Prediction {
-  mealType: string;
-  date: Date;
-  carbs: number;
-  glucose: number;
-  units: number;
-  accuracy: 'Accurate' | 'Slightly low' | 'Low';
 }
 
 const GlucoseModal = memo(({ 
@@ -160,24 +147,6 @@ export default function InsulinPage() {
   const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [predictions, setPredictions] = useState<{
-    accuracy: {
-      percentage: number;
-      trend: {
-        value: number;
-        direction: 'up' | 'down';
-      };
-    };
-    predictions: Array<{
-      id: number;
-      mealType: string;
-      date: Date;
-      carbs: number;
-      glucose: number;
-      units: number;
-      accuracy: 'Accurate' | 'Slightly low' | 'Low';
-    }>;
-  } | null>(null);
   const [isLoadingGlucose, setIsLoadingGlucose] = useState(false);
   const [noGlucoseFound, setNoGlucoseFound] = useState(false);
   const [sleepQuality, setSleepQuality] = useState(''); // 1-10
@@ -186,24 +155,7 @@ export default function InsulinPage() {
 
   // New states for glucose modal
   const [isGlucoseModalVisible, setIsGlucoseModalVisible] = useState(false);
-  const [showAllGlucoseInputs, setShowAllGlucoseInputs] = useState(false);
   const [showRecommendation, setShowRecommendation] = useState(false);
-  const [showPredictions, setShowPredictions] = useState(false);
-
-  const INITIAL_VISIBLE_INPUTS = 12;
-
-  useEffect(() => {
-    const loadPredictions = async () => {
-      try {
-        if (!token) return;
-        const predictionsResponse = await getInsulinPredictions(token, 10);
-        setPredictions(predictionsResponse);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error loading predictions');
-      }
-    };
-    loadPredictions();
-  }, [token]);
 
   const loadRecentGlucoseReadings = async () => {
     setIsLoadingGlucose(true);
