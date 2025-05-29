@@ -40,17 +40,6 @@ type RootStackParamList = {
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-// Extend ActivityItem type to include predictions
-type ExtendedActivityItem = ActivityItem | {
-  type: 'prediction';
-  timestamp: Date;
-  mealType: string;
-  carbs: number;
-  units: number;
-  accuracy: 'Accurate' | 'Slightly low' | 'Low';
-  id: number;
-};
-
 type PredictionWithAccuracy = {
   accuracy: {
     percentage: number;
@@ -75,8 +64,8 @@ export default function DashboardScreen() {
   const [readings, setReadings] = useState<GlucoseReading[]>([]);
   const [todaysReadings, setTodaysReadings] = useState<GlucoseReading[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [allActivities, setAllActivities] = useState<ExtendedActivityItem[]>([]);
-  const [visibleActivities, setVisibleActivities] = useState<ExtendedActivityItem[]>([]);
+  const [allActivities, setAllActivities] = useState<ActivityItem[]>([]);
+  const [visibleActivities, setVisibleActivities] = useState<ActivityItem[]>([]);
   const [activitiesPage, setActivitiesPage] = useState(1);
   const ACTIVITIES_PER_PAGE = 5; // Número de actividades por página
   const [formError, setFormError] = useState('');
@@ -173,7 +162,7 @@ export default function DashboardScreen() {
         accuracy: {
           percentage: Math.round(averageAccuracy),
           trend: {
-            value: trendValue,
+            value: recentAccuracyCount > 0 ? trendValue: -1, // Use -1 to indicate no trend
             direction: trendValue === 0 ? 'equal' : recentAverageAccuracy > averageAccuracy ? 'up' : 'down'
           }
         },
@@ -430,28 +419,16 @@ export default function DashboardScreen() {
     setOpenDialog(true);
   };
 
-  const handlePress = (activity: ExtendedActivityItem) => {
+  const handlePress = (activity: ActivityItem) => {
     if (activity.type === 'meal') {
       navigation.navigate('Meals');
     } else if (activity.type === 'insulin') {
       navigation.navigate('History');
-    } else if (activity.type === 'prediction') {
-      navigation.navigate('PredictionResultPage', {
-        result: {
-          type: 'prediction',
-          timestamp: activity.timestamp.toISOString(),
-          mealType: activity.mealType,
-          carbs: activity.carbs,
-          units: activity.units,
-          accuracy: activity.accuracy,
-          id: activity.id
-        }
-      });
     }
   };
 
-  const renderActivityItem = (activity: ExtendedActivityItem) => {
-    const isClickable = activity.type === 'meal' || activity.type === 'insulin' || activity.type === 'prediction';
+  const renderActivityItem = (activity: ActivityItem) => {
+    const isClickable = activity.type === 'meal' || activity.type === 'insulin';
     const Wrapper = isClickable ? TouchableOpacity : View;
     const wrapperProps = isClickable ? {
       onPress: () => handlePress(activity),
@@ -480,12 +457,6 @@ export default function DashboardScreen() {
         icon = <Syringe size={20} color="#2196F3" />;
         title = `${activity.units} unidades`;
         subtitle = formatTimeAgo(new Date(activity.timestamp));
-        backgroundColor = '#e3f2fd';
-        break;
-      case 'prediction':
-        icon = <Calculator size={20} color="#2196F3" />;
-        title = `${activity.mealType} (${activity.carbs}g)`;
-        subtitle = `${activity.units} unidades - ${activity.accuracy === 'Accurate' ? '✅ Precisa' : activity.accuracy === 'Slightly low' ? '⚠️ Ligeramente baja' : '❌ Baja'}`;
         backgroundColor = '#e3f2fd';
         break;
     }
@@ -849,7 +820,7 @@ export default function DashboardScreen() {
               
               <View style={styles.activityList}>
                 {visibleActivities.map((activity, index) => {
-                  const isClickable = activity.type === 'meal' || activity.type === 'insulin' || activity.type === 'prediction';
+                  const isClickable = activity.type === 'meal' || activity.type === 'insulin';
                   const ActivityWrapper = isClickable ? TouchableOpacity : View;
 
                   return (
@@ -871,7 +842,7 @@ export default function DashboardScreen() {
                               ? getGlucoseIconBgColor(activity.value || 0)
                               : activity.type === 'meal'
                               ? '#ffedd5'
-                              : activity.type === 'prediction'
+                              : activity.type === 'insulin'
                               ? '#dbeafe'
                               : '#dbeafe'
                           }
