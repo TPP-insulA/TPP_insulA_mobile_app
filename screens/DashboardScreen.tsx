@@ -142,7 +142,7 @@ export default function DashboardScreen() {
       }
       const recentAverageAccuracy = recentAccuracyCount > 0 ? recentAccuracySum / recentAccuracyCount : -1;
       const trendValue = Math.abs(Math.round(averageAccuracy - recentAverageAccuracy));
-      setPredictions({
+      const predictionObject: PredictionWithAccuracy = {
         accuracy: {
           percentage: Math.round(averageAccuracy),
           trend: {
@@ -151,7 +151,9 @@ export default function DashboardScreen() {
           },
         },
         data: predictionsArr,
-      });
+      };
+      setPredictions(predictionObject);
+      console.log('Predictions:', predictionObject);
       setRecentPredictions(recentPredictions);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
