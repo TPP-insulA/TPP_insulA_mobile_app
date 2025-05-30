@@ -2,7 +2,6 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Feather';
-import { Calculator } from 'lucide-react-native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type RootStackParamList = {
@@ -10,7 +9,7 @@ type RootStackParamList = {
   Meals: undefined;
   History: undefined;
   Insulin: undefined;
-  Notifications: undefined;
+  Profile: undefined;
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -25,7 +24,7 @@ export function Footer() {
     { name: 'Meals', icon: 'coffee', label: 'Comidas' },
     { name: 'History', icon: 'calendar', label: 'Historial' },
     { name: 'Insulin', icon: 'activity', label: 'Insulina' },
-    { name: 'Notifications', icon: 'bell', label: 'Avisos' },
+    { name: 'Profile', icon: 'user', label: 'Perfil' },
   ];
 
   return (

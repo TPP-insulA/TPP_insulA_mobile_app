@@ -10,11 +10,12 @@ import { Footer } from "../components/footer";
 import { LoadingSpinner } from "../components/loading-spinner";
 import { useAuth } from '../hooks/use-auth';
 import { useToast } from '../hooks/use-toast';
-import { getGlucoseReadings, createGlucoseReading, getActivities } from '../lib/api/glucose';
+import { getDashboardData } from '../lib/api/dashboard';
 import type { GlucoseReading, ActivityItem } from '../lib/api/glucose';
 import { AppHeader } from '../components/app-header';
 import { getPredictionHistory, type InsulinPredictionResult } from '../lib/api/insulin';
-
+import { getUserProfile } from '@/lib/api/auth';
+import { createGlucoseReading } from '../lib/api/glucose';
 
 // Define the navigation route types
 type RootStackParamList = {
@@ -24,7 +25,6 @@ type RootStackParamList = {
   Meals: undefined;
   Insulin: undefined;
   Trends: undefined;
-  Notifications: undefined;
   PredictionResultPage: { 
     result: {
       type: 'prediction';
@@ -73,110 +73,86 @@ export default function DashboardScreen() {
   const [predictions, setPredictions] = useState<PredictionWithAccuracy | null>(null);
   const [recentPredictions, setRecentPredictions] = useState<InsulinPredictionResult[]>([]);
   const [isPredictionsExpanded, setIsPredictionsExpanded] = useState(false);
+  const [minTargetGlucose, setMinGlucose] = useState(70);
+  const [maxTargetGlucose, setMaxGlucose] = useState(180);
 
   const fetchData = useCallback(async () => {
     if (!token) return;
 
     setIsLoading(true);
     try {
-      // Get all glucose readings for today with a single API call
+      // Use new unified dashboard endpoint
       const today = new Date();
       const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
       const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59).toISOString();
-      
-      const todaysReadings = await getGlucoseReadings(token, { 
-        startDate: startOfDay,
-        endDate: endOfDay 
-      });
-      
+      const dashboardData = await getDashboardData(token, { startDate: startOfDay, endDate: endOfDay });
+
+      // Extract and set state from unified response
+      const { profile, glucoseReadings, activities, predictions } = dashboardData;
+
+      // Set glucose targets from profile
+      if (profile) {
+        setMinGlucose(profile.minTargetGlucose || 70);
+        setMaxGlucose(profile.maxTargetGlucose || 180);
+      } else {
+        setMinGlucose(70);
+        setMaxGlucose(180);
+      }
+
       // Store today's readings in state
-      setTodaysReadings(todaysReadings);
-      
-      // Use the same data for the chart (latest 6 readings)
-      setReadings(todaysReadings.slice(0, 6));
-      
-      // Get all activities but only show the first page initially
-      const activities = await getActivities(token);
-      console.log('Recent activities:', activities);
-      
-      // Fetch insulin predictions
-      const predictions = await getPredictionHistory(token);
-      
-      // Calculate prediction accuracy for predictions with applied doses
-      const predictionsWithDoses = predictions.filter(prediction => prediction.applyDose !== null && prediction.applyDose !== undefined);
+      setTodaysReadings(glucoseReadings || []);
+      setReadings((glucoseReadings || []).slice(0, 6));
+
+      // Activities
+      setAllActivities(activities || []);
+      setVisibleActivities((activities || []).slice(0, ACTIVITIES_PER_PAGE));
+      setActivitiesPage(1);
+
+      // Predictions and accuracy
+      const predictionsArr = predictions || [];
+      const predictionsWithDoses = predictionsArr.filter((p: any) => p.applyDose !== null && p.applyDose !== undefined);
       let accuracySum = 0;
       let accuracyCount = 0;
-      
       if (predictionsWithDoses.length > 0) {
-        predictionsWithDoses.forEach(prediction => {
-          if (prediction.applyDose !== null && prediction.applyDose !== undefined) {
-            // Calculate accuracy percentage (recommended vs applied)
-            const recommendedDose = prediction.recommendedDose;
-            const appliedDose = prediction.applyDose;
-            
-            // If applied dose is greater than recommended, accuracy is (recommended/applied)
-            // If recommended dose is greater than applied, accuracy is (applied/recommended)
-            // This gives a percentage where 100% means exact match
-            const accuracy = recommendedDose > appliedDose 
-              ? (appliedDose / recommendedDose) * 100 
-              : (recommendedDose / appliedDose) * 100;
-              
-            accuracySum += accuracy;
-            accuracyCount++;
-          }
+        predictionsWithDoses.forEach((prediction: any) => {
+          const recommendedDose = prediction.recommendedDose;
+          const appliedDose = prediction.applyDose;
+          const accuracy = recommendedDose > appliedDose 
+            ? (appliedDose / recommendedDose) * 100 
+            : (recommendedDose / appliedDose) * 100;
+          accuracySum += accuracy;
+          accuracyCount++;
         });
       }
-      
-      // Calculate average accuracy
-      const averageAccuracy = accuracyCount > 0 ? accuracySum / accuracyCount : -1; // Use -1 to indicate no predictions with doses
-      console.log('Average prediction accuracy:', averageAccuracy.toFixed(2) + '%');
-      
-      // Do the same for recent predictions (last 3)
-      const recentPredictions = predictions.slice(0, 3);
-      const recentPredictionsWithDoses = recentPredictions.filter(prediction => prediction.applyDose !== null && prediction.applyDose !== undefined);
+      const averageAccuracy = accuracyCount > 0 ? accuracySum / accuracyCount : -1;
+      const recentPredictions = predictionsArr.slice(0, 3);
+      const recentPredictionsWithDoses = recentPredictions.filter((p: any) => p.applyDose !== null && p.applyDose !== undefined);
       let recentAccuracySum = 0;
       let recentAccuracyCount = 0;
-      
       if (recentPredictionsWithDoses.length > 0) {
-        recentPredictionsWithDoses.forEach(prediction => {
-          if (prediction.applyDose !== null && prediction.applyDose !== undefined) {
-            const recommendedDose = prediction.recommendedDose;
-            const appliedDose = prediction.applyDose;
-            
-            const accuracy = recommendedDose > appliedDose 
-              ? (appliedDose / recommendedDose) * 100 
-              : (recommendedDose / appliedDose) * 100;
-              
-            recentAccuracySum += accuracy;
-            recentAccuracyCount++;
-          }
+        recentPredictionsWithDoses.forEach((prediction: any) => {
+          const recommendedDose = prediction.recommendedDose;
+          const appliedDose = prediction.applyDose;
+          const accuracy = recommendedDose > appliedDose 
+            ? (appliedDose / recommendedDose) * 100 
+            : (recommendedDose / appliedDose) * 100;
+          recentAccuracySum += accuracy;
+          recentAccuracyCount++;
         });
       }
-      
-      // Calculate average accuracy for recent predictions
-      const recentAverageAccuracy = recentAccuracyCount > 0 ? recentAccuracySum / recentAccuracyCount : -1; // Use -1 to indicate no recent predictions with doses
-      
-      // Store predictions with accuracy information
+      const recentAverageAccuracy = recentAccuracyCount > 0 ? recentAccuracySum / recentAccuracyCount : -1;
       const trendValue = Math.abs(Math.round(averageAccuracy - recentAverageAccuracy));
       setPredictions({
         accuracy: {
           percentage: Math.round(averageAccuracy),
           trend: {
-            value: recentAccuracyCount > 0 ? trendValue: -1, // Use -1 to indicate no trend
-            direction: trendValue === 0 ? 'equal' : recentAverageAccuracy > averageAccuracy ? 'up' : 'down'
-          }
+            value: recentAccuracyCount > 0 ? trendValue : -1,
+            direction: trendValue === 0 ? 'equal' : recentAverageAccuracy > averageAccuracy ? 'up' : 'down',
+          },
         },
-        data: predictions
+        data: predictionsArr,
       });
       setRecentPredictions(recentPredictions);
-      console.log(recentPredictions);
-      console.log('Predictions:', predictions);
-      console.log('Trend value:', Math.abs(Math.round(averageAccuracy - recentAverageAccuracy)));
-      console.log('Trend direction:', trendValue === 0 ? 'equal' : recentAverageAccuracy > averageAccuracy ? 'up' : 'down');
-
-      setAllActivities(activities);
-      setVisibleActivities(activities.slice(0, ACTIVITIES_PER_PAGE));
-      setActivitiesPage(1);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       toast({
@@ -348,13 +324,9 @@ export default function DashboardScreen() {
     todaysReadings.reduce((acc, reading) => acc + reading.value, 0) / (todaysReadings.length || 1)
   );
 
-  const timeInRange = Math.round(
-    (readings.filter(reading => reading.value >= 80 && reading.value <= 140).length / (readings.length || 1)) * 100
-  );
-
   const getGlucoseStatus = (value: number) => {
-    if (value < 80) return 'Bajo';
-    if (value > 140) return 'Alto';
+    if (value < minTargetGlucose) return 'Bajo';
+    if (value > maxTargetGlucose) return 'Alto';
     return 'Normal';
   };
 
@@ -370,25 +342,25 @@ export default function DashboardScreen() {
   };
 
   const getGlucoseIconColor = (value: number) => {
-    if (value < 70) return '#ef4444'; // Rojo para bajo
+    if (value < minTargetGlucose) return '#ef4444'; // Rojo para bajo
     if (value < 80) return '#f97316'; // Naranja para límite bajo
-    if (value > 180) return '#ef4444'; // Rojo para alto
+    if (value > maxTargetGlucose) return '#ef4444'; // Rojo para alto
     if (value > 140) return '#f97316'; // Naranja para límite alto
     return '#4CAF50'; // Verde para rango saludable
   };
 
   const getGlucoseIconBgColor = (value: number) => {
-    if (value < 70) return 'rgba(239, 68, 68, 0.1)'; // Rojo con opacidad
+    if (value < minTargetGlucose) return 'rgba(239, 68, 68, 0.1)'; // Rojo con opacidad
     if (value < 80) return 'rgba(249, 115, 22, 0.1)'; // Naranja con opacidad
-    if (value > 180) return 'rgba(239, 68, 68, 0.1)'; // Rojo con opacidad
+    if (value > maxTargetGlucose) return 'rgba(239, 68, 68, 0.1)'; // Rojo con opacidad
     if (value > 140) return 'rgba(249, 115, 22, 0.1)'; // Naranja con opacidad
     return 'rgba(34, 197, 94, 0.1)'; // Verde con opacidad
   };
 
   const getAverageGlucoseStatus = (value: number) => {
-    if (value < 70) return { text: 'Promedio bajo', color: '#ef4444', bgColor: '#fee2e2' };
+    if (value < minTargetGlucose) return { text: 'Promedio bajo', color: '#ef4444', bgColor: '#fee2e2' };
     if (value < 80) return { text: 'Promedio límite bajo', color: '#f97316', bgColor: '#ffedd5' };
-    if (value > 180) return { text: 'Promedio alto', color: '#ef4444', bgColor: '#fee2e2' };
+    if (value > maxTargetGlucose) return { text: 'Promedio alto', color: '#ef4444', bgColor: '#fee2e2' };
     if (value > 140) return { text: 'Promedio límite alto', color: '#f97316', bgColor: '#ffedd5' };
     return { text: 'En rango objetivo', color: '#4CAF50', bgColor: 'rgba(34, 197, 94, 0.1)' };
   };
@@ -396,9 +368,9 @@ export default function DashboardScreen() {
   const glucoseStatus = getGlucoseStatus(currentGlucose);
 
   const getBarColor = (value: number) => {
-    if (value < 70) return { fill: '#ef4444', opacity: 0.8 }; // Rojo para bajo
+    if (value < minTargetGlucose) return { fill: '#ef4444', opacity: 0.8 }; // Rojo para bajo
     if (value < 80) return { fill: '#f97316', opacity: 0.8 }; // Naranja para límite bajo
-    if (value > 180) return { fill: '#ef4444', opacity: 0.8 }; // Rojo para alto
+    if (value > maxTargetGlucose) return { fill: '#ef4444', opacity: 0.8 }; // Rojo para alto
     if (value > 140) return { fill: '#f97316', opacity: 0.8 }; // Naranja para límite alto
     return { fill: '#4CAF50', opacity: 0.8 }; // Verde para rango saludable
   };
@@ -497,30 +469,6 @@ export default function DashboardScreen() {
             style={{ width: 64, height: 64, resizeMode: 'contain', alignSelf: 'flex-start', marginLeft: 72}}
           />
         }
-        right={
-          <TouchableOpacity
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 6,
-              backgroundColor: 'rgba(255,255,255,0.10)',
-              borderRadius: 24,
-              paddingVertical: 6,
-              paddingHorizontal: 14,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.25,
-              shadowRadius: 4,
-              elevation: 5,
-              borderWidth: 1,
-              borderColor: 'rgba(255,255,255,0.25)'
-            }}
-            onPress={() => navigation.navigate('Profile')}
-          >
-            <Feather name="user" size={22} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16 }}>Perfil</Text>
-          </TouchableOpacity>
-        }
       />
       {isLoading ? (
         <LoadingSpinner text="Cargando datos..." />
@@ -535,7 +483,7 @@ export default function DashboardScreen() {
                   </Text>
                 </View>
                 <Text style={styles.statusDescription}>
-                  {currentGlucose >= 80 && currentGlucose <= 140 
+                  {currentGlucose >= minTargetGlucose && currentGlucose <= maxTargetGlucose 
                     ? 'En rango saludable' 
                     : 'Fuera de rango objetivo'}
                 </Text>
@@ -604,7 +552,7 @@ export default function DashboardScreen() {
                 </View>
                 <View style={styles.chartContent}>
                   <View style={styles.rangeIndicator}>
-                    <Text style={styles.rangeText}>Rango saludable: 80-140 mg/dL</Text>
+                    <Text style={styles.rangeText}>Rango saludable: {minTargetGlucose}-{maxTargetGlucose} mg/dL</Text>
                   </View>
                   {readings.length === 0 ? (
                     <View style={styles.noDataContainer}>
@@ -632,7 +580,7 @@ export default function DashboardScreen() {
                               <View style={styles.barValueContainer}>
                                 <Text style={[
                                   styles.barValue,
-                                  { color: reading.value >= 70 && reading.value <= 140 ? '#4CAF50' : '#ef4444' }
+                                  { color: reading.value >= minTargetGlucose && reading.value <= maxTargetGlucose ? '#4CAF50' : '#ef4444' }
                                 ]}>
                                   {reading.value}
                                 </Text>
@@ -770,7 +718,7 @@ export default function DashboardScreen() {
                       styles.statsIndicator,
                       { backgroundColor: getAverageGlucoseStatus(averageGlucose).bgColor }
                     ]}>
-                      {averageGlucose >= 70 && averageGlucose <= 140 ? (
+                      {averageGlucose >= minTargetGlucose && averageGlucose <= maxTargetGlucose ? (
                         <Check width={12} height={12} color={getAverageGlucoseStatus(averageGlucose).color} />
                       ) : (
                         <AlertCircle width={12} height={12} color={getAverageGlucoseStatus(averageGlucose).color} />
@@ -817,95 +765,101 @@ export default function DashboardScreen() {
                   </Text>
                 )}
               </View>
-              
-              <View style={styles.activityList}>
-                {visibleActivities.map((activity, index) => {
-                  const isClickable = activity.type === 'meal' || activity.type === 'insulin';
-                  const ActivityWrapper = isClickable ? TouchableOpacity : View;
+              {visibleActivities.length === 0 ? (
+                <View style={styles.noDataContainer}>
+                  <Text style={styles.noDataText}>No hay actividad reciente</Text>
+                </View>
+              ) : (
+                <>
+                  <View style={styles.activityList}>
+                    {visibleActivities.map((activity, index) => {
+                      const isClickable = activity.type === 'meal' || activity.type === 'insulin';
+                      const ActivityWrapper = isClickable ? TouchableOpacity : View;
 
-                  return (
-                    <ActivityWrapper
-                      key={index}
-                      style={[
-                        styles.activityItem,
-                        index === visibleActivities.length - 1 && !hasMoreActivities && styles.lastActivityItem,
-                        isClickable && styles.clickableActivityItem,
-                      ]}
-                      onPress={isClickable ? () => handlePress(activity) : undefined}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.activityLeft}>
-                        <View style={[
-                          styles.activityIcon,
-                          { 
-                            backgroundColor: activity.type === 'glucose' 
-                              ? getGlucoseIconBgColor(activity.value || 0)
-                              : activity.type === 'meal'
-                              ? '#ffedd5'
-                              : activity.type === 'insulin'
-                              ? '#dbeafe'
-                              : '#dbeafe'
-                          }
-                        ]}>
-                          {activity.type === 'glucose' && (
-                            <Droplet 
-                              width={16} 
-                              height={16} 
-                              color={getGlucoseIconColor(activity.value || 0)} 
-                            />
-                          )}
-                          {activity.type === 'meal' && <Utensils width={16} height={16} color="#f97316" />}
-                          {activity.type === 'insulin' && <Calculator width={16} height={16} color="#3b82f6" />}
-                        </View>
-                        <View>
-                          <Text style={styles.activityName}>
-                            {activity.type === 'glucose' ? 'Lectura de glucosa' : 
-                             activity.type === 'meal' ? activity.mealType || '' : 
-                             activity.type === 'insulin' ? 'Cálculo de insulina' : ''}
+                      return (
+                        <ActivityWrapper
+                          key={index}
+                          style={[
+                            styles.activityItem,
+                            index === visibleActivities.length - 1 && !hasMoreActivities && styles.lastActivityItem,
+                            isClickable && styles.clickableActivityItem,
+                          ]}
+                          onPress={isClickable ? () => handlePress(activity) : undefined}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.activityLeft}>
+                            <View style={[
+                              styles.activityIcon,
+                              { 
+                                backgroundColor: activity.type === 'glucose' 
+                                  ? getGlucoseIconBgColor(activity.value || 0)
+                                  : activity.type === 'meal'
+                                  ? '#ffedd5'
+                                  : activity.type === 'insulin'
+                                  ? '#dbeafe'
+                                  : '#dbeafe'
+                              }
+                            ]}>
+                              {activity.type === 'glucose' && (
+                                <Droplet 
+                                  width={16} 
+                                  height={16} 
+                                  color={getGlucoseIconColor(activity.value || 0)} 
+                                />
+                              )}
+                              {activity.type === 'meal' && <Utensils width={16} height={16} color="#f97316" />}
+                              {activity.type === 'insulin' && <Calculator width={16} height={16} color="#3b82f6" />}
+                            </View>
+                            <View>
+                              <Text style={styles.activityName}>
+                                {activity.type === 'glucose' ? 'Lectura de glucosa' : 
+                                 activity.type === 'meal' ? activity.mealType || '' : 
+                                 activity.type === 'insulin' ? 'Cálculo de insulina' : ''}
+                              </Text>
+                              <Text style={styles.activityTime}>
+                                {activity.timestamp 
+                                  ? formatTimeAgo(new Date(activity.timestamp))
+                                  : ''}
+                              </Text>
+                              {activity.type === 'glucose' && activity.notes && (
+                                <Text style={styles.activityNotes} numberOfLines={2} ellipsizeMode="tail">
+                                  {activity.notes}
+                                </Text>
+                              )}
+                            </View>
+                          </View>
+                          <Text style={styles.activityValue}>
+                            {activity.type === 'glucose' ? `${activity.value} mg/dL` :
+                             activity.type === 'meal' ? `${activity.carbs}g carbohidratos` :
+                             activity.type === 'insulin' ? `${activity.value} unidades` : ''}
                           </Text>
-                          <Text style={styles.activityTime}>
-                            {activity.timestamp 
-                              ? formatTimeAgo(new Date(activity.timestamp))
-                              : ''}
-                          </Text>
-                          {activity.type === 'glucose' && activity.notes && (
-                            <Text style={styles.activityNotes} numberOfLines={2} ellipsizeMode="tail">
-                              {activity.notes}
-                            </Text>
-                          )}
-                        </View>
-                      </View>
-                      <Text style={styles.activityValue}>
-                        {activity.type === 'glucose' ? `${activity.value} mg/dL` :
-                         activity.type === 'meal' ? `${activity.carbs}g carbohidratos` :
-                         activity.type === 'insulin' ? `${activity.value} unidades` : ''}
-                      </Text>
-                    </ActivityWrapper>
-                  );
-                })}
-              </View>
-              
-              <View style={styles.activityButtonsContainer}>
-                {hasMoreActivities && (
-                  <TouchableOpacity 
-                    style={styles.minimalButton}
-                    onPress={loadMoreActivities}
-                  >
-                    <Feather name="chevron-down" size={16} color="#4CAF50" />
-                    <Text style={styles.minimalButtonText}>Ver más</Text>
-                  </TouchableOpacity>
-                )}
-                
-                {hasExpandedActivities && (
-                  <TouchableOpacity 
-                    style={styles.minimalButton}
-                    onPress={resetActivitiesList}
-                  >
-                    <Feather name="chevron-up" size={16} color="#f97316" />
-                    <Text style={[styles.minimalButtonText, styles.minimalButtonTextAlt]}>Ver menos</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+                        </ActivityWrapper>
+                      );
+                    })}
+                  </View>
+                  <View style={styles.activityButtonsContainer}>
+                    {hasMoreActivities && (
+                      <TouchableOpacity 
+                        style={styles.minimalButton}
+                        onPress={loadMoreActivities}
+                      >
+                        <Feather name="chevron-down" size={16} color="#4CAF50" />
+                        <Text style={styles.minimalButtonText}>Ver más</Text>
+                      </TouchableOpacity>
+                    )}
+                    
+                    {hasExpandedActivities && (
+                      <TouchableOpacity 
+                        style={styles.minimalButton}
+                        onPress={resetActivitiesList}
+                      >
+                        <Feather name="chevron-up" size={16} color="#f97316" />
+                        <Text style={[styles.minimalButtonText, styles.minimalButtonTextAlt]}>Ver menos</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </>
+              )}
             </View>
 
             <Modal

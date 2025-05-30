@@ -35,10 +35,8 @@ export interface UserResponse {
   weight?: number;
   height?: number;
   glucoseProfile?: GlucoseProfile;
-  glucoseTarget?: {
-    minTarget: number;
-    maxTarget: number;
-  };
+  maxTargetGlucose: number;
+  minTargetGlucose: number;
 }
 
 export interface MedicalInfo {
