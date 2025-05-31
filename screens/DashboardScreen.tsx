@@ -468,7 +468,7 @@ export default function DashboardScreen() {
         icon={
           <Image
             source={require('../assets/logo_blanco_png.png')}
-            style={{ width: 64, height: 64, resizeMode: 'contain', alignSelf: 'flex-start', marginLeft: 72}}
+            style={{ width: 64, height: 64, resizeMode: 'contain', alignSelf: 'flex-start', marginLeft: 18}}
           />
         }
       />

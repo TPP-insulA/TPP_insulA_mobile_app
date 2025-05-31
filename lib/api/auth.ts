@@ -5,6 +5,28 @@ import { GlucoseProfile } from '../../types';
 export const API_URL = 'https://tppinsulabackend-production.up.railway.app/api';
 
 // Types
+export interface ApiUserData {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  birthDay: number;
+  birthMonth: number;
+  birthYear: number;
+  weight: number;
+  height: number;
+  glucoseProfile: GlucoseProfile;
+  maxTargetGlucose?: number;
+  minTargetGlucose?: number;
+  profileImage?: string | null;
+  treatingDoctor?: string | null;
+  diabetesType?: string;
+  diagnosisDate?: string;
+  name?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface RegisterUserInput {
   email: string;
   password: string;
@@ -23,42 +45,42 @@ export interface LoginInput {
   password: string;
 }
 
-export interface UserResponse {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
+export interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+}
+
+export interface UserResponse extends ApiResponse<{
+  user: ApiUserData;
   token: string;
+}> {}
+
+export interface ProfileResponse extends ApiResponse<{
+  user: ApiUserData & {
+    medicalInfo?: {
+      diabetesType: string;
+      diagnosisDate: string;
+      treatingDoctor: string;
+    };
+  };
+}> {}
+
+export interface UpdateProfileInput {
+  firstName?: string;
+  lastName?: string;
   birthDay?: number;
   birthMonth?: number;
   birthYear?: number;
   weight?: number;
   height?: number;
   glucoseProfile?: GlucoseProfile;
-  maxTargetGlucose: number;
-  minTargetGlucose: number;
-}
-
-export interface MedicalInfo {
-  diabetesType: 'type1';
-  diagnosisDate: string;
-  treatingDoctor: string;
-}
-
-export interface ProfileResponse extends UserResponse {
-  medicalInfo: MedicalInfo;
   profileImage?: string;
-}
-
-export interface UpdateProfileInput {
-  firstName?: string;
-  lastName?: string;
-  weight?: number;
-  height?: number;
-  medicalInfo?: {
-    diagnosisDate?: string;
-    treatingDoctor?: string;
-  };
+  diabetesType?: string;
+  diagnosisDate?: string;
+  treatingDoctor?: string;
+  maxTargetGlucose?: number;
+  minTargetGlucose?: number;
 }
 
 export const registerUser = async (userData: RegisterUserInput): Promise<UserResponse> => {
@@ -83,10 +105,14 @@ export const registerUser = async (userData: RegisterUserInput): Promise<UserRes
     console.log('Response headers:', JSON.stringify(Object.fromEntries([...response.headers.entries()]), null, 2));
 
     const data = await response.json();
-    console.log('Response data:', JSON.stringify(data, null, 2));
-
-    if (!response.ok) {
+    console.log('Response data:', JSON.stringify(data, null, 2));    if (!response.ok) {
       console.error('Registration failed:', data.message || 'Registration failed');
+      
+      // If there are specific validation errors, show the first one
+      if (data.errors && Array.isArray(data.errors) && data.errors.length > 0) {
+        throw new Error(data.errors[0]);
+      }
+      
       throw new Error(data.message || 'Registration failed');
     }
 

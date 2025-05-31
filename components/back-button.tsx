@@ -6,13 +6,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type RootStackParamList = {
-  dashboard: undefined;
-  meals: undefined;
-  history: undefined;
-  insulin: undefined;
-  profile: undefined;
-  login: undefined;
-  signup: undefined;
+  Dashboard: undefined;
+  Meals: undefined;
+  History: undefined;
+  Insulin: undefined;
+  Profile: undefined;
+  Login: undefined;
+  Signup: undefined;
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -20,15 +20,14 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 export function BackButton() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute();
-
   // Hide the button on the dashboard
-  if (route.name === 'dashboard') return null;
+  if (route.name === 'Dashboard') return null;
 
   const handleBack = () => {
     if (navigation.canGoBack()) {
       navigation.goBack();
     } else {
-      navigation.navigate('dashboard');
+      navigation.navigate('Dashboard');
     }
   };
 

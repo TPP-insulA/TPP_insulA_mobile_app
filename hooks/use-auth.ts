@@ -1,7 +1,7 @@
 import { create } from "zustand"
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { persist, createJSONStorage } from "zustand/middleware"
-import { loginUser, registerUser, getUserProfile, UserResponse, ProfileResponse } from '../lib/api/auth'
+import { loginUser, registerUser, getUserProfile, UserResponse, ProfileResponse, ApiUserData } from '../lib/api/auth'
 import { GlucoseProfile, User } from '../types'
 import { StateCreator } from 'zustand'
 
@@ -39,18 +39,18 @@ type AuthStateCreator = StateCreator<
   AuthState
 >;
 
-function hasRequiredUserFields(response: UserResponse | ProfileResponse): response is UserResponse | ProfileResponse {
+function hasRequiredUserFields(user: ApiUserData): boolean {
   return !!(
-    response.id &&
-    response.email &&
-    response.firstName &&
-    response.lastName &&
-    response.birthDay !== undefined &&
-    response.birthMonth !== undefined &&
-    response.birthYear !== undefined &&
-    response.weight !== undefined &&
-    response.height !== undefined &&
-    response.glucoseProfile
+    user.id &&
+    user.email &&
+    user.firstName &&
+    user.lastName &&
+    user.birthDay !== undefined &&
+    user.birthMonth !== undefined &&
+    user.birthYear !== undefined &&
+    user.weight !== undefined &&
+    user.height !== undefined &&
+    user.glucoseProfile
   );
 }
 
@@ -59,7 +59,7 @@ export const useAuth = create<AuthState>()(
     ((set, get): AuthState => ({
       user: null,
       token: null,
-      isLoading: true, // Start as true to show loading screen
+      isLoading: true,
       error: null,
       isAuthenticated: false,
       initialized: false,
@@ -80,14 +80,13 @@ export const useAuth = create<AuthState>()(
         set({ isLoading: true, error: null });
         try {
           const response = await loginUser({ email, password });
-
+          const { data: { user, token } } = response;
           
-          if (hasRequiredUserFields(response)) {
-            const { token, ...userFields } = response;
+          if (hasRequiredUserFields(user)) {
             set({ 
               token,
               isAuthenticated: true,
-              user: userFields as User,
+              user: user as unknown as User,
               isLoading: false 
             });
           } else {
@@ -106,11 +105,12 @@ export const useAuth = create<AuthState>()(
           const response = await registerUser(userData);
           console.log('Register response:', response);
           
-          if (hasRequiredUserFields(response)) {
-            const { token, ...userFields } = response;
+          const { data: { user, token } } = response;
+          
+          if (hasRequiredUserFields(user)) {
             set({ 
               token,
-              user: userFields as User,
+              user: user as unknown as User,
               isAuthenticated: true,
               isLoading: false 
             });
@@ -144,12 +144,11 @@ export const useAuth = create<AuthState>()(
         set({ isLoading: true });
         try {
           const userData = await getUserProfile(token);
-          console.log('LoadUser response:', userData);
+          const { data: { user } } = userData;
           
-          if (hasRequiredUserFields(userData)) {
-            const { token: _, ...userFields } = userData;
+          if (hasRequiredUserFields(user)) {
             set({ 
-              user: userFields as User,
+              user: user as unknown as User,
               isAuthenticated: true,
               isLoading: false 
             });
