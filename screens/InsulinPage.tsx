@@ -1,5 +1,5 @@
 import React, { useState, useCallback, memo } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TextInput, Modal } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TextInput, Modal, ActivityIndicator } from 'react-native';
 import { Calculator, Droplet, Zap,  AlertCircle, Coffee, Moon, Briefcase, Activity } from 'lucide-react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import { Card } from '../components/ui/card';
@@ -362,6 +362,7 @@ export default function InsulinPage() {
                         onChangeText={setTargetBloodGlucose}
                         keyboardType="numeric"
                         placeholder="0"
+                        textAlign='right'
                       />
                       <Text style={styles.nutritionUnit}>mg/dL</Text>
                     </View>
@@ -479,18 +480,23 @@ export default function InsulinPage() {
                 </View>
               </View>
 
-              {/* Calculate Button */}
-              <TouchableOpacity
+              {/* Calculate Button */}              <TouchableOpacity
                 style={[styles.button, styles.primaryButton, !canCalculate() && styles.buttonDisabled]}
                 onPress={handleCalculate}
-                disabled={!canCalculate()}
-              >
-                {isLoading ? (
-                  <Icon name="loader" size={20} color="white" />
-                ) : (
-                  <Calculator size={20} color="white" />
-                )}
-                <Text style={styles.buttonText}>Calcular Dosis de Insulina</Text>
+                disabled={!canCalculate() || isLoading}
+              >                <View style={styles.buttonContent}>
+                  {isLoading ? (
+                    <>
+                      <ActivityIndicator color="white" size="small" animating={true} />
+                      <Text style={styles.buttonText}>Calculando...</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Calculator size={20} color="white" />
+                      <Text style={styles.buttonText}>Calcular Dosis de Insulina</Text>
+                    </>
+                  )}
+                </View>
               </TouchableOpacity>
 
               {error && (
@@ -1057,8 +1063,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6b7280',
     marginLeft: 22,
-  },
-  nutritionInput: {
+  },  nutritionInput: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'white',
@@ -1066,15 +1071,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e5e7eb',
     paddingHorizontal: 8,
-    minWidth: 95,
+    width: 120,
+    height: 38,
     marginLeft: 10,
-  },
-  nutritionInputField: {
+  },  nutritionInputField: {
     flex: 1,
     fontSize: 15,
     color: '#111827',
-    paddingVertical: 4,
+    padding: 0,
+    height: '100%',
     textAlign: 'right',
+    minWidth: 50,
+    marginVertical: 0,
   },
   nutritionUnit: {
     fontSize: 13,
@@ -1092,8 +1100,12 @@ const styles = StyleSheet.create({
     right: 0,
     fontSize: 12,
     fontWeight: '500',
-  },
-  errorInput: {
+  },  errorInput: {
     borderColor: '#ef4444',
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
 });

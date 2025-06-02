@@ -39,12 +39,14 @@ export default function SignupScreen() {
       setError(authError);
     }
   }, [authError]);
+
   // Handle navigation based on authentication state
   useEffect(() => {
     if (isAuthenticated) {
-      // Let the App.tsx handle navigation based on authentication state
-      // No need to explicitly navigate here
-      console.log('User authenticated, App.tsx will handle navigation');
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Dashboard' }],
+      });
     }
   }, [isAuthenticated, navigation]);
   const validateStep = () => {
@@ -160,9 +162,8 @@ export default function SignupScreen() {
       Alert.alert(
         "Cuenta creada",
         "¡Tu cuenta ha sido creada exitosamente!",
-        [{ text: "OK" }]
+        [{ text: "OK", onPress: () => navigation.navigate('Dashboard') }]
       );
-      // No need to navigate - the useAuth hook will update isAuthenticated state automatically
     } catch (err) {
       console.error('Registration error:', err);
       if (err instanceof Error) {
