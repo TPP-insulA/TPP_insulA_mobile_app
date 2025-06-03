@@ -30,5 +30,6 @@ export interface User {
   height: number;
   glucoseProfile: GlucoseProfile;
   glucoseTarget?: GlucoseTarget;
-  medicalInfo?: MedicalInfo;
+  diagnosisDate: string;
+  treatingDoctor?: string;
 }

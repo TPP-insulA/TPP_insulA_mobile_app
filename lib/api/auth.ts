@@ -149,7 +149,7 @@ export const loginUser = async (credentials: LoginInput): Promise<UserResponse> 
   return data;
 };
 
-export const getUserProfile = async (token: string): Promise<ProfileResponse> => {
+export const getUserProfile = async (token: string): Promise<ApiUserData> => {
   console.log('Fetching user profile...');
   const response = await fetch(`${API_URL}/users/profile`, {
     method: 'GET',
@@ -190,7 +190,7 @@ export const updateUserProfile = async (userData: UpdateProfileInput, token: str
   return data;
 };
 
-export const updateProfileImage = async (imageUrl: string, token: string): Promise<ProfileResponse> => {
+export const updateProfileImage = async (imageUrl: string, token: string): Promise<ApiUserData> => {
   console.log('Updating profile image:', {
     imageUrlPreview: imageUrl.substring(0, 50) + '...',
     totalLength: imageUrl.length

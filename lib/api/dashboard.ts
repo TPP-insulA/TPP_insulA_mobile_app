@@ -1,10 +1,10 @@
 import { API_URL } from './auth';
-import { ProfileResponse } from './auth';
+import { ApiUserData } from './auth';
 import { GlucoseReading, ActivityItem } from './glucose';
 import { InsulinPredictionResult } from './insulin';
 
 export interface DashboardData {
-  profile: ProfileResponse;
+  profile: ApiUserData;
   glucoseReadings: GlucoseReading[];
   activities: ActivityItem[];
   predictions: InsulinPredictionResult[];

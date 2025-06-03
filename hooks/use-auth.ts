@@ -1,7 +1,7 @@
 import { create } from "zustand"
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { persist, createJSONStorage } from "zustand/middleware"
-import { loginUser, registerUser, getUserProfile, UserResponse, ProfileResponse, ApiUserData } from '../lib/api/auth'
+import { loginUser, registerUser, getUserProfile, ApiUserData } from '../lib/api/auth'
 import { GlucoseProfile, User } from '../types'
 import { StateCreator } from 'zustand'
 
@@ -143,8 +143,7 @@ export const useAuth = create<AuthState>()(
         
         set({ isLoading: true });
         try {
-          const userData = await getUserProfile(token);
-          const { data: { user } } = userData;
+          const user = await getUserProfile(token);
           
           if (hasRequiredUserFields(user)) {
             set({ 

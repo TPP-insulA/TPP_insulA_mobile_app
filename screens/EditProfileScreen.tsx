@@ -10,6 +10,7 @@ import { AppHeader } from '../components/app-header';
 export default function EditProfileScreen() {
     const navigation = useNavigation();
     const { token, user } = useAuth();
+    console.log('EditProfileScreen user:', user);
     const [isLoading, setIsLoading] = useState(false);
     const [showDatePicker, setShowDatePicker] = useState(false);
     
@@ -18,8 +19,10 @@ export default function EditProfileScreen() {
         lastName: user?.lastName || '',
         weight: user?.weight?.toString() || '',
         height: user?.height?.toString() || '',
-        diagnosisDate: user?.medicalInfo?.diagnosisDate || '',
-        treatingDoctor: user?.medicalInfo?.treatingDoctor || '',
+        diagnosisDate: user?.diagnosisDate
+            ? new Date(user.diagnosisDate).toISOString().split('T')[0]
+            : '',
+        treatingDoctor: user?.treatingDoctor || '',
     });
 
     const handleChange = (name: string, value: string) => {
@@ -36,17 +39,15 @@ export default function EditProfileScreen() {
                 lastName: formData.lastName,
                 weight: formData.weight ? parseFloat(formData.weight) : undefined,
                 height: formData.height ? parseFloat(formData.height) : undefined,
-                medicalInfo: {
-                    diagnosisDate: formData.diagnosisDate,
-                    treatingDoctor: formData.treatingDoctor,
-                },
+                diagnosisDate: new Date(formData.diagnosisDate).toISOString(),
+                treatingDoctor: formData.treatingDoctor,
             };
 
             await updateUserProfile(updateData, token);
             Alert.alert(
                 "Éxito",
                 "Perfil actualizado correctamente",
-                [{ text: "OK", onPress: () => navigation.goBack() }]
+                [{ text: "OK", onPress: () => navigation.navigate("Profile" as never) }]
             );
         } catch (error) {
             console.error('Error updating profile:', error);
