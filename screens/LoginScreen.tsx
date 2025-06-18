@@ -6,7 +6,6 @@ import { useAuth } from "../hooks/use-auth";
 import { useBiometrics } from "../hooks/use-biometrics";
 import { BiometricEnrollModal } from "../components/biometric-enroll-modal";
 import { Fingerprint } from "lucide-react-native";
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type RootStackParamList = {
   Login: undefined;

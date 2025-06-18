@@ -10,32 +10,12 @@ import { Footer } from "../components/footer";
 import { LoadingSpinner } from "../components/loading-spinner";
 import { useAuth } from '../hooks/use-auth';
 import { useToast } from '../hooks/use-toast';
-import { getGlucoseReadings, createGlucoseReading, getActivities } from '../lib/api/glucose';
+import { getDashboardData } from '../lib/api/dashboard';
 import type { GlucoseReading, ActivityItem } from '../lib/api/glucose';
 import { AppHeader } from '../components/app-header';
-import { getInsulinPredictions } from '../lib/api/insulin';
-
-// Add type definitions for predictions
-type Prediction = {
-  id: number;
-  mealType: string;
-  date: Date;
-  carbs: number;
-  glucose: number;
-  units: number;
-  accuracy: 'Accurate' | 'Slightly low' | 'Low';
-};
-
-type PredictionsData = {
-  accuracy: {
-    percentage: number;
-    trend: {
-      value: number;
-      direction: 'up' | 'down';
-    };
-  };
-  predictions: Prediction[];
-};
+import { getPredictionHistory, type InsulinPredictionResult } from '../lib/api/insulin';
+import { getUserProfile } from '@/lib/api/auth';
+import { createGlucoseReading } from '../lib/api/glucose';
 
 // Define the navigation route types
 type RootStackParamList = {
@@ -45,7 +25,6 @@ type RootStackParamList = {
   Meals: undefined;
   Insulin: undefined;
   Trends: undefined;
-  Notifications: undefined;
   PredictionResultPage: { 
     result: {
       type: 'prediction';
@@ -57,70 +36,21 @@ type RootStackParamList = {
       id: number;
     }
   };
-  // Add other screens here as needed
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-// Extend ActivityItem type to include predictions
-type ExtendedActivityItem = ActivityItem | {
-  type: 'prediction';
-  timestamp: Date;
-  mealType: string;
-  carbs: number;
-  units: number;
-  accuracy: 'Accurate' | 'Slightly low' | 'Low';
-  id: number;
-};
-
-// Add this mock data at the top of the file, after the types
-const mockPredictions: PredictionsData = {
+type PredictionWithAccuracy = {
   accuracy: {
-    percentage: 85,
+    percentage: number;
     trend: {
-      value: 5,
-      direction: 'up' as const
-    }
-  },
-  predictions: [
-    {
-      id: 1,
-      mealType: 'Desayuno',
-      date: new Date('2024-03-20T08:00:00'),
-      carbs: 45,
-      glucose: 120,
-      units: 3.5,
-      accuracy: 'Accurate'
-    },
-    {
-      id: 2,
-      mealType: 'Almuerzo',
-      date: new Date('2024-03-20T13:00:00'),
-      carbs: 60,
-      glucose: 135,
-      units: 4.2,
-      accuracy: 'Slightly low'
-    },
-    {
-      id: 3,
-      mealType: 'Cena',
-      date: new Date('2024-03-20T19:00:00'),
-      carbs: 50,
-      glucose: 110,
-      units: 3.8,
-      accuracy: 'Accurate'
-    },
-    {
-      id: 4,
-      mealType: 'Snack',
-      date: new Date('2024-03-20T16:00:00'),
-      carbs: 30,
-      glucose: 125,
-      units: 2.1,
-      accuracy: 'Low'
-    }
-  ]
-};
+      value: number;
+      direction: 'up' | 'down' | 'equal';
+    };
+  };
+  data: InsulinPredictionResult[];
+}
+
 
 export default function DashboardScreen() {
   const navigation = useNavigation<NavigationProp>();
@@ -133,65 +63,98 @@ export default function DashboardScreen() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [readings, setReadings] = useState<GlucoseReading[]>([]);
   const [todaysReadings, setTodaysReadings] = useState<GlucoseReading[]>([]);
-  const [activities, setActivities] = useState<ExtendedActivityItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [showAllActivities, setShowAllActivities] = useState(false);
-  const [allActivities, setAllActivities] = useState<ExtendedActivityItem[]>([]);
-  const [visibleActivities, setVisibleActivities] = useState<ExtendedActivityItem[]>([]);
+  const [allActivities, setAllActivities] = useState<ActivityItem[]>([]);
+  const [visibleActivities, setVisibleActivities] = useState<ActivityItem[]>([]);
   const [activitiesPage, setActivitiesPage] = useState(1);
   const ACTIVITIES_PER_PAGE = 5; // Número de actividades por página
   const [formError, setFormError] = useState('');
   const [dateError, setDateError] = useState('');
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [predictions, setPredictions] = useState<PredictionsData | null>(null);
+  const [predictions, setPredictions] = useState<PredictionWithAccuracy | null>(null);
+  const [recentPredictions, setRecentPredictions] = useState<InsulinPredictionResult[]>([]);
   const [isPredictionsExpanded, setIsPredictionsExpanded] = useState(false);
+  const [minTargetGlucose, setMinGlucose] = useState(70);
+  const [maxTargetGlucose, setMaxGlucose] = useState(180);
 
   const fetchData = useCallback(async () => {
     if (!token) return;
 
     setIsLoading(true);
     try {
-      // Get all glucose readings for today with a single API call
+      // Use new unified dashboard endpoint
       const today = new Date();
       const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
       const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59).toISOString();
-      
-      const todaysReadings = await getGlucoseReadings(token, { 
-        startDate: startOfDay,
-        endDate: endOfDay 
-      });
-      
+      const dashboardData = await getDashboardData(token, { startDate: startOfDay, endDate: endOfDay });
+
+      // Extract and set state from unified response
+      const { profile, glucoseReadings, activities, predictions } = dashboardData;
+
+      // Set glucose targets from profile
+      if (profile) {
+        setMinGlucose(profile.minTargetGlucose || 70);
+        setMaxGlucose(profile.maxTargetGlucose || 180);
+      } else {
+        setMinGlucose(70);
+        setMaxGlucose(180);
+      }
+
       // Store today's readings in state
-      setTodaysReadings(todaysReadings);
-      
-      // Use the same data for the chart (latest 6 readings)
-      setReadings(todaysReadings.slice(0, 6));
-      
-      // Get all activities but only show the first page initially
-      const recentActivities = await getActivities(token);
-      console.log('Recent activities:', recentActivities);
-      
-      // Use mock predictions
-      setPredictions(mockPredictions);
+      setTodaysReadings(glucoseReadings || []);
+      setReadings((glucoseReadings || []).slice(0, 6));
 
-      // Convert predictions to activity format
-      const predictionActivities: ExtendedActivityItem[] = mockPredictions.predictions.map(pred => ({
-        type: 'prediction',
-        timestamp: pred.date,
-        mealType: pred.mealType,
-        carbs: pred.carbs,
-        units: pred.units,
-        accuracy: pred.accuracy,
-        id: pred.id
-      }));
-
-      // Combine and sort all activities by timestamp
-      const allActivitiesCombined = [...recentActivities, ...predictionActivities]
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-      setAllActivities(allActivitiesCombined);
-      setVisibleActivities(allActivitiesCombined.slice(0, ACTIVITIES_PER_PAGE));
+      // Activities
+      setAllActivities(activities || []);
+      setVisibleActivities((activities || []).slice(0, ACTIVITIES_PER_PAGE));
       setActivitiesPage(1);
+
+      // Predictions and accuracy
+      const predictionsArr = predictions || [];
+      const predictionsWithDoses = predictionsArr.filter((p: any) => p.applyDose !== null && p.applyDose !== undefined);
+      let accuracySum = 0;
+      let accuracyCount = 0;
+      if (predictionsWithDoses.length > 0) {
+        predictionsWithDoses.forEach((prediction: any) => {
+          const recommendedDose = prediction.recommendedDose;
+          const appliedDose = prediction.applyDose;
+          const accuracy = recommendedDose > appliedDose 
+            ? (appliedDose / recommendedDose) * 100 
+            : (recommendedDose / appliedDose) * 100;
+          accuracySum += accuracy;
+          accuracyCount++;
+        });
+      }
+      const averageAccuracy = accuracyCount > 0 ? accuracySum / accuracyCount : -1;
+      const recentPredictions = predictionsArr.slice(0, 3);
+      const recentPredictionsWithDoses = recentPredictions.filter((p: any) => p.applyDose !== null && p.applyDose !== undefined);
+      let recentAccuracySum = 0;
+      let recentAccuracyCount = 0;
+      if (recentPredictionsWithDoses.length > 0) {
+        recentPredictionsWithDoses.forEach((prediction: any) => {
+          const recommendedDose = prediction.recommendedDose;
+          const appliedDose = prediction.applyDose;
+          const accuracy = recommendedDose > appliedDose 
+            ? (appliedDose / recommendedDose) * 100 
+            : (recommendedDose / appliedDose) * 100;
+          recentAccuracySum += accuracy;
+          recentAccuracyCount++;
+        });
+      }
+      const recentAverageAccuracy = recentAccuracyCount > 0 ? recentAccuracySum / recentAccuracyCount : -1;
+      const trendValue = Math.abs(Math.round(averageAccuracy - recentAverageAccuracy));
+      const predictionObject: PredictionWithAccuracy = {
+        accuracy: {
+          percentage: Math.round(averageAccuracy),
+          trend: {
+            value: recentAccuracyCount > 0 ? trendValue : -1,
+            direction: trendValue === 0 ? 'equal' : recentAverageAccuracy > averageAccuracy ? 'up' : 'down',
+          },
+        },
+        data: predictionsArr,
+      };
+      setPredictions(predictionObject);
+      console.log('Predictions:', predictionObject);
+      setRecentPredictions(recentPredictions);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       toast({
@@ -316,17 +279,6 @@ export default function DashboardScreen() {
     }
   };
 
-  const toggleActivitiesView = () => {
-    if (showAllActivities) {
-      // Show only recent activities
-      setActivities(allActivities.slice(0, 5));
-    } else {
-      // Show all activities
-      setActivities(allActivities);
-    }
-    setShowAllActivities(!showAllActivities);
-  };
-
   const loadMoreActivities = () => {
     const nextPage = activitiesPage + 1;
     const endIndex = nextPage * ACTIVITIES_PER_PAGE;
@@ -374,13 +326,9 @@ export default function DashboardScreen() {
     todaysReadings.reduce((acc, reading) => acc + reading.value, 0) / (todaysReadings.length || 1)
   );
 
-  const timeInRange = Math.round(
-    (readings.filter(reading => reading.value >= 80 && reading.value <= 140).length / (readings.length || 1)) * 100
-  );
-
   const getGlucoseStatus = (value: number) => {
-    if (value < 80) return 'Bajo';
-    if (value > 140) return 'Alto';
+    if (value < minTargetGlucose) return 'Bajo';
+    if (value > maxTargetGlucose) return 'Alto';
     return 'Normal';
   };
 
@@ -396,25 +344,25 @@ export default function DashboardScreen() {
   };
 
   const getGlucoseIconColor = (value: number) => {
-    if (value < 70) return '#ef4444'; // Rojo para bajo
+    if (value < minTargetGlucose) return '#ef4444'; // Rojo para bajo
     if (value < 80) return '#f97316'; // Naranja para límite bajo
-    if (value > 180) return '#ef4444'; // Rojo para alto
+    if (value > maxTargetGlucose) return '#ef4444'; // Rojo para alto
     if (value > 140) return '#f97316'; // Naranja para límite alto
     return '#4CAF50'; // Verde para rango saludable
   };
 
   const getGlucoseIconBgColor = (value: number) => {
-    if (value < 70) return 'rgba(239, 68, 68, 0.1)'; // Rojo con opacidad
+    if (value < minTargetGlucose) return 'rgba(239, 68, 68, 0.1)'; // Rojo con opacidad
     if (value < 80) return 'rgba(249, 115, 22, 0.1)'; // Naranja con opacidad
-    if (value > 180) return 'rgba(239, 68, 68, 0.1)'; // Rojo con opacidad
+    if (value > maxTargetGlucose) return 'rgba(239, 68, 68, 0.1)'; // Rojo con opacidad
     if (value > 140) return 'rgba(249, 115, 22, 0.1)'; // Naranja con opacidad
     return 'rgba(34, 197, 94, 0.1)'; // Verde con opacidad
   };
 
   const getAverageGlucoseStatus = (value: number) => {
-    if (value < 70) return { text: 'Promedio bajo', color: '#ef4444', bgColor: '#fee2e2' };
+    if (value < minTargetGlucose) return { text: 'Promedio bajo', color: '#ef4444', bgColor: '#fee2e2' };
     if (value < 80) return { text: 'Promedio límite bajo', color: '#f97316', bgColor: '#ffedd5' };
-    if (value > 180) return { text: 'Promedio alto', color: '#ef4444', bgColor: '#fee2e2' };
+    if (value > maxTargetGlucose) return { text: 'Promedio alto', color: '#ef4444', bgColor: '#fee2e2' };
     if (value > 140) return { text: 'Promedio límite alto', color: '#f97316', bgColor: '#ffedd5' };
     return { text: 'En rango objetivo', color: '#4CAF50', bgColor: 'rgba(34, 197, 94, 0.1)' };
   };
@@ -422,9 +370,9 @@ export default function DashboardScreen() {
   const glucoseStatus = getGlucoseStatus(currentGlucose);
 
   const getBarColor = (value: number) => {
-    if (value < 70) return { fill: '#ef4444', opacity: 0.8 }; // Rojo para bajo
+    if (value < minTargetGlucose) return { fill: '#ef4444', opacity: 0.8 }; // Rojo para bajo
     if (value < 80) return { fill: '#f97316', opacity: 0.8 }; // Naranja para límite bajo
-    if (value > 180) return { fill: '#ef4444', opacity: 0.8 }; // Rojo para alto
+    if (value > maxTargetGlucose) return { fill: '#ef4444', opacity: 0.8 }; // Rojo para alto
     if (value > 140) return { fill: '#f97316', opacity: 0.8 }; // Naranja para límite alto
     return { fill: '#4CAF50', opacity: 0.8 }; // Verde para rango saludable
   };
@@ -445,28 +393,16 @@ export default function DashboardScreen() {
     setOpenDialog(true);
   };
 
-  const handlePress = (activity: ExtendedActivityItem) => {
+  const handlePress = (activity: ActivityItem) => {
     if (activity.type === 'meal') {
       navigation.navigate('Meals');
     } else if (activity.type === 'insulin') {
       navigation.navigate('History');
-    } else if (activity.type === 'prediction') {
-      navigation.navigate('PredictionResultPage', {
-        result: {
-          type: 'prediction',
-          timestamp: activity.timestamp.toISOString(),
-          mealType: activity.mealType,
-          carbs: activity.carbs,
-          units: activity.units,
-          accuracy: activity.accuracy,
-          id: activity.id
-        }
-      });
     }
   };
 
-  const renderActivityItem = (activity: ExtendedActivityItem) => {
-    const isClickable = activity.type === 'meal' || activity.type === 'insulin' || activity.type === 'prediction';
+  const renderActivityItem = (activity: ActivityItem) => {
+    const isClickable = activity.type === 'meal' || activity.type === 'insulin';
     const Wrapper = isClickable ? TouchableOpacity : View;
     const wrapperProps = isClickable ? {
       onPress: () => handlePress(activity),
@@ -495,12 +431,6 @@ export default function DashboardScreen() {
         icon = <Syringe size={20} color="#2196F3" />;
         title = `${activity.units} unidades`;
         subtitle = formatTimeAgo(new Date(activity.timestamp));
-        backgroundColor = '#e3f2fd';
-        break;
-      case 'prediction':
-        icon = <Calculator size={20} color="#2196F3" />;
-        title = `${activity.mealType} (${activity.carbs}g)`;
-        subtitle = `${activity.units} unidades - ${activity.accuracy === 'Accurate' ? '✅ Precisa' : activity.accuracy === 'Slightly low' ? '⚠️ Ligeramente baja' : '❌ Baja'}`;
         backgroundColor = '#e3f2fd';
         break;
     }
@@ -538,32 +468,8 @@ export default function DashboardScreen() {
         icon={
           <Image
             source={require('../assets/logo_blanco_png.png')}
-            style={{ width: 64, height: 64, resizeMode: 'contain', alignSelf: 'flex-start', marginLeft: 72}}
+            style={{ width: 64, height: 64, resizeMode: 'contain', alignSelf: 'flex-start', marginLeft: 18}}
           />
-        }
-        right={
-          <TouchableOpacity
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 6,
-              backgroundColor: 'rgba(255,255,255,0.10)',
-              borderRadius: 24,
-              paddingVertical: 6,
-              paddingHorizontal: 14,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.25,
-              shadowRadius: 4,
-              elevation: 5,
-              borderWidth: 1,
-              borderColor: 'rgba(255,255,255,0.25)'
-            }}
-            onPress={() => navigation.navigate('Profile')}
-          >
-            <Feather name="user" size={22} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16 }}>Perfil</Text>
-          </TouchableOpacity>
         }
       />
       {isLoading ? (
@@ -579,7 +485,7 @@ export default function DashboardScreen() {
                   </Text>
                 </View>
                 <Text style={styles.statusDescription}>
-                  {currentGlucose >= 80 && currentGlucose <= 140 
+                  {currentGlucose >= minTargetGlucose && currentGlucose <= maxTargetGlucose 
                     ? 'En rango saludable' 
                     : 'Fuera de rango objetivo'}
                 </Text>
@@ -648,7 +554,7 @@ export default function DashboardScreen() {
                 </View>
                 <View style={styles.chartContent}>
                   <View style={styles.rangeIndicator}>
-                    <Text style={styles.rangeText}>Rango saludable: 80-140 mg/dL</Text>
+                    <Text style={styles.rangeText}>Rango saludable: {minTargetGlucose}-{maxTargetGlucose} mg/dL</Text>
                   </View>
                   {readings.length === 0 ? (
                     <View style={styles.noDataContainer}>
@@ -676,7 +582,7 @@ export default function DashboardScreen() {
                               <View style={styles.barValueContainer}>
                                 <Text style={[
                                   styles.barValue,
-                                  { color: reading.value >= 70 && reading.value <= 140 ? '#4CAF50' : '#ef4444' }
+                                  { color: reading.value >= minTargetGlucose && reading.value <= maxTargetGlucose ? '#4CAF50' : '#ef4444' }
                                 ]}>
                                   {reading.value}
                                 </Text>
@@ -710,17 +616,17 @@ export default function DashboardScreen() {
                   <Text style={styles.statsLabel}>Rendimiento de Predicciones</Text>
                   {predictions?.accuracy && (
                     <View style={styles.accuracyBadge}>
-                      <Text style={styles.accuracyPercentage}>{predictions.accuracy.percentage}%</Text>
+                      <Text style={styles.accuracyPercentage}>{predictions.accuracy.percentage !== -1 ? predictions.accuracy.percentage : 'N/A'}%</Text>
                       <View style={styles.trendContainer}>
                         <TrendingUp 
                           size={16} 
-                          color={predictions.accuracy.trend.direction === 'up' ? '#4CAF50' : '#ef4444'} 
+                          color={predictions.accuracy.trend.direction === 'up' ? '#4CAF50' : predictions.accuracy.trend.direction === 'down' ? '#ef4444' : '#6b7280'} 
                         />
                         <Text style={[
                           styles.trendText,
-                          { color: predictions.accuracy.trend.direction === 'up' ? '#4CAF50' : '#ef4444' }
+                          { color: predictions.accuracy.trend.direction === 'up' ? '#4CAF50' : predictions.accuracy.trend.direction === 'down' ? '#ef4444' : '#6b7280' }
                         ]}>
-                          {predictions.accuracy.trend.value}%
+                          {predictions.accuracy.trend.value !== -1 ? predictions.accuracy.trend.value : 'N/A'}%
                         </Text>
                       </View>
                     </View>
@@ -735,32 +641,39 @@ export default function DashboardScreen() {
 
               {isPredictionsExpanded && (
                 <>
-                  {predictions?.predictions?.length === 0 ? (
+                  {recentPredictions?.length === 0 ? (
                     <View style={styles.noDataContainer}>
                       <Text style={styles.noDataText}>No hay datos disponibles</Text>
                     </View>
                   ) : (
                     <View style={styles.predictionsList}>
-                      {predictions?.predictions?.map((prediction) => (
+                      {recentPredictions?.map((prediction) => (
                         <View key={prediction.id} style={styles.predictionItem}>
                           <View>
                             <Text style={styles.predictionTitle}>
-                              🕒 {prediction.mealType} - {format(prediction.date, 'MMM dd, p')}
+                              🕒 {format(prediction.date, 'dd/MM/yyyy HH:mm')}
                             </Text>
                             <Text style={styles.predictionDetails}>
-                              🍽️ {prediction.carbs}g carbohidratos, 🩺 {prediction.glucose} mg/dL
+                              🍽️ {prediction.carbs}g carbs, 🩺 {prediction.cgmPrev[0]} mg/dL
                             </Text>
                           </View>
                           <View style={styles.predictionRight}>
-                            <Text style={styles.predictionUnits}>💉 {prediction.units} unidades</Text>
+                            <Text style={styles.predictionUnits}>💉 {prediction.recommendedDose} unidades</Text>
                             <Text style={[
                               styles.predictionAccuracy,
-                              prediction.accuracy === 'Accurate' && styles.accuracyGood,
-                              prediction.accuracy === 'Slightly low' && styles.accuracyWarning,
-                              prediction.accuracy === 'Low' && styles.accuracyBad
+                              prediction.applyDose === undefined || prediction.applyDose === null ? styles.accuracyBad :
+                              Math.abs(prediction.applyDose - prediction.recommendedDose) <= 0.5 ? styles.accuracyGood :
+                              Math.abs(prediction.applyDose - prediction.recommendedDose) <= 1.0 ? styles.accuracyWarning :
+                              styles.accuracyBad
                             ]}>
-                              {prediction.accuracy === 'Accurate' ? '✅ Precisa' : 
-                               prediction.accuracy === 'Slightly low' ? '⚠️ Ligeramente baja' : '❌ Baja'}
+                              {prediction.applyDose === undefined || prediction.applyDose === null 
+                                ? '❌ Sin dosis aplicada' 
+                                : Math.abs(prediction.applyDose - prediction.recommendedDose) <= 0.5 
+                                  ? '✅ Precisa' 
+                                  : Math.abs(prediction.applyDose - prediction.recommendedDose) <= 1.0 
+                                    ? '⚠️ Ligeramente diferente' 
+                                    : '❌ Diferencia significativa'
+                              }
                             </Text>
                           </View>
                         </View>
@@ -807,7 +720,7 @@ export default function DashboardScreen() {
                       styles.statsIndicator,
                       { backgroundColor: getAverageGlucoseStatus(averageGlucose).bgColor }
                     ]}>
-                      {averageGlucose >= 70 && averageGlucose <= 140 ? (
+                      {averageGlucose >= minTargetGlucose && averageGlucose <= maxTargetGlucose ? (
                         <Check width={12} height={12} color={getAverageGlucoseStatus(averageGlucose).color} />
                       ) : (
                         <AlertCircle width={12} height={12} color={getAverageGlucoseStatus(averageGlucose).color} />
@@ -854,109 +767,101 @@ export default function DashboardScreen() {
                   </Text>
                 )}
               </View>
-              
-              <View style={styles.activityList}>
-                {visibleActivities.map((activity, index) => {
-                  const isClickable = activity.type === 'meal' || activity.type === 'insulin' || activity.type === 'prediction';
-                  const ActivityWrapper = isClickable ? TouchableOpacity : View;
+              {visibleActivities.length === 0 ? (
+                <View style={styles.noDataContainer}>
+                  <Text style={styles.noDataText}>No hay actividad reciente</Text>
+                </View>
+              ) : (
+                <>
+                  <View style={styles.activityList}>
+                    {visibleActivities.map((activity, index) => {
+                      const isClickable = activity.type === 'meal' || activity.type === 'insulin';
+                      const ActivityWrapper = isClickable ? TouchableOpacity : View;
 
-                  return (
-                    <ActivityWrapper
-                      key={index}
-                      style={[
-                        styles.activityItem,
-                        index === visibleActivities.length - 1 && !hasMoreActivities && styles.lastActivityItem,
-                        isClickable && styles.clickableActivityItem,
-                      ]}
-                      onPress={isClickable ? () => handlePress(activity) : undefined}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.activityLeft}>
-                        <View style={[
-                          styles.activityIcon,
-                          { 
-                            backgroundColor: activity.type === 'glucose' 
-                              ? getGlucoseIconBgColor(activity.value || 0)
-                              : activity.type === 'meal'
-                              ? '#ffedd5'
-                              : activity.type === 'prediction'
-                              ? '#dbeafe'
-                              : '#dbeafe'
-                          }
-                        ]}>
-                          {activity.type === 'glucose' && (
-                            <Droplet 
-                              width={16} 
-                              height={16} 
-                              color={getGlucoseIconColor(activity.value || 0)} 
-                            />
-                          )}
-                          {activity.type === 'meal' && <Utensils width={16} height={16} color="#f97316" />}
-                          {activity.type === 'insulin' && <Syringe width={16} height={16} color="#3b82f6" />}
-                          {activity.type === 'prediction' && <Calculator width={16} height={16} color="#3b82f6" />}
-                        </View>
-                        <View>
-                          <Text style={styles.activityName}>
-                            {activity.type === 'glucose' ? 'Lectura de glucosa' : 
-                             activity.type === 'meal' ? activity.mealType || '' : 
-                             activity.type === 'prediction' ? 'Predicción de insulina' :
-                             activity.type === 'insulin' ? 'Dosis de insulina' : ''}
-                          </Text>
-                          <Text style={styles.activityTime}>
-                            {activity.timestamp 
-                              ? formatTimeAgo(new Date(activity.timestamp))
-                              : ''}
-                          </Text>
-                          {activity.type === 'glucose' && activity.notes && (
-                            <Text style={styles.activityNotes} numberOfLines={2} ellipsizeMode="tail">
-                              {activity.notes}
-                            </Text>
-                          )}
-                          {activity.type === 'prediction' && (
-                            <Text style={[
-                              styles.predictionAccuracy,
-                              activity.accuracy === 'Accurate' && styles.accuracyGood,
-                              activity.accuracy === 'Slightly low' && styles.accuracyWarning,
-                              activity.accuracy === 'Low' && styles.accuracyBad
+                      return (
+                        <ActivityWrapper
+                          key={index}
+                          style={[
+                            styles.activityItem,
+                            index === visibleActivities.length - 1 && !hasMoreActivities && styles.lastActivityItem,
+                            isClickable && styles.clickableActivityItem,
+                          ]}
+                          onPress={isClickable ? () => handlePress(activity) : undefined}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.activityLeft}>
+                            <View style={[
+                              styles.activityIcon,
+                              { 
+                                backgroundColor: activity.type === 'glucose' 
+                                  ? getGlucoseIconBgColor(activity.value || 0)
+                                  : activity.type === 'meal'
+                                  ? '#ffedd5'
+                                  : activity.type === 'insulin'
+                                  ? '#dbeafe'
+                                  : '#dbeafe'
+                              }
                             ]}>
-                              {activity.accuracy === 'Accurate' ? '✅ Precisa' : 
-                               activity.accuracy === 'Slightly low' ? '⚠️ Ligeramente baja' : '❌ Baja'}
-                            </Text>
-                          )}
-                        </View>
-                      </View>
-                      <Text style={styles.activityValue}>
-                        {activity.type === 'glucose' ? `${activity.value} mg/dL` :
-                         activity.type === 'meal' ? `${activity.carbs}g carbohidratos` :
-                         activity.type === 'prediction' ? `${activity.units} unidades` :
-                         activity.type === 'insulin' ? `${activity.units} unidades` : ''}
-                      </Text>
-                    </ActivityWrapper>
-                  );
-                })}
-              </View>
-              
-              <View style={styles.activityButtonsContainer}>
-                {hasMoreActivities && (
-                  <TouchableOpacity 
-                    style={styles.minimalButton}
-                    onPress={loadMoreActivities}
-                  >
-                    <Feather name="chevron-down" size={16} color="#4CAF50" />
-                    <Text style={styles.minimalButtonText}>Ver más</Text>
-                  </TouchableOpacity>
-                )}
-                
-                {hasExpandedActivities && (
-                  <TouchableOpacity 
-                    style={styles.minimalButton}
-                    onPress={resetActivitiesList}
-                  >
-                    <Feather name="chevron-up" size={16} color="#f97316" />
-                    <Text style={[styles.minimalButtonText, styles.minimalButtonTextAlt]}>Ver menos</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+                              {activity.type === 'glucose' && (
+                                <Droplet 
+                                  width={16} 
+                                  height={16} 
+                                  color={getGlucoseIconColor(activity.value || 0)} 
+                                />
+                              )}
+                              {activity.type === 'meal' && <Utensils width={16} height={16} color="#f97316" />}
+                              {activity.type === 'insulin' && <Calculator width={16} height={16} color="#3b82f6" />}
+                            </View>
+                            <View>
+                              <Text style={styles.activityName}>
+                                {activity.type === 'glucose' ? 'Lectura de glucosa' : 
+                                 activity.type === 'meal' ? activity.mealType || '' : 
+                                 activity.type === 'insulin' ? 'Cálculo de insulina' : ''}
+                              </Text>
+                              <Text style={styles.activityTime}>
+                                {activity.timestamp 
+                                  ? formatTimeAgo(new Date(activity.timestamp))
+                                  : ''}
+                              </Text>
+                              {activity.type === 'glucose' && activity.notes && (
+                                <Text style={styles.activityNotes} numberOfLines={2} ellipsizeMode="tail">
+                                  {activity.notes}
+                                </Text>
+                              )}
+                            </View>
+                          </View>
+                          <Text style={styles.activityValue}>
+                            {activity.type === 'glucose' ? `${activity.value} mg/dL` :
+                             activity.type === 'meal' ? `${activity.carbs}g carbohidratos` :
+                             activity.type === 'insulin' ? `${activity.value} unidades` : ''}
+                          </Text>
+                        </ActivityWrapper>
+                      );
+                    })}
+                  </View>
+                  <View style={styles.activityButtonsContainer}>
+                    {hasMoreActivities && (
+                      <TouchableOpacity 
+                        style={styles.minimalButton}
+                        onPress={loadMoreActivities}
+                      >
+                        <Feather name="chevron-down" size={16} color="#4CAF50" />
+                        <Text style={styles.minimalButtonText}>Ver más</Text>
+                      </TouchableOpacity>
+                    )}
+                    
+                    {hasExpandedActivities && (
+                      <TouchableOpacity 
+                        style={styles.minimalButton}
+                        onPress={resetActivitiesList}
+                      >
+                        <Feather name="chevron-up" size={16} color="#f97316" />
+                        <Text style={[styles.minimalButtonText, styles.minimalButtonTextAlt]}>Ver menos</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </>
+              )}
             </View>
 
             <Modal

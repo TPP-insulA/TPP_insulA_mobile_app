@@ -49,7 +49,6 @@ export default function SignupScreen() {
       });
     }
   }, [isAuthenticated, navigation]);
-
   const validateStep = () => {
     switch (step) {
       case 1:
@@ -57,6 +56,21 @@ export default function SignupScreen() {
           setError("Por favor completa todos los campos");
           return false;
         }
+        
+        // Validate password requirements
+        if (formData.password.length < 6) {
+          setError("La contraseña debe tener al menos 6 caracteres");
+          return false;
+        }
+        
+        const hasLetter = /[a-zA-Z]/.test(formData.password);
+        const hasNumber = /[0-9]/.test(formData.password);
+        
+        if (!hasLetter || !hasNumber) {
+          setError("La contraseña debe contener al menos una letra y un número");
+          return false;
+        }
+        
         if (formData.password !== formData.confirmPassword) {
           setError("Las contraseñas no coinciden");
           return false;
@@ -76,12 +90,25 @@ export default function SignupScreen() {
         const month = parseInt(birthMonth);
         const year = parseInt(birthYear);
         const date = new Date(year, month - 1, day);
-        
-        if (date.getDate() !== day || 
+          if (date.getDate() !== day || 
             date.getMonth() !== month - 1 || 
             date.getFullYear() !== year ||
             date > new Date()) {
           setError("Fecha de nacimiento inválida");
+          return false;
+        }
+        
+        // Validar peso
+        const weight = parseFloat(formData.weight);
+        if (weight < 1 || weight > 1000) {
+          setError("El peso debe estar entre 1 y 1000 kg");
+          return false;
+        }
+        
+        // Validar altura
+        const height = parseFloat(formData.height);
+        if (height < 1 || height > 300) {
+          setError("La altura debe estar entre 1 y 300 cm");
           return false;
         }
         break;
@@ -106,7 +133,6 @@ export default function SignupScreen() {
     setError("");
     setStep(step - 1);
   };
-
   const handleSubmit = async () => {
     if (!validateStep()) return;
     
@@ -160,9 +186,16 @@ export default function SignupScreen() {
     if (name === 'birthYear' && value.length > 4) {
       return;
     }
-    
-    // Validar que solo se ingresen números
+      // Validar que solo se ingresen números para fechas
     if ((name === 'birthDay' || name === 'birthMonth' || name === 'birthYear') && !/^\d*$/.test(value)) {
+      return;
+    }    // Validar que solo se ingresen números y punto decimal para peso y altura
+    if ((name === 'weight' || name === 'height') && !/^\d*\.?\d*$/.test(value)) {
+      return;
+    }
+    
+    // Prevenir múltiples puntos decimales
+    if ((name === 'weight' || name === 'height') && (value.match(/\./g) || []).length > 1) {
       return;
     }
 
@@ -179,8 +212,87 @@ export default function SignupScreen() {
         return;
       }
     }
+    
+    // Validar peso (entre 1 y 1000 kg)
+    if (name === 'weight' && value !== '') {
+      const weight = parseFloat(value);
+      if (weight > 1000) {
+        return;
+      }
+    }
+    
+    // Validar altura (entre 1 y 300 cm)
+    if (name === 'height' && value !== '') {
+      const height = parseFloat(value);
+      if (height > 300) {
+        return;
+      }
+    }
 
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const fillValidData = () => {
+    switch (step) {
+      case 1:
+        setFormData(prev => ({
+          ...prev,
+          email: "test@example.com",
+          password: "password123",
+          confirmPassword: "password123"
+        }));
+        break;
+      case 2:
+        setFormData(prev => ({
+          ...prev,
+          firstName: "Juan",
+          lastName: "Pérez",
+          birthDay: "15",
+          birthMonth: "8",
+          birthYear: "1990",
+          weight: "70.5",
+          height: "175"
+        }));
+        break;
+      case 3:
+        setFormData(prev => ({
+          ...prev,
+          glucoseProfile: "normal"
+        }));
+        break;
+    }
+    setError("");
+  };
+
+  const fillInvalidData = () => {
+    switch (step) {
+      case 1:
+        setFormData(prev => ({
+          ...prev,
+          email: "invalid-email",
+          password: "123",
+          confirmPassword: "456"
+        }));
+        break;
+      case 2:
+        setFormData(prev => ({
+          ...prev,
+          firstName: "",
+          lastName: "",
+          birthDay: "32",
+          birthMonth: "13",
+          birthYear: "2030",
+          weight: "1500",
+          height: "350"
+        }));
+        break;      case 3:
+        setFormData(prev => ({
+          ...prev,
+          glucoseProfile: "" as any // Explicitly cast to any to test validation
+        }));
+        break;
+    }
+    setError("");
   };
 
   const renderStepContent = () => {
@@ -194,8 +306,7 @@ export default function SignupScreen() {
                 style={styles.input}
                 placeholder="tu@email.com"
                 value={formData.email}
-                onChangeText={(value) => handleChange("email", value)}
-                keyboardType="email-address"
+                onChangeText={(value) => handleChange("email", value)}                keyboardType="email-address"
                 autoCapitalize="none"
                 editable={!isLoading}
               />
@@ -211,6 +322,9 @@ export default function SignupScreen() {
                 secureTextEntry
                 editable={!isLoading}
               />
+              <Text style={styles.passwordHint}>
+                Mínimo 6 caracteres, debe incluir al menos una letra y un número
+              </Text>
             </View>
 
             <View style={styles.inputContainer}>
@@ -293,8 +407,7 @@ export default function SignupScreen() {
               </View>
             </View>
 
-            <View style={styles.row}>
-              <View style={[styles.inputContainer, styles.halfWidth]}>
+            <View style={styles.row}>              <View style={[styles.inputContainer, styles.halfWidth]}>
                 <Text style={styles.label}>Peso (kg)</Text>
                 <TextInput
                   style={styles.input}
@@ -304,6 +417,7 @@ export default function SignupScreen() {
                   keyboardType="numeric"
                   editable={!isLoading}
                 />
+                <Text style={styles.inputHint}>Entre 1 y 1000 kg</Text>
               </View>
 
               <View style={[styles.inputContainer, styles.halfWidth]}>
@@ -316,6 +430,7 @@ export default function SignupScreen() {
                   keyboardType="numeric"
                   editable={!isLoading}
                 />
+                <Text style={styles.inputHint}>Entre 1 y 300 cm</Text>
               </View>
             </View>
           </>
@@ -393,9 +508,11 @@ export default function SignupScreen() {
           <View style={styles.cardHeader}>
             <Text style={styles.title}>Crear Cuenta</Text>
             <Text style={styles.description}>
-              {step === 1 && "Ingresa tus credenciales"}
-              {step === 2 && "Completa tu información personal"}
-              {step === 3 && "Selecciona tu perfil glucémico"}
+              {step === 1
+                ? "Ingresa tus credenciales"
+                : step === 2
+                ? "Completa tu información personal"
+                : "Selecciona tu perfil glucémico"}
             </Text>
             <View style={styles.stepIndicator}>
               {[1, 2, 3].map((s) => (
@@ -416,10 +533,29 @@ export default function SignupScreen() {
               <View style={styles.errorContainer}>
                 <Text style={styles.errorText}>{error}</Text>
               </View>
-            ) : null}
-
-            <View style={styles.form}>
+            ) : null}            <View style={styles.form}>
               {renderStepContent()}
+
+              {/* Development Testing Buttons */}
+              <View style={styles.testingButtonsContainer}>
+                <Text style={styles.testingButtonsTitle}>🧪 Pruebas de Validación</Text>
+                <View style={styles.testingButtonsRow}>
+                  <TouchableOpacity
+                    style={styles.testingButtonValid}
+                    onPress={fillValidData}
+                    disabled={isLoading}
+                  >
+                    <Text style={styles.testingButtonValidText}>✅ Datos Válidos</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.testingButtonInvalid}
+                    onPress={fillInvalidData}
+                    disabled={isLoading}
+                  >
+                    <Text style={styles.testingButtonInvalidText}>❌ Datos Inválidos</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
 
               <View style={[styles.buttonContainer, step === 1 && styles.buttonContainerCenter]}>
                 {step > 1 && (
@@ -453,14 +589,11 @@ export default function SignupScreen() {
               </View>
             </View>
           </View>
-
+          
           <View style={styles.footer}>
             <Text style={styles.footerText}>
-              ¿Ya tienes una cuenta?{" "}
-              <Text 
-                style={styles.footerLink}
-                onPress={() => navigation.navigate('Login')}
-              >
+              ¿Ya tienes una cuenta?{' '}
+              <Text style={styles.footerLink} onPress={() => navigation.navigate('Login')}>
                 Iniciar sesión
               </Text>
             </Text>
@@ -680,10 +813,64 @@ const styles = StyleSheet.create({
   },
   dateField: {
     textAlign: 'center',
-  },
-  dateSeparator: {
+  },  dateSeparator: {
     fontSize: 18,
     color: '#6b7280',
+  },  passwordHint: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 4,
+    lineHeight: 16,
+  },  inputHint: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  testingButtonsContainer: {
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  testingButtonsTitle: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#6b7280',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  testingButtonsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  testingButtonValid: {
+    flex: 1,
+    backgroundColor: '#dcfce7',
+    borderWidth: 1,
+    borderColor: '#16a34a',
+    borderRadius: 6,
+    padding: 8,
+    alignItems: 'center',
+  },
+  testingButtonInvalid: {
+    flex: 1,
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#dc2626',
+    borderRadius: 6,
+    padding: 8,
+    alignItems: 'center',
+  },
+  testingButtonValidText: {
+    fontSize: 12,
+    color: '#16a34a',
+    fontWeight: '500',
+  },
+  testingButtonInvalidText: {
+    fontSize: 12,
+    color: '#dc2626',
+    fontWeight: '500',
   },
 });
 

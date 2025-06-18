@@ -354,10 +354,20 @@ function HistoryTab(props: any) {
           {/* ...resto de la tabla... */}
           {props.isLoadingPredictions ? (
             <LoadingSpinner text="Cargando historial..." />
+          ) : props.filteredSortedHistoryAdvanced.length === 0 ? (
+            <View style={{alignItems: 'center', padding: 20}}>
+              <Text style={{ color: '#6b7280', textAlign: 'center', margin: 16, fontSize: 18, fontFamily:'System', lineHeight: 24 }}>
+                📊 No hay predicciones registradas 📈
+              </Text>
+              <Text style={{ color: '#4b5563', textAlign: 'center', marginTop: 8, fontSize: 15, fontFamily:'System', lineHeight: 22 }}>
+                💡 ¡Realiza tu primer cálculo inteligente de insulina! 💉
+              </Text>
+              <Text style={{ color: '#6b7280', textAlign: 'center', marginTop: 12, fontSize: 14, fontFamily:'System', lineHeight: 20, maxWidth: 280 }}>
+                🔍 Busca la opción en la pantalla principal o dirígete a la sección de Insulina para comenzar tu seguimiento personalizado.
+              </Text>
+            </View>
           ) : props.predictionError ? (
             <Text style={{ color: '#ef4444', textAlign: 'center', margin: 16, fontSize: 18, fontFamily:'System' }}>{props.predictionError}</Text>
-          ) : props.filteredSortedHistoryAdvanced.length === 0 ? (
-            <Text style={{ color: '#6b7280', textAlign: 'center', margin: 16, fontSize: 18, fontFamily:'System' }}>No hay predicciones registradas.</Text>
           ) : (
             <View style={cardStyles.predictionListContainer}>
               {/* Botones de ordenamiento */}
@@ -1044,13 +1054,21 @@ export default function HistoryPage() {
     setIsLoadingPredictions(true);
     setPredictionError(null);
     try {
-      const data = await getPredictionHistory(token, user.id);
-      setPredictionHistory(
-        data
-          .slice()
-          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      );
+      const data = await getPredictionHistory(token);
+      
+      if (data && data.length === 0) {
+        // Si el array está vacío, mostramos un mensaje específico
+        setPredictionError('No hay predicciones en tu historial');
+        setPredictionHistory([]);
+      } else {
+        setPredictionHistory(
+          data
+            .slice()
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        );
+      }
     } catch (err) {
+      console.log(err);
       setPredictionError('Error al cargar el historial de predicciones');
     } finally {
       setIsLoadingPredictions(false);
@@ -1097,7 +1115,7 @@ export default function HistoryPage() {
         const v = Number(appliedFilters.dosis.value);
         if (appliedFilters.dosis.op === '=') dosisOk = Number(dosis) === v;
         if (appliedFilters.dosis.op === '>') dosisOk = Number(dosis) > v;
-        if (appliedFilters.dosis.op === '<') dosisOk = Number(dosis) < v;
+        if (appliedFilters.dosis.op === '<' ) dosisOk = Number(dosis) < v;
       }
       
       return fechaOk && cgmOk && dosisOk;

@@ -6,7 +6,7 @@ import { ProfilePhoto } from '../components/profile-photo';
 import { useNavigation } from '@react-navigation/native';
 import { NavigationProp } from '@react-navigation/native';
 import { useAuth } from '../hooks/use-auth';
-import { getUserProfile, updateProfileImage, ProfileResponse, API_URL } from '../lib/api/auth';
+import { getUserProfile, updateProfileImage, ApiUserData } from '../lib/api/auth';
 import { LoadingSpinner } from '../components/loading-spinner';
 import Feather from 'react-native-vector-icons/Feather';
 import * as FileSystem from 'expo-file-system';
@@ -19,7 +19,7 @@ type RootStackParamList = {
 };
 
 export default function ProfilePage() {    const [profileImage, setProfileImage] = useState<string | null>(null);
-    const [profileData, setProfileData] = useState<ProfileResponse | null>(null);    const [isLoading, setIsLoading] = useState(true);
+    const [profileData, setProfileData] = useState<ApiUserData | null>(null);    const [isLoading, setIsLoading] = useState(true);
     // Removed unused showDropdown state
     const navigation = useNavigation<NavigationProp<RootStackParamList>>();
     const { token, logout } = useAuth();
@@ -207,7 +207,7 @@ export default function ProfilePage() {    const [profileImage, setProfileImage]
                             <View style={styles.infoRow}>
                                 <Text style={styles.infoLabel}>Tipo de Diabetes</Text>
                                 <Text style={styles.infoValue}>
-                                    {profileData?.medicalInfo?.diabetesType === 'type1' ? 'Tipo 1' : '-'}
+                                    {profileData?.diabetesType === 'type1' ? 'Tipo 1' : '-'}
                                 </Text>
                             </View>
                             <View style={styles.infoRow}>
@@ -215,11 +215,12 @@ export default function ProfilePage() {    const [profileImage, setProfileImage]
                                     Fecha de Diagnóstico
                                 </Text>
                                 <Text style={styles.infoValue}>
-                                    {profileData?.medicalInfo?.diagnosisDate 
-                                        ? new Date(profileData.medicalInfo.diagnosisDate).toLocaleDateString('es-ES', {
+                                    {profileData?.diagnosisDate 
+                                        ? new Date(profileData.diagnosisDate).toLocaleDateString('es-ES', {
                                             year: 'numeric',
                                             month: 'long',
-                                            day: 'numeric'
+                                            day: 'numeric',
+                                            timeZone: 'UTC'
                                         })
                                         : '-'}
                                 </Text>
@@ -227,7 +228,7 @@ export default function ProfilePage() {    const [profileImage, setProfileImage]
                             <View style={styles.infoRow}>
                                 <Text style={styles.infoLabel}>Médico Tratante</Text>
                                 <Text style={styles.infoValue}>
-                                    {profileData?.medicalInfo?.treatingDoctor || '-'}
+                                    {profileData?.treatingDoctor || 'No asignado'}
                                 </Text>
                             </View>
                         </View>

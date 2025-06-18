@@ -1,16 +1,12 @@
-import React, { useState, useEffect, useCallback, memo } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TextInput, Modal, Pressable } from 'react-native';
-import { Calculator, Droplet, Zap, TrendingUp, TrendingDown, AlertCircle, Coffee, Moon, Briefcase, Activity } from 'lucide-react-native';
+import React, { useState, useCallback, memo } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TextInput, Modal, ActivityIndicator } from 'react-native';
+import { Calculator, Droplet, Zap,  AlertCircle, Coffee, Moon, Briefcase, Activity } from 'lucide-react-native';
 import Icon from 'react-native-vector-icons/Feather';
-import { format } from 'date-fns';
 import { Card } from '../components/ui/card';
 import { Footer } from '../components/footer';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../hooks/use-auth';
-import { 
-  calculateInsulinDose,
-  getInsulinPredictions,
-} from '../lib/api/insulin';
+import { calculateInsulinDose } from '../lib/api/insulin';
 import { getGlucoseReadings } from '../lib/api/glucose';
 import { AppHeader } from '../components/app-header';
 
@@ -24,15 +20,6 @@ interface Recommendation {
     activityAdjustment: number;
     timeAdjustment: number;
   };
-}
-
-interface Prediction {
-  mealType: string;
-  date: Date;
-  carbs: number;
-  glucose: number;
-  units: number;
-  accuracy: 'Accurate' | 'Slightly low' | 'Low';
 }
 
 const GlucoseModal = memo(({ 
@@ -160,24 +147,6 @@ export default function InsulinPage() {
   const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [predictions, setPredictions] = useState<{
-    accuracy: {
-      percentage: number;
-      trend: {
-        value: number;
-        direction: 'up' | 'down';
-      };
-    };
-    predictions: Array<{
-      id: number;
-      mealType: string;
-      date: Date;
-      carbs: number;
-      glucose: number;
-      units: number;
-      accuracy: 'Accurate' | 'Slightly low' | 'Low';
-    }>;
-  } | null>(null);
   const [isLoadingGlucose, setIsLoadingGlucose] = useState(false);
   const [noGlucoseFound, setNoGlucoseFound] = useState(false);
   const [sleepQuality, setSleepQuality] = useState(''); // 1-10
@@ -186,24 +155,7 @@ export default function InsulinPage() {
 
   // New states for glucose modal
   const [isGlucoseModalVisible, setIsGlucoseModalVisible] = useState(false);
-  const [showAllGlucoseInputs, setShowAllGlucoseInputs] = useState(false);
   const [showRecommendation, setShowRecommendation] = useState(false);
-  const [showPredictions, setShowPredictions] = useState(false);
-
-  const INITIAL_VISIBLE_INPUTS = 12;
-
-  useEffect(() => {
-    const loadPredictions = async () => {
-      try {
-        if (!token) return;
-        const predictionsResponse = await getInsulinPredictions(token, 10);
-        setPredictions(predictionsResponse);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error loading predictions');
-      }
-    };
-    loadPredictions();
-  }, [token]);
 
   const loadRecentGlucoseReadings = async () => {
     setIsLoadingGlucose(true);
@@ -302,7 +254,6 @@ export default function InsulinPage() {
     try {
       const cgmPrev = glucoseInputs.filter(g => g !== '').map(Number);
       const calculation = {
-        userId: token,
         date: new Date().toISOString(),
         cgmPrev,
         glucoseObjective: Number(targetBloodGlucose),
@@ -313,6 +264,7 @@ export default function InsulinPage() {
         activityLevel: Number(exerciseLevel),
       };
       const result = await calculateInsulinDose(calculation, token);
+      console.log('Insulin calculation result:', result);
       (navigation as any).navigate('PredictionResultPage', { result });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error calculando dosis');
@@ -410,6 +362,7 @@ export default function InsulinPage() {
                         onChangeText={setTargetBloodGlucose}
                         keyboardType="numeric"
                         placeholder="0"
+                        textAlign='right'
                       />
                       <Text style={styles.nutritionUnit}>mg/dL</Text>
                     </View>
@@ -456,10 +409,10 @@ export default function InsulinPage() {
                   </View>
                 </View>
                 {carbs && !isValidCarbs(carbs) && (
-                  <Text style={styles.errorText}>Número válido (2 decimales)</Text>
+                  <Text style={styles.errorText}>Carbohidratos inválido (2 decimales máx.)</Text>
                 )}
                 {insulinOnBoard && !isValidInsulinOnBoard(insulinOnBoard) && (
-                  <Text style={styles.errorText}>Número válido (2 decimales)</Text>
+                  <Text style={styles.errorText}>IOB inválido (2 decimales máx.)</Text>
                 )}
               </View>
 
@@ -527,18 +480,23 @@ export default function InsulinPage() {
                 </View>
               </View>
 
-              {/* Calculate Button */}
-              <TouchableOpacity
+              {/* Calculate Button */}              <TouchableOpacity
                 style={[styles.button, styles.primaryButton, !canCalculate() && styles.buttonDisabled]}
                 onPress={handleCalculate}
-                disabled={!canCalculate()}
-              >
-                {isLoading ? (
-                  <Icon name="loader" size={20} color="white" />
-                ) : (
-                  <Calculator size={20} color="white" />
-                )}
-                <Text style={styles.buttonText}>Calcular Dosis de Insulina</Text>
+                disabled={!canCalculate() || isLoading}
+              >                <View style={styles.buttonContent}>
+                  {isLoading ? (
+                    <>
+                      <ActivityIndicator color="white" size="small" animating={true} />
+                      <Text style={styles.buttonText}>Calculando...</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Calculator size={20} color="white" />
+                      <Text style={styles.buttonText}>Calcular Dosis de Insulina</Text>
+                    </>
+                  )}
+                </View>
               </TouchableOpacity>
 
               {error && (
@@ -1105,8 +1063,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6b7280',
     marginLeft: 22,
-  },
-  nutritionInput: {
+  },  nutritionInput: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'white',
@@ -1114,15 +1071,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e5e7eb',
     paddingHorizontal: 8,
-    minWidth: 95,
+    width: 120,
+    height: 38,
     marginLeft: 10,
-  },
-  nutritionInputField: {
+  },  nutritionInputField: {
     flex: 1,
     fontSize: 15,
     color: '#111827',
-    paddingVertical: 4,
+    padding: 0,
+    height: '100%',
     textAlign: 'right',
+    minWidth: 50,
+    marginVertical: 0,
   },
   nutritionUnit: {
     fontSize: 13,
@@ -1140,8 +1100,12 @@ const styles = StyleSheet.create({
     right: 0,
     fontSize: 12,
     fontWeight: '500',
-  },
-  errorInput: {
+  },  errorInput: {
     borderColor: '#ef4444',
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
 });
