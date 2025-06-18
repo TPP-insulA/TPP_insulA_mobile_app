@@ -1,5 +1,5 @@
 {
-  "name": "insulA",
+  "name": "insula",
   "license": "0BSD",
   "version": "1.0.0",
   "main": "index.js",
@@ -91,6 +91,9 @@
     "jest-expo": "^52.0.6",
     "react-native-dotenv": "^3.4.11",
     "typescript": "^5.8.3"
+  },
+  "overrides": {
+    "markdown-it": "^12.3.2"
   },
   "private": true
 }
