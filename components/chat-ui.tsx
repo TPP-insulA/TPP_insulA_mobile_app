@@ -221,6 +221,7 @@ export function ChatUI({
 
       const context = [
         'Simula ser un asistente de salud para pacientes con diabetes tipo 1.',
+        'El formato de fechas sera MM/dd/yyyy, pero vos responde con la fecha en formato corto escrita en español',
         'Si sientes que no tienes suficiente información, responde con "No tengo suficiente información para responder a esa pregunta".',
         'Proporciona respuestas claras y concisas, evitando tecnicismos innecesarios.',
         'Utiliza un tono amigable y profesional, como si fueras un asistente de salud virtual.',

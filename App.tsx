@@ -15,6 +15,8 @@ import {
   Roboto_500Medium,
   Roboto_700Bold,
 } from '@expo-google-fonts/roboto';
+import { LogBox } from 'react-native';
+LogBox.ignoreAllLogs(true); //Comentar o descomentar dependiendo el caso
 
 import DashboardScreen from './screens/DashboardScreen';
 import LoginScreen from './screens/LoginScreen';
