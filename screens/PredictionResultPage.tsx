@@ -21,14 +21,16 @@ export default function PredictionResultPage() {
   const {
     id = '',
     cgmPrev = [],
-    glucoseObjective = 0,
-    carbs = 0,
-    insulinOnBoard = 0,
-    sleepLevel = 0,
-    workLevel = 0,
-    activityLevel = 0,
+    glucoseObjective,
+    carbs,
+    insulinOnBoard,
+    sleepLevel,
+    workLevel,
+    activityLevel,
     recommendedDose = 0,
-    applyDose = 0,
+    correctionDose = 0,
+    mealDose = 0,
+    applyDose,
     cgmPost = [],
     date = '',
   } = result;
@@ -209,6 +211,14 @@ export default function PredictionResultPage() {
     }
   })() : '';
 
+  // Helper function to display value or dash
+  const displayValue = (value: any, unit: string = '') => {
+    if (value === undefined || value === null) {
+      return '-';
+    }
+    return `${value}${unit ? ' ' + unit : ''}`;
+  };
+
   return (
     <View style={styles.container}>
       <AppHeader 
@@ -235,6 +245,16 @@ export default function PredictionResultPage() {
           <View style={styles.doseValueContainer}>
             <Text style={styles.doseValue}>{recommendedDose}</Text>
             <Text style={styles.doseUnit}>unidades</Text>
+          </View>
+          <View style={styles.doseBreakdownContainer}>
+            <View style={styles.doseBreakdownItem}>
+              <Text style={styles.doseBreakdownLabel}>Corrección:</Text>
+              <Text style={styles.doseBreakdownValue}>{correctionDose} U</Text>
+            </View>
+            <View style={styles.doseBreakdownItem}>
+              <Text style={styles.doseBreakdownLabel}>Comida:</Text>
+              <Text style={styles.doseBreakdownValue}>{mealDose} U</Text>
+            </View>
           </View>
         </Card>
 
@@ -292,27 +312,27 @@ export default function PredictionResultPage() {
               <View style={styles.dataColumn}>
                 <View style={styles.dataItem}>
                   <Text style={styles.dataLabel}>🍞 Carbs</Text>
-                  <Text style={styles.dataValue}>{carbs} g</Text>
+                  <Text style={styles.dataValue}>{displayValue(carbs, 'g')}</Text>
                 </View>
                 <View style={styles.dataItem}>
                   <Text style={styles.dataLabel}>💉 IOB</Text>
-                  <Text style={styles.dataValue}>{insulinOnBoard} u</Text>
+                  <Text style={styles.dataValue}>{displayValue(insulinOnBoard, 'u')}</Text>
                 </View>
                 <View style={styles.dataItem}>
                   <Text style={styles.dataLabel}>🎯 Objetivo</Text>
-                  <Text style={styles.dataValue}>{glucoseObjective} mg/dL</Text>
+                  <Text style={styles.dataValue}>{displayValue(glucoseObjective, 'mg/dL')}</Text>
                 </View>
                 <View style={styles.dataItem}>
                   <Text style={styles.dataLabel}>😴 Sueño</Text>
-                  <Text style={styles.dataValue}>{sleepLevel}</Text>
+                  <Text style={styles.dataValue}>{displayValue(sleepLevel)}</Text>
                 </View>
                 <View style={styles.dataItem}>
                   <Text style={styles.dataLabel}>💼 Trabajo</Text>
-                  <Text style={styles.dataValue}>{workLevel}</Text>
+                  <Text style={styles.dataValue}>{displayValue(workLevel)}</Text>
                 </View>
                 <View style={styles.dataItem}>
                   <Text style={styles.dataLabel}>🏃‍♂️ Actividad</Text>
-                  <Text style={styles.dataValue}>{activityLevel}</Text>
+                  <Text style={styles.dataValue}>{displayValue(activityLevel)}</Text>
                 </View>
               </View>
             </View>
@@ -450,7 +470,7 @@ export default function PredictionResultPage() {
                       <Text style={styles.postDataValue}>{cgmPostOrdered.join(', ')} mg/dL</Text>
                     </View>
                   )}
-                  {applyDose > 0 && (
+                  {applyDose !== undefined && applyDose !== null && applyDose > 0 && (
                     <View style={styles.postDataItem}>
                       <Text style={styles.postDataLabel}>💉 Dosis aplicada:</Text>
                       <Text style={styles.postDataValue}>{applyDose} unidades</Text>
@@ -490,7 +510,7 @@ export default function PredictionResultPage() {
             <View style={styles.postInputsContainer}>
               <Text style={styles.inputLabel}>📊 Glucosa(s) posterior(es) (mg/dL)</Text>
               <Text style={styles.inputHelper}>
-                Ingrese las mediciones de glucosa de las próximas 2 horas
+                {`Ingrese las mediciones de glucosa de las próximas 2 horas. \nLa última medición se usará para el cálculo del TIR.`}
               </Text>
               
               <TouchableOpacity
@@ -629,6 +649,27 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 18,
     color: '#6b7280',
+  },
+  doseBreakdownContainer: {
+    marginTop: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  doseBreakdownItem: {
+    alignItems: 'center',
+  },
+  doseBreakdownLabel: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginBottom: 4,
+  },
+  doseBreakdownValue: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#4CAF50',
   },
   dataCard: {
     margin: 16,

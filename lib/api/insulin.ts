@@ -14,6 +14,8 @@ export interface InsulinPredictionData {
 export interface InsulinPredictionResult extends InsulinPredictionData {
   id: string;
   recommendedDose: number;
+  correctionDose: number;
+  mealDose: number;
   applyDose?: number;
   cgmPost: number[];
 }

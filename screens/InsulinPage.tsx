@@ -237,12 +237,6 @@ export default function InsulinPage() {
       glucosas.length > 0 &&
       glucosas.length <= MAX_GLUCOSE_ENTRIES &&
       carbs !== '' && isValidCarbs(carbs) &&
-      insulinOnBoard !== '' && isValidInsulinOnBoard(insulinOnBoard) &&
-      targetBloodGlucose && isValidTargetGlucose(targetBloodGlucose) &&
-      sleepQuality !== '' && workLevel !== '' && exerciseLevel !== '' &&
-      /^([1-9]|10)$/.test(sleepQuality) &&
-      /^([1-9]|10)$/.test(workLevel) &&
-      /^([1-9]|10)$/.test(exerciseLevel) &&
       !isLoading
     );
   };
@@ -253,16 +247,33 @@ export default function InsulinPage() {
     setError(null);
     try {
       const cgmPrev = glucoseInputs.filter(g => g !== '').map(Number);
-      const calculation = {
+      const calculation: any = {
         date: new Date().toISOString(),
         cgmPrev,
-        glucoseObjective: Number(targetBloodGlucose),
         carbs: Number(carbs.replace(',', '.')),
-        insulinOnBoard: Number(insulinOnBoard.replace(',', '.')),
-        sleepLevel: Number(sleepQuality),
-        workLevel: Number(workLevel),
-        activityLevel: Number(exerciseLevel),
       };
+
+      // Solo agregar campos opcionales si tienen valores válidos
+      if (targetBloodGlucose && isValidTargetGlucose(targetBloodGlucose)) {
+        calculation.glucoseObjective = Number(targetBloodGlucose);
+      }
+      
+      if (insulinOnBoard && isValidInsulinOnBoard(insulinOnBoard)) {
+        calculation.insulinOnBoard = Number(insulinOnBoard.replace(',', '.'));
+      }
+      
+      if (sleepQuality && /^([1-9]|10)$/.test(sleepQuality)) {
+        calculation.sleepLevel = Number(sleepQuality);
+      }
+      
+      if (workLevel && /^([1-9]|10)$/.test(workLevel)) {
+        calculation.workLevel = Number(workLevel);
+      }
+      
+      if (exerciseLevel && /^([1-9]|10)$/.test(exerciseLevel)) {
+        calculation.activityLevel = Number(exerciseLevel);
+      }
+
       const result = await calculateInsulinDose(calculation, token);
       console.log('Insulin calculation result:', result);
       (navigation as any).navigate('PredictionResultPage', { result });
@@ -322,7 +333,7 @@ export default function InsulinPage() {
               <View style={styles.section}>
                 <View style={styles.sectionHeader}>
                 <Droplet size={16} color="#4CAF50" />
-                  <Text style={styles.sectionTitle}>Glucosa</Text>
+                  <Text style={styles.sectionTitle}>Glucosa *</Text>
                 </View>
                 {glucoseInputs.filter(g => g !== '' && g !== '0').length === 0 ? (
                   <TouchableOpacity
@@ -372,7 +383,7 @@ export default function InsulinPage() {
                     <View style={styles.nutritionLabel}>
                       <View style={styles.nutritionLabelHeader}>
                         <Coffee size={16} color="#4CAF50" />
-                        <Text style={styles.nutritionLabelText}>Carbohidratos</Text>
+                        <Text style={styles.nutritionLabelText}>Carbohidratos *</Text>
                       </View>
                       <Text style={styles.nutritionDescription}>Cantidad de carbohidratos a consumir</Text>
                     </View>
@@ -480,7 +491,8 @@ export default function InsulinPage() {
                 </View>
               </View>
 
-              {/* Calculate Button */}              <TouchableOpacity
+              {/* Calculate Button */}              
+              <TouchableOpacity
                 style={[styles.button, styles.primaryButton, !canCalculate() && styles.buttonDisabled]}
                 onPress={handleCalculate}
                 disabled={!canCalculate() || isLoading}
@@ -1107,5 +1119,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  requiredFieldsInfo: {
+    backgroundColor: '#f0fdf4',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#4CAF50',
+  },
+  requiredFieldsText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#166534',
+    marginBottom: 4,
+  },
+  optionalFieldsText: {
+    fontSize: 12,
+    color: '#15803d',
+    fontStyle: 'italic',
   },
 });

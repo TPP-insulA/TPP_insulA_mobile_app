@@ -436,8 +436,7 @@ function HistoryTab(props: any) {
                 const cgmPrev = Array.isArray(pred.cgmPrev) && pred.cgmPrev.length > 0 ? pred.cgmPrev[0] : '-';
                 
                 // Emoji para la dosis
-                let dosisEmoji = '💉';
-                if (pred.recommendedDose > 8) dosisEmoji = '💉💉';
+                const dosisEmoji = '💉';
 
                 // Render right action for swipe con animación y mejoras visuales
                 const renderRightActions = (_progress: unknown, dragX: Animated.AnimatedInterpolation<number>) => {
