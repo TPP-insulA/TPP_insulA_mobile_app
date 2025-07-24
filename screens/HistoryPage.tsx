@@ -27,83 +27,9 @@ import { createMaterialTopTabNavigator } from '@react-navigation/material-top-ta
 import LinearGradient from 'react-native-linear-gradient';
 import { ChatInterface } from '../components/chat-interface';
 
-interface Event {
-  id: number;
-  timestamp: string;
-  description: string;
-  type: string;
-  value?: number;
-  units?: number;
-  carbs?: number;
-  items?: string[];
-}
-
-interface Plot {
-  id: number;
-  type: string;
-  timeRange: string;
-  label: string;
-}
-
-interface GlucoseData {
-  time: string;
-  glucose: number;
-}
-
-interface ApiError {
-  plotId?: number;
-  message: string;
-}
-
-const mockEvents: Event[] = [
-  {
-    id: 1,
-    timestamp: '08:30',
-    description: 'Pre-desayuno',
-    type: 'glucose',
-    value: 120,
-  },
-  {
-    id: 2,
-    timestamp: '12:30',
-    description: 'Pre-almuerzo',
-    type: 'insulin',
-    units: 6,
-  },
-  {
-    id: 3,
-    timestamp: '13:00',
-    description: 'Almuerzo',
-    type: 'meal',
-    carbs: 45,
-    items: ['Arroz', 'Pollo', 'Ensalada'],
-  },
-];
-
-const mockGlucoseData = Array.from({ length: 12 }, (_, i) => ({
-  time: `${i * 2}:00`,
-  glucose: Math.round(Math.random() * 50 + 100),
-}));
-
-const mockDailyPatternData = [
-  { id: 'morning-1', value: 120, timestamp: 'morning' },
-  { id: 'afternoon-1', value: 140, timestamp: 'afternoon' },
-  { id: 'evening-1', value: 110, timestamp: 'evening' },
-  { id: 'night-1', value: 130, timestamp: 'night' },
-  { id: 'morning-2', value: 125, timestamp: 'morning' },
-  { id: 'afternoon-2', value: 145, timestamp: 'afternoon' },
-  { id: 'evening-2', value: 115, timestamp: 'evening' },
-  { id: 'night-2', value: 135, timestamp: 'night' },
-];
 
 // --- Tab Components ---
 function HistoryTab(props: any) {
-  // All state and logic related to prediction history, filters, sorting, pagination, swipe-to-delete, etc.
-  // Use props for any values/functions needed from parent (HistoryPage)
-  // ...existing code for prediction history section, including ScrollView, filters, modals, etc...
-  // Only the content inside the first section (before the statistics dashboard)
-  // Replace the ScrollView and View wrapping the history section with just the content
-  // ...
 
   // Animated scale refs for sort buttons (one per key)
   const sortKeys = ['fecha', 'cgm', 'dosis'] as const;
@@ -1019,15 +945,21 @@ export default function HistoryPage() {
       sumWork += Number(pred.workLevel || 0);
       sumActivity += Number(pred.activityLevel || 0);
       sumRecDose += Number(pred.recommendedDose || 0);
-      if (typeof pred.applyDose === 'number' && typeof pred.recommendedDose === 'number' && pred.recommendedDose !== 0) {
-        sumApplyDose += pred.applyDose;
+      // Mejorar la validación para incluir null, undefined y valores válidos
+      if (pred.applyDose != null && pred.recommendedDose != null && 
+          !isNaN(Number(pred.applyDose)) && !isNaN(Number(pred.recommendedDose)) && 
+          Number(pred.recommendedDose) !== 0) {
+        const applyDoseNum = Number(pred.applyDose);
+        const recDoseNum = Number(pred.recommendedDose);
+        
+        sumApplyDose += applyDoseNum;
         countApply++;
-        sumRecDoseWithApply += Number(pred.recommendedDose || 0);
-        sumApplyDoseWithApply += pred.applyDose;
+        sumRecDoseWithApply += recDoseNum;
+        sumApplyDoseWithApply += applyDoseNum;
         countWithApply++;
-        // Calcular variación porcentual absoluta
-        const percentDiff = Math.abs((pred.applyDose - pred.recommendedDose) / pred.recommendedDose) * 100;
-        sumApplyVsRecPercent += percentDiff;
+        // Calcular porcentaje que representa la dosis aplicada respecto a la recomendada
+        const percentRatio = (applyDoseNum / recDoseNum) * 100;
+        sumApplyVsRecPercent += percentRatio;
         countApplyVsRecPercent++;
       }
     });
@@ -1040,7 +972,7 @@ export default function HistoryPage() {
       avgRecDose: sumRecDose / count,
       avgApplyDose: countApply > 0 ? sumApplyDose / countApply : null,
       avgRecDoseWithApply: countWithApply > 0 ? sumRecDoseWithApply / countWithApply : null,
-      avgApplyDoseWithApply: countWithApply > 0 ? sumApplyDoseWithApply / countApply : null,
+      avgApplyDoseWithApply: countWithApply > 0 ? sumApplyDoseWithApply / countWithApply : null,
       avgApplyVsRecPercent: countApplyVsRecPercent > 0 ? sumApplyVsRecPercent / countApplyVsRecPercent : null,
       count,
       countWithApply,

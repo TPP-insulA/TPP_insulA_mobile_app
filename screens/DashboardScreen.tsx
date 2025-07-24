@@ -42,11 +42,8 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 type PredictionWithAccuracy = {
   accuracy: {
-    percentage: number;
-    trend: {
-      value: number;
-      direction: 'up' | 'down' | 'equal';
-    };
+    doseAccuracy: number;
+    tirScore: number;
   };
   data: InsulinPredictionResult[];
 }
@@ -75,6 +72,100 @@ export default function DashboardScreen() {
   const [isPredictionsExpanded, setIsPredictionsExpanded] = useState(false);
   const [minTargetGlucose, setMinGlucose] = useState(70);
   const [maxTargetGlucose, setMaxGlucose] = useState(180);
+
+  // Función para calcular TIR de una predicción individual
+  const calculatePredictionTIR = (prediction: any, minTarget: number, maxTarget: number) => {
+    // Si no tiene cgmPost, no se puede calcular TIR
+    if (!prediction.cgmPost || prediction.cgmPost.length === 0) {
+      return null;
+    }
+
+    const cgmPrev = prediction.cgmPrev || [];
+    const cgmPost = prediction.cgmPost;
+    const glucoseObjective = prediction.glucoseObjective;
+    
+    // Determinar si pasó por el objetivo (si tiene glucoseObjective)
+    let passedThroughTarget = false;
+    if (glucoseObjective && cgmPrev.length > 0) {
+      const initialValue = cgmPrev[cgmPrev.length - 1]; // Último valor de cgmPrev
+      const finalValue = cgmPost[cgmPost.length - 1]; // Último valor de cgmPost
+      
+      // Verificar si cruzó el objetivo o se acercó a él
+      const distanceInitial = Math.abs(initialValue - glucoseObjective);
+      const distanceFinal = Math.abs(finalValue - glucoseObjective);
+      
+      // Si se acercó al objetivo o lo alcanzó
+      if (distanceFinal <= distanceInitial || 
+          (initialValue > glucoseObjective && finalValue <= glucoseObjective) ||
+          (initialValue < glucoseObjective && finalValue >= glucoseObjective)) {
+        passedThroughTarget = true;
+      }
+    }
+
+    // Calcular TIR basado en los valores de cgmPost
+    const finalValue = cgmPost[cgmPost.length - 1];
+    const isInRange = finalValue >= minTarget && finalValue <= maxTarget;
+    
+    if (!glucoseObjective) {
+      // Si no tiene objetivo, solo usar TIR del valor final
+      return isInRange ? 100 : 0;
+    }
+
+    if (passedThroughTarget && isInRange) {
+      return 100;
+    } else if (passedThroughTarget && !isInRange) {
+      // Calcular la diferencia proporcional que le faltó para estar en rango
+      let score = 70; // Base score por haber pasado por el objetivo
+      if (finalValue < minTarget) {
+        const deficit = Math.min(((minTarget - finalValue) / minTarget) * 30, 30);
+        score -= deficit;
+      } else if (finalValue > maxTarget) {
+        const deficit = Math.min(((finalValue - maxTarget) / maxTarget) * 30, 30);
+        score -= deficit;
+      }
+      return Math.max(0, score);
+    } else {
+      // No pasó por el objetivo
+      if (isInRange) {
+        return 40; // Penalizar por no pasar por el objetivo pero estar en rango
+      } else {
+        return 10; // Puntuación mínima si no pasó por objetivo y no está en rango
+      }
+    }
+  };
+
+  // Función para calcular precisión de dosis
+  const calculateDoseAccuracy = (prediction: any) => {
+    if (prediction.applyDose === null || prediction.applyDose === undefined) {
+      return null;
+    }
+    
+    const recommendedDose = prediction.recommendedDose;
+    const appliedDose = prediction.applyDose;
+    
+    return recommendedDose > appliedDose 
+      ? (appliedDose / recommendedDose) * 100 
+      : (recommendedDose / appliedDose) * 100;
+  };
+
+  // Función para obtener color basado en score TIR
+  const getTIRColor = (score: number) => {
+    if (score === -1) return '#6b7280'; // Gris para N/A
+    if (score >= 80) return '#22c55e'; // Verde para excelente (80%+)
+    if (score >= 60) return '#f59e0b'; // Amarillo/naranja para bueno (60-79%)
+    if (score >= 40) return '#f97316'; // Naranja para regular (40-59%)
+    return '#ef4444'; // Rojo para malo (<40%)
+  };
+
+  // Función para obtener color basado en score de precisión de dosis
+  const getDoseAccuracyColor = (score: number) => {
+    if (score === -1) return '#6b7280'; // Gris para N/A
+    if (score >= 90) return '#22c55e'; // Verde para excelente (90%+)
+    if (score >= 80) return '#84cc16'; // Verde claro para muy bueno (80-89%)
+    if (score >= 70) return '#f59e0b'; // Amarillo para bueno (70-79%)
+    if (score >= 60) return '#f97316'; // Naranja para regular (60-69%)
+    return '#ef4444'; // Rojo para malo (<60%)
+  };
 
   const fetchData = useCallback(async () => {
     if (!token) return;
@@ -110,45 +201,46 @@ export default function DashboardScreen() {
 
       // Predictions and accuracy
       const predictionsArr = predictions || [];
+      
+      // Calcular precisión de dosis
       const predictionsWithDoses = predictionsArr.filter((p: any) => p.applyDose !== null && p.applyDose !== undefined);
-      let accuracySum = 0;
-      let accuracyCount = 0;
+      let doseAccuracySum = 0;
+      let doseAccuracyCount = 0;
+      
       if (predictionsWithDoses.length > 0) {
         predictionsWithDoses.forEach((prediction: any) => {
-          const recommendedDose = prediction.recommendedDose;
-          const appliedDose = prediction.applyDose;
-          const accuracy = recommendedDose > appliedDose 
-            ? (appliedDose / recommendedDose) * 100 
-            : (recommendedDose / appliedDose) * 100;
-          accuracySum += accuracy;
-          accuracyCount++;
+          const doseAccuracy = calculateDoseAccuracy(prediction);
+          if (doseAccuracy !== null) {
+            doseAccuracySum += doseAccuracy;
+            doseAccuracyCount++;
+          }
         });
       }
-      const averageAccuracy = accuracyCount > 0 ? accuracySum / accuracyCount : -1;
+      
+      const averageDoseAccuracy = doseAccuracyCount > 0 ? doseAccuracySum / doseAccuracyCount : -1;
+      
+      // Calcular TIR
+      const predictionsWithCgmPost = predictionsArr.filter((p: any) => p.cgmPost && p.cgmPost.length > 0);
+      let tirSum = 0;
+      let tirCount = 0;
+      
+      if (predictionsWithCgmPost.length > 0) {
+        predictionsWithCgmPost.forEach((prediction: any) => {
+          const tirScore = calculatePredictionTIR(prediction, minTargetGlucose, maxTargetGlucose);
+          if (tirScore !== null) {
+            tirSum += tirScore;
+            tirCount++;
+          }
+        });
+      }
+      
+      const averageTIR = tirCount > 0 ? tirSum / tirCount : -1;
+      
       const recentPredictions = predictionsArr.slice(0, 3);
-      const recentPredictionsWithDoses = recentPredictions.filter((p: any) => p.applyDose !== null && p.applyDose !== undefined);
-      let recentAccuracySum = 0;
-      let recentAccuracyCount = 0;
-      if (recentPredictionsWithDoses.length > 0) {
-        recentPredictionsWithDoses.forEach((prediction: any) => {
-          const recommendedDose = prediction.recommendedDose;
-          const appliedDose = prediction.applyDose;
-          const accuracy = recommendedDose > appliedDose 
-            ? (appliedDose / recommendedDose) * 100 
-            : (recommendedDose / appliedDose) * 100;
-          recentAccuracySum += accuracy;
-          recentAccuracyCount++;
-        });
-      }
-      const recentAverageAccuracy = recentAccuracyCount > 0 ? recentAccuracySum / recentAccuracyCount : -1;
-      const trendValue = Math.abs(Math.round(averageAccuracy - recentAverageAccuracy));
       const predictionObject: PredictionWithAccuracy = {
         accuracy: {
-          percentage: Math.round(averageAccuracy),
-          trend: {
-            value: recentAccuracyCount > 0 ? trendValue : -1,
-            direction: trendValue === 0 ? 'equal' : recentAverageAccuracy > averageAccuracy ? 'up' : 'down',
-          },
+          doseAccuracy: Math.round(averageDoseAccuracy),
+          tirScore: Math.round(averageTIR),
         },
         data: predictionsArr,
       };
@@ -616,18 +708,19 @@ export default function DashboardScreen() {
                   <Text style={styles.statsLabel}>Rendimiento de Predicciones</Text>
                   {predictions?.accuracy && (
                     <View style={styles.accuracyBadge}>
-                      <Text style={styles.accuracyPercentage}>{predictions.accuracy.percentage !== -1 ? predictions.accuracy.percentage : 'N/A'}%</Text>
-                      <View style={styles.trendContainer}>
-                        <TrendingUp 
-                          size={16} 
-                          color={predictions.accuracy.trend.direction === 'up' ? '#4CAF50' : predictions.accuracy.trend.direction === 'down' ? '#ef4444' : '#6b7280'} 
-                        />
-                        <Text style={[
-                          styles.trendText,
-                          { color: predictions.accuracy.trend.direction === 'up' ? '#4CAF50' : predictions.accuracy.trend.direction === 'down' ? '#ef4444' : '#6b7280' }
-                        ]}>
-                          {predictions.accuracy.trend.value !== -1 ? predictions.accuracy.trend.value : 'N/A'}%
-                        </Text>
+                      <View style={styles.detailedScores}>
+                        <View style={styles.scoreItem}>
+                          <Text style={styles.scoreLabel}>TIR:</Text>
+                          <Text style={[styles.scoreValue, { color: getTIRColor(predictions.accuracy.tirScore) }]}>
+                            {predictions.accuracy.tirScore !== -1 ? predictions.accuracy.tirScore : 'N/A'}%
+                          </Text>
+                        </View>
+                        <View style={styles.scoreItem}>
+                          <Text style={styles.scoreLabel}>Dosis:</Text>
+                          <Text style={[styles.scoreValue, { color: getDoseAccuracyColor(predictions.accuracy.doseAccuracy) }]}>
+                            {predictions.accuracy.doseAccuracy !== -1 ? predictions.accuracy.doseAccuracy : 'N/A'}%
+                          </Text>
+                        </View>
                       </View>
                     </View>
                   )}
@@ -641,43 +734,77 @@ export default function DashboardScreen() {
 
               {isPredictionsExpanded && (
                 <>
+                  <View style={styles.metricsExplanation}>
+                    <Text style={styles.explanationTitle}>📊 Cómo se calcula el rendimiento:</Text>
+                    <View style={styles.explanationRow}>
+                      <Text style={styles.explanationLabel}>• TIR (Tiempo en Rango):</Text>
+                      <Text style={styles.explanationText}>Basado en valores post-predicción y objetivos de glucosa</Text>
+                    </View>
+                    <View style={styles.explanationRow}>
+                      <Text style={styles.explanationLabel}>• Precisión de Dosis:</Text>
+                      <Text style={styles.explanationText}>Comparación entre dosis recomendada vs aplicada</Text>
+                    </View>
+                  </View>
+
                   {recentPredictions?.length === 0 ? (
                     <View style={styles.noDataContainer}>
                       <Text style={styles.noDataText}>No hay datos disponibles</Text>
                     </View>
                   ) : (
                     <View style={styles.predictionsList}>
-                      {recentPredictions?.map((prediction) => (
-                        <View key={prediction.id} style={styles.predictionItem}>
-                          <View>
-                            <Text style={styles.predictionTitle}>
-                              🕒 {format(prediction.date, 'dd/MM/yyyy HH:mm')}
-                            </Text>
-                            <Text style={styles.predictionDetails}>
-                              🍽️ {prediction.carbs}g carbs, 🩺 {prediction.cgmPrev[0]} mg/dL
-                            </Text>
+                      {recentPredictions?.map((prediction) => {
+                        const tirScore = calculatePredictionTIR(prediction, minTargetGlucose, maxTargetGlucose);
+                        const doseAccuracy = calculateDoseAccuracy(prediction);
+                        
+                        return (
+                          <View key={prediction.id} style={styles.predictionItem}>
+                            <View style={styles.predictionLeft}>
+                              <Text style={styles.predictionTitle}>
+                                🕒 {format(prediction.date, 'dd/MM/yyyy HH:mm')}
+                              </Text>
+                              <Text style={styles.predictionDetails}>
+                                🍽️ {prediction.carbs}g carbs, 🩺 {prediction.cgmPrev[0]} mg/dL
+                              </Text>
+                              {prediction.cgmPost && prediction.cgmPost.length > 0 && (
+                                <Text style={styles.predictionDetails}>
+                                  📈 Post: {prediction.cgmPost[prediction.cgmPost.length - 1]} mg/dL
+                                </Text>
+                              )}
+                            </View>
+                            <View style={styles.predictionRight}>
+                              <Text style={styles.predictionUnits}>💉 {prediction.recommendedDose} unidades</Text>
+                              
+                              {/* Mostrar TIR Score si está disponible */}
+                              {tirScore !== null && (
+                                <Text style={[
+                                  styles.predictionAccuracy,
+                                  tirScore >= 80 ? styles.accuracyGood :
+                                  tirScore >= 60 ? styles.accuracyWarning :
+                                  styles.accuracyBad
+                                ]}>
+                                  🎯 TIR: {Math.round(tirScore)}%
+                                </Text>
+                              )}
+                              
+                              {/* Mostrar precisión de dosis */}
+                              <Text style={[
+                                styles.predictionAccuracy,
+                                prediction.applyDose === undefined || prediction.applyDose === null ? styles.accuracyBad :
+                                doseAccuracy && doseAccuracy >= 90 ? styles.accuracyGood :
+                                doseAccuracy && doseAccuracy >= 80 ? styles.accuracyWarning :
+                                styles.accuracyBad
+                              ]}>
+                                {prediction.applyDose === undefined || prediction.applyDose === null 
+                                  ? '❌ Sin dosis aplicada' 
+                                  : doseAccuracy 
+                                    ? `💉 Dosis: ${Math.round(doseAccuracy)}%`
+                                    : '💉 Dosis: N/A'
+                                }
+                              </Text>
+                            </View>
                           </View>
-                          <View style={styles.predictionRight}>
-                            <Text style={styles.predictionUnits}>💉 {prediction.recommendedDose} unidades</Text>
-                            <Text style={[
-                              styles.predictionAccuracy,
-                              prediction.applyDose === undefined || prediction.applyDose === null ? styles.accuracyBad :
-                              Math.abs(prediction.applyDose - prediction.recommendedDose) <= 0.5 ? styles.accuracyGood :
-                              Math.abs(prediction.applyDose - prediction.recommendedDose) <= 1.0 ? styles.accuracyWarning :
-                              styles.accuracyBad
-                            ]}>
-                              {prediction.applyDose === undefined || prediction.applyDose === null 
-                                ? '❌ Sin dosis aplicada' 
-                                : Math.abs(prediction.applyDose - prediction.recommendedDose) <= 0.5 
-                                  ? '✅ Precisa' 
-                                  : Math.abs(prediction.applyDose - prediction.recommendedDose) <= 1.0 
-                                    ? '⚠️ Ligeramente diferente' 
-                                    : '❌ Diferencia significativa'
-                              }
-                            </Text>
-                          </View>
-                        </View>
-                      ))}
+                        );
+                      })}
                     </View>
                   )}
                 </>
@@ -1689,6 +1816,9 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     marginTop: 2,
   },
+  predictionLeft: {
+    flex: 1,
+  },
   predictionRight: {
     alignItems: 'flex-end',
   },
@@ -1732,6 +1862,52 @@ const styles = StyleSheet.create({
   trendText: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  detailedScores: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 4,
+  },
+  scoreItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  scoreLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontWeight: '500',
+  },
+  scoreValue: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  metricsExplanation: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    borderLeftWidth: 3,
+    borderLeftColor: '#4CAF50',
+  },
+  explanationTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  explanationRow: {
+    marginBottom: 4,
+  },
+  explanationLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  explanationText: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginLeft: 8,
   },
   clickableActivityItem: {
     cursor: 'pointer',
