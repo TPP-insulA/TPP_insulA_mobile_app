@@ -352,93 +352,104 @@ export default function PredictionResultPage() {
           </View>
           <View style={styles.chartContainer}>
             <Text style={styles.yAxisLabel}>Glucosa (mg/dL)</Text>
-            <LineChart
-              data={{
-                labels: cgmCombined.map((_, i) => i.toString()),
-                datasets: [{
-                  data: cgmCombined,
-                  color: () => '#4CAF50',
-                  strokeWidth: 2,
-                }],
-              }}
-              width={Dimensions.get('window').width - 48}
-              height={180}
-              chartConfig={{
-                backgroundColor: '#ffffff',
-                backgroundGradientFrom: '#ffffff',
-                backgroundGradientTo: '#ffffff',
-                decimalPlaces: 0,
-                color: (opacity = 1) => `rgba(76, 175, 80, ${opacity})`,
-                labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                style: {
-                  borderRadius: 16,
-                },
-                propsForDots: {
-                  r: '5',
-                  strokeWidth: '0',
-                  stroke: '#4CAF50',
-                },
-                propsForLabels: {
-                  fontSize: 12,
-                },
-              }}
-              bezier
-              style={styles.chart}
-              withDots={true}
-              withShadow={false}
-              withInnerLines={true}
-              withOuterLines={true}
-              withVerticalLines={false}
-              withHorizontalLines={true}
-              withVerticalLabels={true}
-              withHorizontalLabels={true}
-              fromZero={false}
-              yAxisSuffix=""
-              yAxisInterval={1}
-              segments={5}
-              getDotColor={(dataPoint, index) => index === predictedIndex ? '#ff9800' : '#4CAF50'}
-              onDataPointClick={({ index, x, y }) => {
-                setTooltip({ index, x, y });
-                setTimeout(() => setTooltip(null), 1000);
-                const isHigh = cgmCombined[index] >= maxY - 10;
-                const chartWidth = Dimensions.get('window').width - 48;
-                const tooltipWidth = 90;
-                let left = x - 40;
-                if (x + tooltipWidth > chartWidth) {
-                  left = x - tooltipWidth;
-                }
-                return (
-                  <React.Fragment key={`dot-content-${index}`}>
-                    {tooltip && tooltip.index === index && (
-                      <View
-                        key={`tooltip-${index}`}
-                        style={{
-                          position: 'absolute',
-                          left,
-                          top: isHigh ? y + 20 : y - 40,
-                          backgroundColor: '#fff',
-                          borderRadius: 6,
-                          padding: 6,
-                          borderWidth: 1,
-                          borderColor: '#4CAF50',
-                          zIndex: 10,
-                          minWidth: 80,
-                          alignItems: 'center',
-                          shadowColor: '#000',
-                          shadowOffset: { width: 0, height: 2 },
-                          shadowOpacity: 0.2,
-                          shadowRadius: 2,
-                          elevation: 3,
-                        }}
-                      >
-                        <Text style={{ color: index === predictedIndex ? '#ff9800' : '#4CAF50', fontWeight: 'bold', fontSize: 13 }}>{`Glucosa #${index + 1}`}</Text>
-                        <Text style={{ color: '#111827', fontSize: 13 }}>{cgmCombined[index]} mg/dL</Text>
-                      </View>
-                    )}
-                  </React.Fragment>
-                );
-              }}
-            />
+            <View style={styles.chartWrapper}>
+              <LineChart
+                data={{
+                  labels: cgmCombined.map((_, i) => i.toString()),
+                  datasets: [{
+                    data: cgmCombined,
+                    color: () => '#4CAF50',
+                    strokeWidth: 2,
+                  }],
+                }}
+                width={Dimensions.get('window').width - 48}
+                height={180}
+                chartConfig={{
+                  backgroundColor: '#ffffff',
+                  backgroundGradientFrom: '#ffffff',
+                  backgroundGradientTo: '#ffffff',
+                  decimalPlaces: 0,
+                  color: (opacity = 1) => `rgba(76, 175, 80, ${opacity})`,
+                  labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                  style: {
+                    borderRadius: 16,
+                  },
+                  propsForDots: {
+                    r: '6',
+                    strokeWidth: '1',
+                    stroke: '#fff',
+                  },
+                  propsForLabels: {
+                    fontSize: 12,
+                  },
+                }}
+                bezier
+                style={styles.chart}
+                withDots={true}
+                withShadow={false}
+                withInnerLines={true}
+                withOuterLines={true}
+                withVerticalLines={false}
+                withHorizontalLines={true}
+                withVerticalLabels={true}
+                withHorizontalLabels={true}
+                fromZero={false}
+                yAxisSuffix=""
+                yAxisInterval={1}
+                segments={5}
+                getDotColor={(dataPoint, index) => index === predictedIndex ? '#ff9800' : '#4CAF50'}
+                onDataPointClick={({ index, x, y }) => {
+                  const chartWidth = Dimensions.get('window').width - 48;
+                  const tooltipWidth = 120;
+                  const isHigh = cgmCombined[index] >= (Math.max(...cgmCombined) - 10);
+                  
+                  // Ajustar posición horizontal del tooltip
+                  let adjustedX = x - tooltipWidth / 2;
+                  if (adjustedX < 0) adjustedX = 10;
+                  if (adjustedX + tooltipWidth > chartWidth) adjustedX = chartWidth - tooltipWidth - 10;
+                  
+                  // Ajustar posición vertical del tooltip
+                  const adjustedY = isHigh ? y + 30 : y - 60;
+                  
+                  setTooltip({ 
+                    index, 
+                    x: adjustedX, 
+                    y: adjustedY 
+                  });
+                  
+                  // Ocultar tooltip después de 3 segundos
+                  setTimeout(() => setTooltip(null), 3000);
+                }}
+              />
+              
+              {/* Tooltip renderizado por separado */}
+              {tooltip && (
+                <View
+                  style={[
+                    styles.tooltip,
+                    {
+                      left: tooltip.x,
+                      top: tooltip.y,
+                    }
+                  ]}
+                >
+                  <Text style={[
+                    styles.tooltipTitle,
+                    { color: tooltip.index === predictedIndex ? '#ff9800' : '#4CAF50' }
+                  ]}>
+                    {tooltip.index === predictedIndex ? '📍 Momento dosis' : `📊 Glucosa #${tooltip.index + 1}`}
+                  </Text>
+                  <Text style={styles.tooltipValue}>
+                    {cgmCombined[tooltip.index]} mg/dL
+                  </Text>
+                  {tooltip.index < cgmPrevOrdered.length ? (
+                    <Text style={styles.tooltipSubtext}>Antes de dosis</Text>
+                  ) : (
+                    <Text style={styles.tooltipSubtext}>Después de dosis</Text>
+                  )}
+                </View>
+              )}
+            </View>
             <Text style={styles.xAxisLabel}>Tiempo</Text>
           </View>
           <View style={styles.chartLegend}>
@@ -1092,5 +1103,40 @@ const styles = StyleSheet.create({
   },
   disabledButtonText: {
     color: '#9CA3AF',
+  },
+  chartWrapper: {
+    position: 'relative',
+  },
+  tooltip: {
+    position: 'absolute',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#4CAF50',
+    zIndex: 1000,
+    minWidth: 120,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 8,
+  },
+  tooltipTitle: {
+    fontWeight: 'bold',
+    fontSize: 12,
+    marginBottom: 2,
+  },
+  tooltipValue: {
+    color: '#111827',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  tooltipSubtext: {
+    color: '#6b7280',
+    fontSize: 10,
+    fontStyle: 'italic',
   },
 });
