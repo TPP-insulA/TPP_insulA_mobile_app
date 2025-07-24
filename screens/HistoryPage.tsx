@@ -600,7 +600,7 @@ function StatsTab(props: any) {
   // Animaciones de flip para cada stat
   const flipAnimations = React.useRef<{ [key: string]: Animated.Value }>({});
   const statDetails: Record<string, string> = {
-    avgCGM: 'Promedio de glucosa al aplicar dosis calculada en mg/dL.',
+    avgCGM: 'Promedio de glucosa antes de aplicar dosis calculada en mg/dL.',
     avgApplyVsRecPercent: 'Porcentaje promedio de variación entre la dosis aplicada y la recomendada.',
     avgRecDose: 'Promedio de dosis recomendada por el sistema (U).',
     avgApplyDose: 'Promedio de dosis realmente aplicada (U).',
@@ -608,6 +608,8 @@ function StatsTab(props: any) {
     avgCarbs: 'Cantidad promedio de carbohidratos ingeridos (g).',
     avgActivity: 'Nivel promedio de actividad física.',
     avgWork: 'Nivel promedio de trabajo/estrés.',
+    avgTIR: 'Time In Range promedio: porcentaje de tiempo en rango objetivo (70-180 mg/dL).',
+    avgPostGlucose: 'Promedio de la última glucosa registrada después de aplicar cada dosis.',
   };
   const statIcons: Record<string, React.ReactNode> = {
     avgCGM: <Droplet color="#4CAF50" size={22} />,
@@ -618,6 +620,8 @@ function StatsTab(props: any) {
     avgCarbs: <UtensilsCrossed color="#ff9800" size={22} />,
     avgActivity: <Activity color="#00bcd4" size={22} />,
     avgWork: <Briefcase color="#607d8b" size={22} />,
+    avgTIR: <Activity color="#4CAF50" size={22} />,
+    avgPostGlucose: <Droplet color="#9C27B0" size={22} />,
   };
 
   // Inicializar animaciones de flip
@@ -663,7 +667,7 @@ function StatsTab(props: any) {
   const statList = [
     {
       key: 'avgCGM',
-      label: 'Glucosa promedio',
+      label: 'Glucosa previa',
       value: props.stats ? props.stats.avgCGM.toFixed(1) + ' mg/dL' : '-',
       color: '#4CAF50',
     },
@@ -686,27 +690,39 @@ function StatsTab(props: any) {
       color: '#ef4444',
     },
     {
+      key: 'avgTIR',
+      label: 'TIR Promedio',
+      value: props.stats && props.stats.avgTIR !== null ? props.stats.avgTIR.toFixed(1) + ' %' : '-',
+      color: '#4CAF50',
+    },
+    {
+      key: 'avgPostGlucose',
+      label: 'Glucosa posterior',
+      value: props.stats && props.stats.avgPostGlucose !== null ? props.stats.avgPostGlucose.toFixed(1) + ' mg/dL' : '-',
+      color: '#9C27B0',
+    },
+    {
       key: 'avgSleep',
       label: 'Nivel de sueño',
-      value: props.stats ? props.stats.avgSleep.toFixed(2) : '-',
+      value: props.stats && props.stats.avgSleep !== null ? props.stats.avgSleep.toFixed(2) : '-',
       color: '#7e57c2',
     },
     {
       key: 'avgCarbs',
       label: 'Carbohidratos',
-      value: props.stats ? props.stats.avgCarbs.toFixed(1) + ' g' : '-',
+      value: props.stats && props.stats.avgCarbs !== null ? props.stats.avgCarbs.toFixed(1) + ' g' : '-',
       color: '#ff9800',
     },
     {
       key: 'avgActivity',
       label: 'Actividad física',
-      value: props.stats ? props.stats.avgActivity.toFixed(2) : '-',
+      value: props.stats && props.stats.avgActivity !== null ? props.stats.avgActivity.toFixed(2) : '-',
       color: '#00bcd4',
     },
     {
       key: 'avgWork',
       label: 'Nivel de trabajo',
-      value: props.stats ? props.stats.avgWork.toFixed(2) : '-',
+      value: props.stats && props.stats.avgWork !== null ? props.stats.avgWork.toFixed(2) : '-',
       color: '#607d8b',
     },
   ];
@@ -840,11 +856,20 @@ function StatsTab(props: any) {
                                 <Text style={styles.flipBackText}>Volver</Text>
                               </TouchableOpacity>
                               <TouchableOpacity
-                                style={styles.askAIButton}
-                                onPress={() => handleAskAI(stat.key)}
-                                activeOpacity={0.8}
+                                style={[
+                                  styles.askAIButton, 
+                                  stat.value === '-' && styles.askAIButtonDisabled
+                                ]}
+                                onPress={() => stat.value !== '-' && handleAskAI(stat.key)}
+                                activeOpacity={stat.value === '-' ? 1 : 0.8}
+                                disabled={stat.value === '-'}
                               >
-                                <Text style={styles.askAIText}>Consultar AI</Text>
+                                <Text style={[
+                                  styles.askAIText,
+                                  stat.value === '-' && styles.askAITextDisabled
+                                ]}>
+                                  {stat.value === '-' ? 'Sin datos' : 'Consultar AI'}
+                                </Text>
                               </TouchableOpacity>
                             </View>
                           </Animated.View>
@@ -930,6 +955,61 @@ export default function HistoryPage() {
     return normalized;
   };
   
+  // Función para calcular TIR de una predicción individual (igual que en DashboardScreen)
+  const calculatePredictionTIR = (pred: any) => {
+    if (!pred.cgmPost || !Array.isArray(pred.cgmPost) || pred.cgmPost.length === 0) {
+      return 0;
+    }
+
+    const glucoseObjective = pred.glucoseObjective || 130;
+    const targetMin = 70;
+    const targetMax = 180;
+    
+    let baseScore = 0;
+    let passesObjective = false;
+    
+    // Verificar si algún valor pasa por el objetivo
+    for (const value of pred.cgmPost) {
+      if (Math.abs(value - glucoseObjective) <= 10) {
+        passesObjective = true;
+        break;
+      }
+    }
+    
+    if (passesObjective) {
+      baseScore = 70;
+    }
+    
+    // Calcular valores en rango
+    const inRangeCount = pred.cgmPost.filter((value: number) => value >= targetMin && value <= targetMax).length;
+    const totalCount = pred.cgmPost.length;
+    const inRangePercentage = totalCount > 0 ? (inRangeCount / totalCount) * 100 : 0;
+    
+    if (inRangePercentage === 100) {
+      return 100;
+    }
+    
+    // Aplicar bonificación por valores en rango
+    const rangeBonus = (inRangePercentage / 100) * 30;
+    let score = baseScore + rangeBonus;
+    
+    // Penalizaciones por valores fuera de rango
+    const outOfRangeValues = pred.cgmPost.filter((value: number) => value < targetMin || value > targetMax);
+    for (const value of outOfRangeValues) {
+      if (value < 54) {
+        score -= 15;
+      } else if (value < targetMin) {
+        score -= 5;
+      } else if (value > 250) {
+        score -= 10;
+      } else if (value > targetMax) {
+        score -= 3;
+      }
+    }
+    
+    return Math.max(0, Math.min(100, score));
+  };
+
   // --- Estadísticas ---
   const stats = React.useMemo(() => {
     if (!predictionHistory || predictionHistory.length === 0) return null;
@@ -937,14 +1017,51 @@ export default function HistoryPage() {
     let sumCGM = 0, sumCarbs = 0, sumSleep = 0, sumWork = 0, sumActivity = 0, sumRecDose = 0, sumApplyDose = 0, countApply = 0;
     let sumRecDoseWithApply = 0, sumApplyDoseWithApply = 0, countWithApply = 0;
     let sumApplyVsRecPercent = 0, countApplyVsRecPercent = 0;
+    let sumTIR = 0, countTIR = 0;
+    let sumPostGlucose = 0, countPostGlucose = 0;
+    let countSleep = 0, countWork = 0, countActivity = 0, countCarbs = 0;
+    
     predictionHistory.forEach(pred => {
       if (Array.isArray(pred.cgmPrev) && pred.cgmPrev.length > 0) sumCGM += Number(pred.cgmPrev[0] || 0);
       else sumCGM += 0;
-      sumCarbs += Number(pred.carbs || 0);
-      sumSleep += Number(pred.sleepLevel || 0);
-      sumWork += Number(pred.workLevel || 0);
-      sumActivity += Number(pred.activityLevel || 0);
+      
+      // Solo sumar si hay datos válidos para cada campo
+      if (pred.carbs != null && !isNaN(Number(pred.carbs))) {
+        sumCarbs += Number(pred.carbs);
+        countCarbs++;
+      }
+      
+      if (pred.sleepLevel != null && !isNaN(Number(pred.sleepLevel))) {
+        sumSleep += Number(pred.sleepLevel);
+        countSleep++;
+      }
+      
+      if (pred.workLevel != null && !isNaN(Number(pred.workLevel))) {
+        sumWork += Number(pred.workLevel);
+        countWork++;
+      }
+      
+      if (pred.activityLevel != null && !isNaN(Number(pred.activityLevel))) {
+        sumActivity += Number(pred.activityLevel);
+        countActivity++;
+      }
+      
       sumRecDose += Number(pred.recommendedDose || 0);
+      
+      // Calcular TIR para esta predicción
+      if (pred.cgmPost && Array.isArray(pred.cgmPost) && pred.cgmPost.length > 0) {
+        const tirScore = calculatePredictionTIR(pred);
+        sumTIR += tirScore;
+        countTIR++;
+        
+        // Calcular promedio de glucosa posterior (última glucosa post)
+        const lastPostGlucose = pred.cgmPost[pred.cgmPost.length - 1];
+        if (lastPostGlucose && !isNaN(Number(lastPostGlucose))) {
+          sumPostGlucose += Number(lastPostGlucose);
+          countPostGlucose++;
+        }
+      }
+      
       // Mejorar la validación para incluir null, undefined y valores válidos
       if (pred.applyDose != null && pred.recommendedDose != null && 
           !isNaN(Number(pred.applyDose)) && !isNaN(Number(pred.recommendedDose)) && 
@@ -965,15 +1082,17 @@ export default function HistoryPage() {
     });
     return {
       avgCGM: sumCGM / count,
-      avgCarbs: sumCarbs / count,
-      avgSleep: sumSleep / count,
-      avgWork: sumWork / count,
-      avgActivity: sumActivity / count,
+      avgCarbs: countCarbs > 0 ? sumCarbs / countCarbs : null,
+      avgSleep: countSleep > 0 ? sumSleep / countSleep : null,
+      avgWork: countWork > 0 ? sumWork / countWork : null,
+      avgActivity: countActivity > 0 ? sumActivity / countActivity : null,
       avgRecDose: sumRecDose / count,
       avgApplyDose: countApply > 0 ? sumApplyDose / countApply : null,
       avgRecDoseWithApply: countWithApply > 0 ? sumRecDoseWithApply / countWithApply : null,
       avgApplyDoseWithApply: countWithApply > 0 ? sumApplyDoseWithApply / countWithApply : null,
       avgApplyVsRecPercent: countApplyVsRecPercent > 0 ? sumApplyVsRecPercent / countApplyVsRecPercent : null,
+      avgTIR: countTIR > 0 ? sumTIR / countTIR : null,
+      avgPostGlucose: countPostGlucose > 0 ? sumPostGlucose / countPostGlucose : null,
       count,
       countWithApply,
     };
@@ -1578,11 +1697,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     width: '80%',
   },
+  askAIButtonDisabled: {
+    backgroundColor: '#bdbdbd',
+  },
   askAIText: {
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 13,
     textAlign: 'center',
+  },
+  askAITextDisabled: {
+    color: '#757575',
   },
 });
 
