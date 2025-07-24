@@ -955,59 +955,65 @@ export default function HistoryPage() {
     return normalized;
   };
   
-  // Función para calcular TIR de una predicción individual (igual que en DashboardScreen)
   const calculatePredictionTIR = (pred: any) => {
-    if (!pred.cgmPost || !Array.isArray(pred.cgmPost) || pred.cgmPost.length === 0) {
-      return 0;
+    if (!pred.cgmPost || pred.cgmPost.length === 0) {
+      return null;
     }
 
-    const glucoseObjective = pred.glucoseObjective || 130;
-    const targetMin = 70;
-    const targetMax = 180;
+    const minTarget = 70;
+    const maxTarget = 180;
+    const cgmPrev = pred.cgmPrev || [];
+    const cgmPost = pred.cgmPost;
+    const glucoseObjective = pred.glucoseObjective;
     
-    let baseScore = 0;
-    let passesObjective = false;
-    
-    // Verificar si algún valor pasa por el objetivo
-    for (const value of pred.cgmPost) {
-      if (Math.abs(value - glucoseObjective) <= 10) {
-        passesObjective = true;
-        break;
+    // Determinar si pasó por el objetivo (si tiene glucoseObjective)
+    let passedThroughTarget = false;
+    if (glucoseObjective && cgmPrev.length > 0) {
+      const initialValue = cgmPrev[cgmPrev.length - 1]; // Último valor de cgmPrev
+      const finalValue = cgmPost[cgmPost.length - 1]; // Último valor de cgmPost
+      
+      // Verificar si cruzó el objetivo o se acercó a él
+      const distanceInitial = Math.abs(initialValue - glucoseObjective);
+      const distanceFinal = Math.abs(finalValue - glucoseObjective);
+      
+      // Si se acercó al objetivo o lo alcanzó
+      if (distanceFinal <= distanceInitial || 
+          (initialValue > glucoseObjective && finalValue <= glucoseObjective) ||
+          (initialValue < glucoseObjective && finalValue >= glucoseObjective)) {
+        passedThroughTarget = true;
       }
     }
+
+    // Calcular TIR basado en los valores de cgmPost
+    const finalValue = cgmPost[cgmPost.length - 1];
+    const isInRange = finalValue >= minTarget && finalValue <= maxTarget;
     
-    if (passesObjective) {
-      baseScore = 70;
+    if (!glucoseObjective) {
+      // Si no tiene objetivo, solo usar TIR del valor final
+      return isInRange ? 100 : 0;
     }
-    
-    // Calcular valores en rango
-    const inRangeCount = pred.cgmPost.filter((value: number) => value >= targetMin && value <= targetMax).length;
-    const totalCount = pred.cgmPost.length;
-    const inRangePercentage = totalCount > 0 ? (inRangeCount / totalCount) * 100 : 0;
-    
-    if (inRangePercentage === 100) {
+
+    if (passedThroughTarget && isInRange) {
       return 100;
-    }
-    
-    // Aplicar bonificación por valores en rango
-    const rangeBonus = (inRangePercentage / 100) * 30;
-    let score = baseScore + rangeBonus;
-    
-    // Penalizaciones por valores fuera de rango
-    const outOfRangeValues = pred.cgmPost.filter((value: number) => value < targetMin || value > targetMax);
-    for (const value of outOfRangeValues) {
-      if (value < 54) {
-        score -= 15;
-      } else if (value < targetMin) {
-        score -= 5;
-      } else if (value > 250) {
-        score -= 10;
-      } else if (value > targetMax) {
-        score -= 3;
+    } else if (passedThroughTarget && !isInRange) {
+      // Calcular la diferencia proporcional que le faltó para estar en rango
+      let score = 70; // Base score por haber pasado por el objetivo
+      if (finalValue < minTarget) {
+        const deficit = Math.min(((minTarget - finalValue) / minTarget) * 30, 30);
+        score -= deficit;
+      } else if (finalValue > maxTarget) {
+        const deficit = Math.min(((finalValue - maxTarget) / maxTarget) * 30, 30);
+        score -= deficit;
+      }
+      return Math.max(0, score);
+    } else {
+      // No pasó por el objetivo
+      if (isInRange) {
+        return 40; // Penalizar por no pasar por el objetivo pero estar en rango
+      } else {
+        return 10; // Puntuación mínima si no pasó por objetivo y no está en rango
       }
     }
-    
-    return Math.max(0, Math.min(100, score));
   };
 
   // --- Estadísticas ---
@@ -1051,8 +1057,10 @@ export default function HistoryPage() {
       // Calcular TIR para esta predicción
       if (pred.cgmPost && Array.isArray(pred.cgmPost) && pred.cgmPost.length > 0) {
         const tirScore = calculatePredictionTIR(pred);
-        sumTIR += tirScore;
-        countTIR++;
+        if (tirScore !== null) {
+          sumTIR += tirScore;
+          countTIR++;
+        }
         
         // Calcular promedio de glucosa posterior (última glucosa post)
         const lastPostGlucose = pred.cgmPost[pred.cgmPost.length - 1];
