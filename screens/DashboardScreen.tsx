@@ -712,13 +712,13 @@ export default function DashboardScreen() {
                         <View style={styles.scoreItem}>
                           <Text style={styles.scoreLabel}>TIR:</Text>
                           <Text style={[styles.scoreValue, { color: getTIRColor(predictions.accuracy.tirScore) }]}>
-                            {predictions.accuracy.tirScore !== -1 ? predictions.accuracy.tirScore : 'N/A'}%
+                            {predictions.accuracy.tirScore !== -1 ? `${predictions.accuracy.tirScore}%` : 'N/A'}
                           </Text>
                         </View>
                         <View style={styles.scoreItem}>
                           <Text style={styles.scoreLabel}>Dosis:</Text>
                           <Text style={[styles.scoreValue, { color: getDoseAccuracyColor(predictions.accuracy.doseAccuracy) }]}>
-                            {predictions.accuracy.doseAccuracy !== -1 ? predictions.accuracy.doseAccuracy : 'N/A'}%
+                            {predictions.accuracy.doseAccuracy !== -1 ? `${predictions.accuracy.doseAccuracy}%` : 'N/A'}
                           </Text>
                         </View>
                       </View>
