@@ -391,7 +391,7 @@ export default function PredictionResultPage() {
                 withOuterLines={true}
                 withVerticalLines={false}
                 withHorizontalLines={true}
-                withVerticalLabels={true}
+                withVerticalLabels={false}
                 withHorizontalLabels={true}
                 fromZero={false}
                 yAxisSuffix=""
