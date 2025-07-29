@@ -19,7 +19,8 @@
     "publish:staging": "expo publish --release-channel staging",
     "publish:production": "expo publish --release-channel production",
     "build:bundle": "react-native bundle --platform android --dev false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res",
-    "start:clean": "expo start --clear"
+    "start:clean": "expo start --clear",
+    "eas-build-pre-install": "npm config set legacy-peer-deps true"
   },
   "dependencies": {
     "@expo-google-fonts/roboto": "^0.3.0",
