@@ -17,6 +17,7 @@ import { getPredictionHistory } from '../lib/api/insulin';
 import { getMeals } from '../lib/api/meals';
 import { GEMINI_API_KEY } from '@env';
 import Markdown from 'react-native-markdown-display';
+import { API_URL } from '@/lib/api/auth';
 
 type MessageType = {
   id: string;
@@ -37,7 +38,7 @@ const suggestedQuestions = [
 const formatAIResponse = (text: string): string => {
   // Split into paragraphs and take only the first 2-3 most important ones
   const paragraphs = text.split('\n').filter(p => p.trim());
-  const importantParagraphs = paragraphs.slice(0, 3);
+  const importantParagraphs = paragraphs.slice(0, 15);
   
   // Convert list items to bullets if detected
   let formattedText = importantParagraphs.join('\n\n');
@@ -52,17 +53,16 @@ const formatAIResponse = (text: string): string => {
 };
 
 // Single-shot Gemini call
-async function getAIResponse(prompt: string): Promise<string> {
+async function getAIResponse(prompt: string, token: string): Promise<string> {
   try {
-    const API_KEY = GEMINI_API_KEY;
-    console.log('[Chat] Using Gemini API Key:', API_KEY ? 'Provided' : 'Not provided');
-    console.log('[Chat] API Key first 10 chars:', API_KEY.substring(0, 10) + '...');
-    console.log('[Chat] Calling Gemini API...');
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`,
+      `${API_URL}/dashboard/chat`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+         },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
         }),
@@ -222,7 +222,7 @@ export function ChatUI({
       const context = [
         'Simula ser un asistente de salud para pacientes con diabetes tipo 1.',
         'El formato de fechas sera MM/dd/yyyy, pero vos responde con la fecha en formato corto escrita en español',
-        'Si sientes que no tienes suficiente información, responde con "No tengo suficiente información para responder a esa pregunta".',
+        //'Si sientes que no tienes suficiente información, responde con "No tengo suficiente información para responder a esa pregunta".',
         'Proporciona respuestas claras y concisas, evitando tecnicismos innecesarios.',
         'Utiliza un tono amigable y profesional, como si fueras un asistente de salud virtual.',
         'Si sientes que la pregunta no es relacionada con la diabetes o factores que pueden afectar la glucosa, responde con "Lo siento, no puedo ayudar con eso".',
@@ -237,7 +237,7 @@ export function ChatUI({
       console.log('[Chat] Generated prompt:', prompt);
 
       // Call Gemini API and format response
-      const aiText = await getAIResponse(prompt);
+      const aiText = await getAIResponse(prompt, token);
       const formattedResponse = formatAIResponse(aiText);
 
       const aiMsg: MessageType = {
